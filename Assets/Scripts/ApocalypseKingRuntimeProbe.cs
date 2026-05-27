@@ -38,6 +38,20 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         Time.timeScale = Mathf.Clamp(GetArgumentFloat("-probeTimeScale", 1f), 0.05f, 20f);
         yield return new WaitForSecondsRealtime(probeDelay);
         Time.timeScale = previousTimeScale;
+        float soldierBoneMotionAngle = 0f;
+        float soldierBoneMotionDistance = 0f;
+        float tankTrackMotionAngle = 0f;
+        float tankTrackMotionDistance = 0f;
+        yield return MeasureActiveTransformMotion(0.25f, IsSoldierLegTransform, (angle, distance) =>
+        {
+            soldierBoneMotionAngle = angle;
+            soldierBoneMotionDistance = distance;
+        });
+        yield return MeasureActiveTransformMotion(0.25f, IsTankTrackTransform, (angle, distance) =>
+        {
+            tankTrackMotionAngle = angle;
+            tankTrackMotionDistance = distance;
+        });
         yield return new WaitForEndOfFrame();
 
         string outputPath = GetArgumentValue("-probeOutput");
@@ -47,7 +61,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         }
 
         bool captured = CaptureScreen(outputPath);
-        LogDiagnostics(game, captured, outputPath);
+        LogDiagnostics(game, captured, outputPath, soldierBoneMotionAngle, soldierBoneMotionDistance, tankTrackMotionAngle, tankTrackMotionDistance);
 
         bool ok = game != null && game.DiagnosticsAssetsReady && game.DiagnosticsPrototypeCount >= 6 && captured;
         Application.Quit(ok ? 0 : 1);
@@ -86,7 +100,69 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         }
     }
 
-    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath)
+    private static IEnumerator MeasureActiveTransformMotion(float seconds, Func<string, bool> shouldTrack, Action<float, float> onComplete)
+    {
+        var transforms = FindObjectsOfType<Transform>(true);
+        var tracked = new System.Collections.Generic.List<Transform>();
+        var rotations = new System.Collections.Generic.List<Quaternion>();
+        var positions = new System.Collections.Generic.List<Vector3>();
+
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            var item = transforms[i];
+            if (item == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            string name = item.name;
+            if (shouldTrack == null || !shouldTrack(name))
+            {
+                continue;
+            }
+
+            tracked.Add(item);
+            rotations.Add(item.localRotation);
+            positions.Add(item.localPosition);
+        }
+
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, seconds));
+
+        float maxAngle = 0f;
+        float maxDistance = 0f;
+        for (int i = 0; i < tracked.Count; i++)
+        {
+            var item = tracked[i];
+            if (item == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            maxAngle = Mathf.Max(maxAngle, Quaternion.Angle(rotations[i], item.localRotation));
+            maxDistance = Mathf.Max(maxDistance, Vector3.Distance(positions[i], item.localPosition));
+        }
+
+        onComplete?.Invoke(maxAngle, maxDistance);
+    }
+
+    private static bool IsSoldierLegTransform(string name)
+    {
+        return name == "UpperLeg.L"
+            || name == "UpperLeg.R"
+            || name == "LowerLeg.L"
+            || name == "LowerLeg.R"
+            || name == "Foot.L"
+            || name == "Foot.R";
+    }
+
+    private static bool IsTankTrackTransform(string name)
+    {
+        return !string.IsNullOrEmpty(name)
+            && name.IndexOf("TankTrack", StringComparison.OrdinalIgnoreCase) >= 0
+            && name.IndexOf("_end", StringComparison.OrdinalIgnoreCase) < 0;
+    }
+
+    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
     {
         var gateway = game != null ? game.GetComponent<DanmuHttpGateway>() : null;
         var renderers = FindObjectsOfType<Renderer>(true);
@@ -143,6 +219,16 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"contact={(game != null && game.DiagnosticsGiantContact)} " +
             $"tankOverlaps={(game != null ? game.DiagnosticsTankOverlapCount : 0)} " +
             $"minTankGap={(game != null ? game.DiagnosticsMinimumTankGap : 0f):0.0} " +
+            $"tankHeading={(game != null ? game.DiagnosticsAverageTankHeading : 0f):0.0} " +
+            $"tankMoveSpeed={(game != null ? game.DiagnosticsAverageTankMoveSpeed : 0f):0.0} " +
+            $"tankAnimators={(game != null ? game.DiagnosticsTankAnimatorCount : 0)} " +
+            $"tankAnimation={(game != null ? game.DiagnosticsFirstTankAnimation : string.Empty)} " +
+            $"tankTrackMotionAngle={tankTrackMotionAngle:0.00} " +
+            $"tankTrackMotionDistance={tankTrackMotionDistance:0.0000} " +
+            $"soldierAnimators={(game != null ? game.DiagnosticsSoldierAnimatorCount : 0)} " +
+            $"soldierAnimation={(game != null ? game.DiagnosticsFirstSoldierAnimation : string.Empty)} " +
+            $"soldierBoneMotionAngle={soldierBoneMotionAngle:0.00} " +
+            $"soldierBoneMotionDistance={soldierBoneMotionDistance:0.0000} " +
             $"screen={Screen.width}x{Screen.height} " +
             $"activeRenderers={activeRenderers} " +
             $"transparentMaterials={transparentMaterials} " +

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Animations;
 using UnityEngine.Rendering;
 using UnityEngine.EventSystems;
+using UnityEngine.Playables;
 using UnityEngine.UI;
 using UnityGLTF;
 
@@ -18,14 +20,22 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int GiantCount = 10;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
-    private const float TankT55AYawOffset = 176f;
-    private const float TankT55AkYawOffset = 176f;
-    private const float GiantUnitHp = 2600f;
-    private const float GiantUnitDamage = 42f;
-    private const float GiantUnitSpeed = 25f;
-    private const float GiantUnitRadius = 58f;
-    private const float GiantUnitRange = 104f;
-    private const float GiantUnitAttackInterval = 1.12f;
+    private const float TankT55AYawOffset = 0f;
+    private const float TankT55AkYawOffset = 0f;
+    private const string SoldierResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
+    private const string SoldierResourceFolderPath = "Quaternius/ZombieApocalypse";
+    private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
+    private const string TankResourceModelPath = TankResourceFolderPath + "/TankA";
+    private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
+    private const string TankAssaultResourceModelPath = TankResourceFolderPath + "/TankC";
+    private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
+
+    [Header("Unit Settings")]
+    [SerializeField] private UnitConfig soldierConfig;
+    [SerializeField] private UnitConfig tankConfig;
+    [SerializeField] private UnitConfig aircraftConfig;
+    [SerializeField] private UnitConfig giantConfig;
+
 
     private const float LogicalToWorld = 0.025f;
     private const float Left = -360f;
@@ -63,10 +73,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private static readonly Dictionary<UnitKind, ModelPose> Poses = new Dictionary<UnitKind, ModelPose>
     {
-        { UnitKind.Soldier, new ModelPose(1.15f, 0f, -28f, 0f, 0f, true) },
-        { UnitKind.Tank, new ModelPose(1.02f, 0f, 0f, 0f, 0f, true) },
+        { UnitKind.Soldier, new ModelPose(0.88f, 0f, 90f, 0f, 0f, true) },
+        { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
         { UnitKind.Aircraft, new ModelPose(1.18f, 0f, 108f, 0f, 0.2f, true) },
-        { UnitKind.Giant, new ModelPose(2.65f, 0f, -90f, 0f, 0f, false) },
+        { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
     };
@@ -112,6 +122,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private readonly Dictionary<UnitKind, GameObject> modelPrototypes = new Dictionary<UnitKind, GameObject>();
     private GameObject tankT55AkPrototype;
+    private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
     private readonly List<BattleUnit> soldiers = new List<BattleUnit>(SoldierCount);
     private readonly List<BattleUnit> tanks = new List<BattleUnit>(TankCount);
     private readonly List<BattleUnit> aircraft = new List<BattleUnit>(AircraftCount);
@@ -139,6 +150,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     public float DiagnosticsBattleTime => battleTime;
     public int DiagnosticsTankOverlapCount => CountTankOverlaps();
     public float DiagnosticsMinimumTankGap => GetMinimumTankGap();
+    public float DiagnosticsAverageTankHeading => GetAverageHeading(tanks);
+    public float DiagnosticsAverageTankMoveSpeed => GetAverageMoveSpeed(tanks);
+    public int DiagnosticsTankAnimatorCount => CountAnimatorUnits(tanks);
+    public string DiagnosticsFirstTankAnimation => GetFirstAnimatorClipName(tanks);
+    public int DiagnosticsSoldierAnimatorCount => CountAnimatorUnits(soldiers);
+    public string DiagnosticsFirstSoldierAnimation => GetFirstAnimatorClipName(soldiers);
     public int DiagnosticsGiantCount => CountActive(giants);
     public float DiagnosticsGiantHp => GetGiantHpTotal();
     public float DiagnosticsGiantMaxHp => GetGiantMaxHpTotal();
@@ -160,6 +177,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         CreateHud();
         CreateBattlefield();
         CreateUnits();
+        EnsureUnitConfigs();
         ShowLoading(true);
     }
 
@@ -225,6 +243,27 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         CleanupProjectiles();
         CheckBattleEnd();
         RefreshHud();
+    }
+
+    private void OnDestroy()
+    {
+        DisposeUnitAnimators(soldiers);
+        DisposeUnitAnimators(tanks);
+        DisposeUnitAnimators(aircraft);
+        DisposeUnitAnimators(giants);
+    }
+
+    private static void DisposeUnitAnimators(List<BattleUnit> units)
+    {
+        if (units == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < units.Count; i++)
+        {
+            DisposeUnitAnimator(units[i]);
+        }
     }
 
     private void EnqueueLocalDanmuShortcuts()
@@ -792,6 +831,57 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private void EnsureUnitConfigs()
+    {
+        if (soldierConfig == null)
+        {
+            soldierConfig = ScriptableObject.CreateInstance<UnitConfig>();
+            soldierConfig.Kind = UnitKind.Soldier;
+            soldierConfig.MaxHp = 58f;
+            soldierConfig.Damage = 5f;
+            soldierConfig.MoveSpeed = 68f;
+            soldierConfig.Radius = 18f;
+            soldierConfig.AttackRange = 260f;
+            soldierConfig.AttackInterval = 0.62f;
+        }
+
+        if (tankConfig == null)
+        {
+            tankConfig = ScriptableObject.CreateInstance<UnitConfig>();
+            tankConfig.Kind = UnitKind.Tank;
+            tankConfig.MaxHp = 270f;
+            tankConfig.Damage = 85f;
+            tankConfig.MoveSpeed = 34f;
+            tankConfig.Radius = 34f;
+            tankConfig.AttackRange = 430f;
+            tankConfig.AttackInterval = 1.2f;
+        }
+
+        if (aircraftConfig == null)
+        {
+            aircraftConfig = ScriptableObject.CreateInstance<UnitConfig>();
+            aircraftConfig.Kind = UnitKind.Aircraft;
+            aircraftConfig.MaxHp = 180f;
+            aircraftConfig.Damage = 76f;
+            aircraftConfig.MoveSpeed = 84f;
+            aircraftConfig.Radius = 54f;
+            aircraftConfig.AttackRange = 520f;
+            aircraftConfig.AttackInterval = 0.95f;
+        }
+
+        if (giantConfig == null)
+        {
+            giantConfig = ScriptableObject.CreateInstance<UnitConfig>();
+            giantConfig.Kind = UnitKind.Giant;
+            giantConfig.MaxHp = 2600f;
+            giantConfig.Damage = 42f;
+            giantConfig.MoveSpeed = 25f;
+            giantConfig.Radius = 82f;
+            giantConfig.AttackRange = 126f;
+            giantConfig.AttackInterval = 1.12f;
+        }
+    }
+
     private BattleUnit CreateUnitShell(UnitKind kind, TankModelVariant tankModel = TankModelVariant.None)
     {
         var root = new GameObject($"Unit_{kind}_{nextId}");
@@ -887,7 +977,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] modelPaths =
         {
-            "PolyPizza/soldier.glb",
+            ResolveSoldierModelPath(),
             ResolveTankModelPath(),
             "PolyPizza/helicopter.glb",
             ResolveGiantModelPath(),
@@ -908,7 +998,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < modelPaths.Length; i++)
         {
             SetLoadingMessage($"Loading {kinds[i]} ({i + 1}/{modelPaths.Length})");
-            var prototype = await LoadPrototype(modelPaths[i], kinds[i]);
+            var tankModel = kinds[i] == UnitKind.Tank ? TankModelVariant.T55A : TankModelVariant.None;
+            var prototype = await LoadPrototype(modelPaths[i], kinds[i], tankModel);
             if (prototype == null)
             {
                 DiagnosticsUsingFallback = true;
@@ -919,7 +1010,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         SetLoadingMessage("Loading T55AK Tank (7/7)");
-        tankT55AkPrototype = await LoadPrototype(ResolveTankT55AkModelPath(), UnitKind.Tank);
+        tankT55AkPrototype = await LoadPrototype(ResolveTankT55AkModelPath(), UnitKind.Tank, TankModelVariant.T55AK);
         if (tankT55AkPrototype == null)
         {
             DiagnosticsUsingFallback = true;
@@ -928,6 +1019,28 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 tankT55AkPrototype = CreateFallbackPrototype(UnitKind.Tank);
             }
         }
+
+        ConfigureTankVariantPrototypes();
+    }
+
+    private string ResolveSoldierModelPath()
+    {
+        string[] candidates =
+        {
+            "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon.gltf",
+            "PolyPizza/soldier.glb",
+        };
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            string localPath = Path.Combine(Application.streamingAssetsPath, candidates[i].Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(localPath))
+            {
+                return candidates[i];
+            }
+        }
+
+        return candidates[candidates.Length - 1];
     }
 
     private string ResolveTankModelPath()
@@ -982,8 +1095,25 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return candidates[candidates.Length - 1];
     }
 
-    private async Task<GameObject> LoadPrototype(string modelPath, UnitKind kind)
+    private async Task<GameObject> LoadPrototype(string modelPath, UnitKind kind, TankModelVariant tankModel = TankModelVariant.None)
     {
+        if (kind == UnitKind.Soldier)
+        {
+            var soldierResourcePrototype = LoadSoldierResourcePrototype();
+            if (soldierResourcePrototype != null)
+            {
+                return soldierResourcePrototype;
+            }
+        }
+        else if (kind == UnitKind.Tank)
+        {
+            var tankResourcePrototype = LoadTankResourcePrototype(tankModel);
+            if (tankResourcePrototype != null)
+            {
+                return tankResourcePrototype;
+            }
+        }
+
         var loaderRoot = new GameObject($"GLTFLoader_{kind}");
         loaderRoot.transform.SetParent(modelCacheRoot, false);
         loaderRoot.hideFlags = HideFlags.HideInHierarchy;
@@ -991,7 +1121,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         var gltf = loaderRoot.AddComponent<GLTFComponent>();
         gltf.GLTFUri = modelPath;
         gltf.LoadFromStreamingAssets = true;
-        gltf.PlayAnimationOnLoad = true;
+        gltf.PlayAnimationOnLoad = kind != UnitKind.Soldier;
+        gltf.ImportAnimationMethod = AnimationMethod.Legacy;
+        gltf.AnimationLoopTime = true;
+        gltf.AnimationLoopPose = false;
         gltf.HideSceneObjDuringLoad = true;
         gltf.loadOnStart = false;
         gltf.Multithreaded = true;
@@ -1010,9 +1143,145 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         scene.name = $"{kind}_Prototype";
         scene.transform.SetParent(loaderRoot.transform, false);
+        AttachRuntimeAnimationClips(scene, gltf);
         ConfigureImportedPrototype(scene, kind);
         scene.SetActive(false);
         return scene;
+    }
+
+    private GameObject LoadSoldierResourcePrototype()
+    {
+        var source = Resources.Load<GameObject>(SoldierResourceModelPath);
+        if (source == null)
+        {
+            return null;
+        }
+
+        var prototype = Instantiate(source, modelCacheRoot, false);
+        prototype.name = $"{UnitKind.Soldier}_Prototype";
+        prototype.hideFlags = HideFlags.HideInHierarchy;
+        AttachResourceAnimationClips(prototype, SoldierResourceModelPath, SoldierResourceFolderPath);
+        ConfigureImportedPrototype(prototype, UnitKind.Soldier);
+        prototype.SetActive(false);
+        return prototype;
+    }
+
+    private GameObject LoadTankResourcePrototype(TankModelVariant tankModel)
+    {
+        string resourcePath = tankModel == TankModelVariant.T55AK ? TankHeavyResourceModelPath : TankResourceModelPath;
+        return LoadTankResourcePrototype(resourcePath);
+    }
+
+    private GameObject LoadTankResourcePrototype(string resourcePath)
+    {
+        var source = Resources.Load<GameObject>(resourcePath);
+        if (source == null)
+        {
+            return null;
+        }
+
+        var prototype = Instantiate(source, modelCacheRoot, false);
+        prototype.name = $"{UnitKind.Tank}_Prototype";
+        prototype.hideFlags = HideFlags.HideInHierarchy;
+        AttachResourceAnimationClips(prototype, resourcePath, TankResourceFolderPath);
+        ConfigureImportedPrototype(prototype, UnitKind.Tank);
+        prototype.SetActive(false);
+        return prototype;
+    }
+
+    private void ConfigureTankVariantPrototypes()
+    {
+        tankVariantPrototypes.Clear();
+
+        GameObject standardPrototype;
+        if (modelPrototypes.TryGetValue(UnitKind.Tank, out standardPrototype))
+        {
+            AddTankVariantPrototype(standardPrototype);
+        }
+
+        AddTankVariantPrototype(LoadTankResourcePrototype(TankScoutResourceModelPath));
+        AddTankVariantPrototype(LoadTankResourcePrototype(TankAssaultResourceModelPath));
+        AddTankVariantPrototype(tankT55AkPrototype);
+    }
+
+    private void AddTankVariantPrototype(GameObject prototype)
+    {
+        if (prototype != null && !tankVariantPrototypes.Contains(prototype))
+        {
+            tankVariantPrototypes.Add(prototype);
+        }
+    }
+
+    private static void AttachResourceAnimationClips(GameObject prototype, string resourceModelPath, string resourceFolderPath)
+    {
+        var clips = Resources.LoadAll<AnimationClip>(resourceModelPath);
+        if (clips == null || clips.Length == 0)
+        {
+            clips = Resources.LoadAll<AnimationClip>(resourceFolderPath);
+        }
+
+        if (clips == null || clips.Length == 0)
+        {
+            return;
+        }
+
+        var clipStore = prototype.GetComponent<RuntimeAnimationClipStore>();
+        if (clipStore == null)
+        {
+            clipStore = prototype.AddComponent<RuntimeAnimationClipStore>();
+        }
+
+        clipStore.Clips = clips;
+        clipStore.AnimatorClips = clips;
+        clipStore.AnimatorReady = true;
+    }
+
+    private static void AttachRuntimeAnimationClips(GameObject prototype, GLTFComponent gltf)
+    {
+        if (prototype == null || gltf == null || gltf.CreatedAnimationClips == null || gltf.CreatedAnimationClips.Length == 0)
+        {
+            return;
+        }
+
+        var clipStore = prototype.GetComponent<RuntimeAnimationClipStore>();
+        if (clipStore == null)
+        {
+            clipStore = prototype.AddComponent<RuntimeAnimationClipStore>();
+        }
+
+        clipStore.Clips = gltf.CreatedAnimationClips;
+        clipStore.AnimatorClips = Array.Empty<AnimationClip>();
+        clipStore.AnimatorReady = false;
+    }
+
+    private static AnimationClip[] CreateAnimatorCompatibleClips(AnimationClip[] sourceClips)
+    {
+        if (sourceClips == null || sourceClips.Length == 0)
+        {
+            return Array.Empty<AnimationClip>();
+        }
+
+        var clips = new List<AnimationClip>(sourceClips.Length);
+        for (int i = 0; i < sourceClips.Length; i++)
+        {
+            AddUniqueAnimatorCompatibleClip(clips, sourceClips[i]);
+        }
+
+        return clips.ToArray();
+    }
+
+    private static AnimationClip CreateAnimatorCompatibleClip(AnimationClip source)
+    {
+        if (source == null || !source.legacy)
+        {
+            return source;
+        }
+
+        var clone = Instantiate(source);
+        clone.name = source.name;
+        clone.legacy = false;
+        clone.wrapMode = source.wrapMode == WrapMode.Default ? WrapMode.Loop : source.wrapMode;
+        return clone;
     }
 
     private void ConfigureImportedPrototype(GameObject prototype, UnitKind kind)
@@ -1292,9 +1561,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             if (unit.modelInstance != null)
             {
+                DisposeUnitAnimator(unit);
                 Destroy(unit.modelInstance);
                 unit.modelInstance = null;
             }
+
+            if (unit.motionAccessoryRoot != null)
+            {
+                Destroy(unit.motionAccessoryRoot);
+                unit.motionAccessoryRoot = null;
+            }
+
+            unit.aircraftRotorRoot = null;
+            unit.tankMotionRig = null;
 
             GameObject prototype = ResolvePrototypeForUnit(unit);
             if (prototype == null)
@@ -1315,7 +1594,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             unit.modelInstance = model;
             unit.animations = model.GetComponentsInChildren<Animation>(true);
             unit.baseModelScale = model.transform.localScale;
+            unit.baseModelLocalPosition = model.transform.localPosition;
             unit.currentAnimation = string.Empty;
+            ConfigureAnimatorPlayback(unit, model);
+            ConfigureProceduralMotionRig(unit);
             PlayUnitAnimation(unit, true);
         }
         finally
@@ -1327,8 +1609,339 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private void ConfigureAnimatorPlayback(BattleUnit unit, GameObject model)
+    {
+        unit.animator = null;
+        unit.animatorClips = null;
+        unit.currentAnimatorClip = string.Empty;
+
+        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank) || model == null)
+        {
+            return;
+        }
+
+        AnimationClip[] clips = CollectRuntimeAnimationClips(model);
+        if (clips.Length == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < unit.animations.Length; i++)
+        {
+            if (unit.animations[i] != null)
+            {
+                unit.animations[i].enabled = false;
+            }
+        }
+
+        var animator = model.GetComponent<Animator>();
+        if (animator == null)
+        {
+            animator = model.AddComponent<Animator>();
+        }
+
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
+        unit.animator = animator;
+        unit.animatorClips = clips;
+    }
+
+    private static AnimationClip[] CollectRuntimeAnimationClips(GameObject model)
+    {
+        var clips = new List<AnimationClip>();
+        var stores = model.GetComponentsInChildren<RuntimeAnimationClipStore>(true);
+        for (int i = 0; i < stores.Length; i++)
+        {
+            if (!stores[i].AnimatorReady)
+            {
+                continue;
+            }
+
+            var storeClips = stores[i].AnimatorClips;
+            if (storeClips == null || storeClips.Length == 0)
+            {
+                storeClips = stores[i].Clips;
+            }
+
+            if (storeClips == null)
+            {
+                continue;
+            }
+
+            for (int c = 0; c < storeClips.Length; c++)
+            {
+                AddUniqueAnimatorCompatibleClip(clips, storeClips[c]);
+            }
+        }
+
+        return clips.ToArray();
+    }
+
+    private static void AddUniqueAnimatorCompatibleClip(List<AnimationClip> clips, AnimationClip clip)
+    {
+        if (clip == null || ContainsClip(clips, clip))
+        {
+            return;
+        }
+
+        clips.Add(CreateAnimatorCompatibleClip(clip));
+    }
+
+    private static void AddUniqueClip(List<AnimationClip> clips, AnimationClip clip)
+    {
+        if (clip == null)
+        {
+            return;
+        }
+
+        if (ContainsClip(clips, clip))
+        {
+            return;
+        }
+
+        clips.Add(clip);
+    }
+
+    private static bool ContainsClip(List<AnimationClip> clips, AnimationClip clip)
+    {
+        if (clips == null || clip == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < clips.Count; i++)
+        {
+            if (clips[i] == clip || string.Equals(clips[i].name, clip.name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ConfigureProceduralMotionRig(BattleUnit unit)
+    {
+        if (unit == null || unit.body == null)
+        {
+            return;
+        }
+
+        if (unit.kind == UnitKind.Aircraft)
+        {
+            ConfigureAircraftRotorRig(unit);
+            return;
+        }
+
+        if (unit.kind == UnitKind.Tank)
+        {
+            ConfigureTankMotionRig(unit, UsesAnimatorPlayback(unit));
+        }
+    }
+
+    private void ConfigureAircraftRotorRig(BattleUnit unit)
+    {
+        var root = new GameObject("AircraftRotorMotionRig");
+        root.transform.SetParent(unit.body, false);
+        root.transform.localPosition = new Vector3(0f, 1.18f, 0f);
+
+        var hub = CreatePrimitive(PrimitiveType.Cylinder, "RotorHub", root.transform);
+        hub.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
+        hub.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.13f, 0.16f, 0.17f, 1f));
+
+        var bladeA = CreatePrimitive(PrimitiveType.Cube, "RotorBladeA", root.transform);
+        bladeA.transform.localScale = new Vector3(1.55f, 0.018f, 0.11f);
+        bladeA.GetComponent<Renderer>().sharedMaterial = GetTransparentMaterial(new Color(0.68f, 0.82f, 0.92f, 0.38f));
+
+        var bladeB = CreatePrimitive(PrimitiveType.Cube, "RotorBladeB", root.transform);
+        bladeB.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        bladeB.transform.localScale = new Vector3(1.55f, 0.018f, 0.11f);
+        bladeB.GetComponent<Renderer>().sharedMaterial = GetTransparentMaterial(new Color(0.68f, 0.82f, 0.92f, 0.30f));
+
+        unit.motionAccessoryRoot = root;
+        unit.aircraftRotorRoot = root.transform;
+    }
+
+    private void ConfigureTankMotionRig(BattleUnit unit, bool animatorDrivenTracks)
+    {
+        var rig = new TankMotionRig();
+        CollectTankAimParts(unit, rig);
+
+        if (!animatorDrivenTracks)
+        {
+            CollectTankMotionParts(unit, rig);
+
+            if (rig.wheelTransforms.Count < 4 || rig.trackMaterials.Count == 0)
+            {
+                AddTankHelperTracks(unit, rig);
+            }
+        }
+
+        unit.tankMotionRig = rig;
+    }
+
+    private void CollectTankAimParts(BattleUnit unit, TankMotionRig rig)
+    {
+        if (unit.modelInstance == null || rig == null)
+        {
+            return;
+        }
+
+        var transforms = unit.modelInstance.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            var part = transforms[i];
+            if (part == null || part == unit.modelInstance.transform || !IsTankAimTransform(part))
+            {
+                continue;
+            }
+
+            if (!rig.aimTransforms.Contains(part))
+            {
+                rig.aimTransforms.Add(part);
+                rig.aimBaseRotations.Add(part.localRotation);
+            }
+        }
+    }
+
+    private void CollectTankMotionParts(BattleUnit unit, TankMotionRig rig)
+    {
+        if (unit.modelInstance == null || rig == null)
+        {
+            return;
+        }
+
+        var transforms = unit.modelInstance.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            var part = transforms[i];
+            if (part == null || part == unit.modelInstance.transform || !IsTankWheelTransform(part))
+            {
+                continue;
+            }
+
+            if (!rig.wheelTransforms.Contains(part))
+            {
+                rig.wheelTransforms.Add(part);
+                rig.wheelBaseRotations.Add(part.localRotation);
+            }
+        }
+
+        var renderers = unit.modelInstance.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            bool rendererLooksLikeTrack = IsTankTrackName(renderer.name) || IsTankTrackName(renderer.gameObject.name);
+            var materials = renderer.materials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                var material = materials[m];
+                if (material == null)
+                {
+                    continue;
+                }
+
+                if (rendererLooksLikeTrack || IsTankTrackName(material.name))
+                {
+                    if (!rig.trackMaterials.Contains(material))
+                    {
+                        rig.trackMaterials.Add(material);
+                    }
+                }
+            }
+        }
+    }
+
+    private void AddTankHelperTracks(BattleUnit unit, TankMotionRig rig)
+    {
+        var root = new GameObject("TankTrackMotionRig");
+        root.transform.SetParent(unit.body, false);
+        root.transform.localPosition = new Vector3(0f, 0.10f, 0f);
+
+        Material beltMaterial = GetOpaqueMaterial(new Color(0.055f, 0.06f, 0.055f, 1f));
+        Material wheelMaterial = GetOpaqueMaterial(new Color(0.17f, 0.18f, 0.16f, 1f));
+        float[] wheelXs = { -0.62f, -0.34f, -0.06f, 0.22f, 0.50f, 0.78f };
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float z = side * 0.41f;
+            var belt = CreatePrimitive(PrimitiveType.Cube, side < 0 ? "LeftTrackBelt" : "RightTrackBelt", root.transform);
+            belt.transform.localPosition = new Vector3(0.08f, 0.08f, z);
+            belt.transform.localScale = new Vector3(1.62f, 0.055f, 0.16f);
+            belt.GetComponent<Renderer>().sharedMaterial = beltMaterial;
+
+            for (int i = 0; i < wheelXs.Length; i++)
+            {
+                var wheel = CreatePrimitive(PrimitiveType.Cylinder, side < 0 ? $"LeftRoadWheel_{i}" : $"RightRoadWheel_{i}", root.transform);
+                wheel.transform.localPosition = new Vector3(wheelXs[i], 0.12f, z);
+                wheel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                wheel.transform.localScale = new Vector3(0.13f, 0.038f, 0.13f);
+                wheel.GetComponent<Renderer>().sharedMaterial = wheelMaterial;
+                rig.wheelTransforms.Add(wheel.transform);
+                rig.wheelBaseRotations.Add(wheel.transform.localRotation);
+            }
+        }
+
+        rig.helperRoot = root.transform;
+        unit.motionAccessoryRoot = root;
+    }
+
+    private static bool IsTankWheelTransform(Transform part)
+    {
+        if (part == null)
+        {
+            return false;
+        }
+
+        string name = part.name;
+        return ContainsNameToken(name, "wheel")
+            || ContainsNameToken(name, "tire")
+            || ContainsNameToken(name, "tyre")
+            || ContainsNameToken(name, "sprocket")
+            || ContainsNameToken(name, "idler");
+    }
+
+    private static bool IsTankAimTransform(Transform part)
+    {
+        if (part == null)
+        {
+            return false;
+        }
+
+        string name = part.name;
+        return ContainsNameToken(name, "turret")
+            || ContainsNameToken(name, "barrel")
+            || string.Equals(name, "Tank_Gun", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Gun", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTankTrackName(string name)
+    {
+        return ContainsNameToken(name, "track")
+            || ContainsNameToken(name, "tread")
+            || ContainsNameToken(name, "crawler");
+    }
+
+    private static bool ContainsNameToken(string value, string token)
+    {
+        return !string.IsNullOrEmpty(value)
+            && value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     private GameObject ResolvePrototypeForUnit(BattleUnit unit)
     {
+        if (unit.kind == UnitKind.Tank && tankVariantPrototypes.Count > 0)
+        {
+            int variantIndex = Mathf.Abs(unit.rank) % tankVariantPrototypes.Count;
+            return tankVariantPrototypes[variantIndex];
+        }
+
         if (unit.kind == UnitKind.Tank && unit.tankModel == TankModelVariant.T55AK && tankT55AkPrototype != null)
         {
             return tankT55AkPrototype;
@@ -1434,7 +2047,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             int rank = i / lanes.Length;
             float x = Left + 190f + rank * 38f + Noise(i + 3f) * 5f;
             float z = lanes[lane] + (Noise(i + 19f) - 0.5f) * 8f;
-            ActivateUnit(unit, x, z, 58f, 5f, 68f + Noise(i + 73f) * 18f, 18f, 260f + Noise(i + 101f) * 34f, 0.62f + Noise(i + 131f) * 0.22f, rank, facing, 0f);
+            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 18f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, facing, 0f);
         }
     }
 
@@ -1446,7 +2059,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             int rank = i / TankLanes.Length;
             float x = Left + 40f + rank * 94f;
             float z = TankLanes[lane] + rank * 10f;
-            ActivateUnit(tanks[i], x, z, 270f, 85f, 34f + Noise(i + 401f) * 8f, 34f, 430f, 1.2f + Noise(i + 503f) * 0.3f, i, 1, 0f);
+            ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 8f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
 
@@ -1456,7 +2069,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             float x = Left + 52f + i * 126f;
             float z = AirLanes[i % AirLanes.Length];
-            ActivateUnit(aircraft[i], x, z, 180f, 76f, 84f + i * 9f, 54f, 520f, 0.95f + i * 0.12f, i, 1, 2.5f);
+            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 9f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
         }
     }
 
@@ -1466,9 +2079,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             int lane = i % 5;
             int rank = i / 5;
-            float x = Right + 48f + rank * 38f;
-            float z = -420f + lane * 210f + rank * 12f;
-            ActivateUnit(giants[i], x, z, GiantUnitHp, GiantUnitDamage, GiantUnitSpeed + Noise(i + 207f) * 4f, GiantUnitRadius, GiantUnitRange, GiantUnitAttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
+            float x = Right + 72f + rank * 120f;
+            float z = -460f + lane * 230f + rank * 24f;
+            ActivateUnit(giants[i], x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
             giants[i].attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
         }
     }
@@ -1496,6 +2109,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         unit.altitude = altitude;
         unit.headingDegrees = facing < 0 ? -90f : 90f;
         unit.turretYawDegrees = unit.headingDegrees;
+        unit.moveSpeed = 0f;
+        unit.rotorSpinDegrees = Noise(unit.id + rank * 7.1f) * 360f;
+        unit.wheelSpinDegrees = Noise(unit.id + rank * 5.3f) * 360f;
+        unit.trackScroll = 0f;
         UpdateUnitTransform(unit, 0f);
         PlayUnitAnimation(unit, false);
     }
@@ -1512,7 +2129,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         int rank = Mathf.Max(0, CountActive(soldiers) / SoldierLanes.Length);
         float x = Left + 126f + Noise(processedDanmuCommandCount + 17f) * 36f;
         float z = SoldierLanes[lane] + (Noise(processedDanmuCommandCount + 29f) - 0.5f) * 12f;
-        ActivateUnit(unit, x, z, 62f, 6f, 76f, 18f, 286f, 0.54f, rank, 1, 0f);
+        ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 8f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.2f);
         return true;
     }
@@ -1528,7 +2145,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         int lane = processedDanmuCommandCount % TankLanes.Length;
         float x = Left + 54f + Noise(processedDanmuCommandCount + 41f) * 42f;
         float z = TankLanes[lane] + (Noise(processedDanmuCommandCount + 43f) - 0.5f) * 18f;
-        ActivateUnit(unit, x, z, 310f, 92f, 36f, 34f, 450f, 1.1f, processedDanmuCommandCount, 1, 0f);
+        ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, processedDanmuCommandCount, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.6f);
         return true;
     }
@@ -1543,8 +2160,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         int lane = processedDanmuCommandCount % 5;
         float x = Right + 88f + Noise(processedDanmuCommandCount + 71f) * 36f;
-        float z = -420f + lane * 210f + (Noise(processedDanmuCommandCount + 83f) - 0.5f) * 24f;
-        ActivateUnit(unit, x, z, GiantUnitHp, GiantUnitDamage, GiantUnitSpeed + 3f, GiantUnitRadius, GiantUnitRange, GiantUnitAttackInterval, processedDanmuCommandCount, -1, 0f);
+        float z = -460f + lane * 230f + (Noise(processedDanmuCommandCount + 83f) - 0.5f) * 34f;
+        ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 3f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
         PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 2.0f);
         return true;
@@ -1726,6 +2343,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        RecordUnitMovement(unit, previousX, previousZ, dt);
         UpdateUnitTransform(unit, dt);
     }
 
@@ -1800,7 +2418,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private void ResolveUnitOverlaps()
     {
         bool changed = false;
-        for (int pass = 0; pass < 3; pass++)
+        for (int pass = 0; pass < 4; pass++)
         {
             changed |= ResolveWithinGroup(giants, 1.05f);
             changed |= ResolveWithinGroup(tanks, 1.18f);
@@ -1945,7 +2563,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             case UnitKind.Tank:
                 return 56f;
             case UnitKind.Giant:
-                return 68f;
+                return 96f;
             case UnitKind.Soldier:
                 return 18f;
             default:
@@ -2042,7 +2660,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         var contactTarget = FindGiantContactTarget(giant);
         var engagementTarget = contactTarget ?? FindGiantEngagementTarget(giant);
         float rage = giant.hp / giant.maxHp < 0.45f ? 1.18f : 1f;
-        giant.speed = GiantUnitSpeed * rage;
+        float baseGiantSpeed = giantConfig != null ? giantConfig.MoveSpeed : Mathf.Max(1f, giant.speed);
+        giant.speed = baseGiantSpeed * rage;
+        float previousX = giant.x;
+        float previousZ = giant.z;
 
         var faceTarget = contactTarget ?? engagementTarget ?? chaseTarget;
         if (faceTarget != null)
@@ -2058,13 +2679,27 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (contactTarget == null && chaseTarget != null)
         {
-            Vector2 chase = DirectionTo(giant.x, giant.z, chaseTarget.x, chaseTarget.z, giant.headingDegrees);
+            float formationZ = Mathf.Clamp(chaseTarget.z + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
+            Vector2 chase = DirectionTo(giant.x, giant.z, chaseTarget.x, formationZ, giant.headingDegrees);
             giant.x += chase.x * giant.speed * dt;
             giant.z += chase.y * giant.speed * dt;
             ClampUnitPosition(giant);
         }
 
+        RecordUnitMovement(giant, previousX, previousZ, dt);
         UpdateUnitTransform(giant, dt);
+    }
+
+    private float GiantFormationZOffset(BattleUnit giant)
+    {
+        if (giant == null)
+        {
+            return 0f;
+        }
+
+        int lane = giant.rank % 5;
+        int rank = giant.rank / 5;
+        return (lane - 2) * 42f + rank * 18f;
     }
 
     private BattleUnit FindGiantContactTarget()
@@ -2743,6 +3378,18 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         effect.light.intensity = effect.kind == EffectKind.Smoke ? 0.9f * (1f - t) : 2.7f * (1f - t * 0.8f);
     }
 
+    private void RecordUnitMovement(BattleUnit unit, float previousX, float previousZ, float dt)
+    {
+        if (unit == null || dt <= 0f)
+        {
+            return;
+        }
+
+        float dx = unit.x - previousX;
+        float dz = unit.z - previousZ;
+        unit.moveSpeed = Mathf.Sqrt(dx * dx + dz * dz) / Mathf.Max(0.001f, dt);
+    }
+
     private void UpdateUnitTransform(BattleUnit unit, float dt)
     {
         if (unit.root == null)
@@ -2752,11 +3399,18 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         unit.root.transform.position = ToWorldPoint(unit.x, unit.z, 0f);
 
+        bool animatorMotion = UsesAnimatorPlayback(unit);
+        float moveFactor = Mathf.Clamp01(unit.moveSpeed / Mathf.Max(1f, unit.speed * 0.75f));
+        float cycle = unit.animTimer * MotionCycleSpeed(unit.kind, moveFactor) + unit.seed * Mathf.PI * 2f;
         float bob = unit.kind == UnitKind.Aircraft
             ? Mathf.Sin(battleTime * 4.8f + unit.seed * 12f) * 0.16f
-            : unit.kind == UnitKind.Soldier
-                ? Mathf.Sin(unit.animTimer * 9f + unit.seed * 5f) * 0.03f
-                : 0f;
+            : unit.kind == UnitKind.Soldier && !animatorMotion
+                ? Mathf.Abs(Mathf.Sin(cycle)) * 0.045f * moveFactor
+                : unit.kind == UnitKind.Giant
+                    ? Mathf.Abs(Mathf.Sin(cycle)) * 0.12f * moveFactor
+                    : unit.kind == UnitKind.Tank
+                        ? Mathf.Sin(cycle * 0.45f) * 0.018f * moveFactor
+                        : 0f;
 
         unit.body.localPosition = new Vector3(0f, unit.altitude + bob, 0f);
 
@@ -2790,13 +3444,152 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 modelYaw += unit.modelYawOffset;
             }
 
+            Vector3 modelLocalPosition = unit.baseModelLocalPosition;
+            Quaternion modelRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
+            if (!animatorMotion)
+            {
+                ApplyProceduralModelMotion(unit, cycle, moveFactor, ref modelLocalPosition, ref modelRotation);
+            }
             unit.modelInstance.transform.localScale = unit.baseModelScale * hitBoost * attackBoost;
-            unit.modelInstance.transform.localRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
+            unit.modelInstance.transform.localPosition = modelLocalPosition;
+            unit.modelInstance.transform.localRotation = modelRotation;
+            UpdateProceduralMotionRig(unit, dt, moveFactor);
             PlayUnitAnimation(unit, unit.attackVisualTimer > 0f);
         }
         else if (dt <= 0f)
         {
             AttachUnitModel(unit);
+        }
+    }
+
+    private float MotionCycleSpeed(UnitKind kind, float moveFactor)
+    {
+        switch (kind)
+        {
+            case UnitKind.Soldier:
+                return Mathf.Lerp(5.8f, 10.8f, moveFactor);
+            case UnitKind.Giant:
+                return Mathf.Lerp(2.2f, 4.1f, moveFactor);
+            case UnitKind.Tank:
+                return Mathf.Lerp(2.2f, 6.0f, moveFactor);
+            default:
+                return 1f;
+        }
+    }
+
+    private void ApplyProceduralModelMotion(BattleUnit unit, float cycle, float moveFactor, ref Vector3 localPosition, ref Quaternion localRotation)
+    {
+        if (unit == null || moveFactor <= 0.001f)
+        {
+            return;
+        }
+
+        switch (unit.kind)
+        {
+            case UnitKind.Soldier:
+            {
+                float stride = Mathf.Sin(cycle);
+                float footfall = Mathf.Abs(stride);
+                localPosition += new Vector3(0f, footfall * 0.018f, Mathf.Sin(cycle * 0.5f + unit.seed) * 0.012f * moveFactor);
+                localRotation *= Quaternion.Euler(-3.6f * moveFactor + footfall * 1.1f, 0f, stride * 4.8f * moveFactor);
+                break;
+            }
+            case UnitKind.Giant:
+            {
+                float stride = Mathf.Sin(cycle);
+                localPosition += new Vector3(0f, Mathf.Abs(stride) * 0.055f, 0f);
+                localRotation *= Quaternion.Euler(stride * 2.2f * moveFactor, 0f, Mathf.Sin(cycle * 0.5f) * 4.2f * moveFactor);
+                break;
+            }
+            case UnitKind.Tank:
+            {
+                localRotation *= Quaternion.Euler(Mathf.Sin(cycle * 0.55f) * 0.45f * moveFactor, 0f, Mathf.Sin(cycle) * 0.65f * moveFactor);
+                break;
+            }
+            case UnitKind.Aircraft:
+            {
+                localRotation *= Quaternion.Euler(
+                    Mathf.Sin(battleTime * 2.8f + unit.seed * 6f) * 1.4f,
+                    0f,
+                    Mathf.Sin(battleTime * 3.5f + unit.seed * 5f) * 3.4f);
+                break;
+            }
+        }
+    }
+
+    private void UpdateProceduralMotionRig(BattleUnit unit, float dt, float moveFactor)
+    {
+        if (unit == null || dt <= 0f)
+        {
+            return;
+        }
+
+        if (unit.aircraftRotorRoot != null)
+        {
+            unit.rotorSpinDegrees = Mathf.Repeat(unit.rotorSpinDegrees + dt * (1680f + moveFactor * 620f), 360f);
+            unit.aircraftRotorRoot.localRotation = Quaternion.Euler(0f, unit.rotorSpinDegrees, 0f);
+        }
+
+        var rig = unit.tankMotionRig;
+        if (rig == null)
+        {
+            return;
+        }
+
+        if (rig.helperRoot != null)
+        {
+            rig.helperRoot.localRotation = Quaternion.Euler(0f, unit.headingDegrees - 90f, 0f);
+        }
+
+        float turretRelativeYaw = Mathf.DeltaAngle(unit.headingDegrees, unit.turretYawDegrees);
+        for (int i = 0; i < rig.aimTransforms.Count && i < rig.aimBaseRotations.Count; i++)
+        {
+            var aim = rig.aimTransforms[i];
+            if (aim != null)
+            {
+                aim.localRotation = Quaternion.Euler(0f, turretRelativeYaw, 0f) * rig.aimBaseRotations[i];
+            }
+        }
+
+        float spinSign = unit.facing >= 0 ? -1f : 1f;
+        unit.wheelSpinDegrees = Mathf.Repeat(unit.wheelSpinDegrees + spinSign * dt * Mathf.Max(0f, unit.moveSpeed) * 16f, 360f);
+        for (int i = 0; i < rig.wheelTransforms.Count && i < rig.wheelBaseRotations.Count; i++)
+        {
+            var wheel = rig.wheelTransforms[i];
+            if (wheel != null)
+            {
+                wheel.localRotation = rig.wheelBaseRotations[i] * Quaternion.Euler(0f, unit.wheelSpinDegrees, 0f);
+            }
+        }
+
+        unit.trackScroll = Mathf.Repeat(unit.trackScroll + spinSign * dt * moveFactor * 2.4f, 1f);
+        for (int i = 0; i < rig.trackMaterials.Count; i++)
+        {
+            SetTrackMaterialOffset(rig.trackMaterials[i], unit.trackScroll);
+        }
+    }
+
+    private static void SetTrackMaterialOffset(Material material, float offset)
+    {
+        if (material == null)
+        {
+            return;
+        }
+
+        Vector2 textureOffset = new Vector2(-offset, 0f);
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTextureOffset("_MainTex", textureOffset);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTextureOffset("_BaseMap", textureOffset);
+        }
+
+        if (material.HasProperty("_BaseColorMap"))
+        {
+            material.SetTextureOffset("_BaseColorMap", textureOffset);
         }
     }
 
@@ -2812,6 +3605,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void PlayUnitAnimation(BattleUnit unit, bool attacking)
     {
+        if (TryPlayAnimatorAnimation(unit, attacking))
+        {
+            return;
+        }
+
         if (unit.animations == null || unit.animations.Length == 0)
         {
             return;
@@ -2838,12 +3636,198 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 return;
             }
 
+            // Fallback: substring matching
+            string[] keywords = attacking ? new[] { "Attack", "Shoot", "Fire" } : new[] { "Walk", "Run", "Forward" };
+            foreach (AnimationState state in animation)
+            {
+                if (state != null && state.clip != null)
+                {
+                    string clipName = state.clip.name;
+                    foreach (string kw in keywords)
+                    {
+                        if (clipName.IndexOf(kw, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            animation.Play(clipName);
+                            unit.currentAnimation = desired;
+                            return;
+                        }
+                    }
+                }
+            }
+
             if (animation.clip != null && string.IsNullOrEmpty(unit.currentAnimation))
             {
                 animation.Play();
                 unit.currentAnimation = animation.clip.name;
             }
         }
+    }
+
+    private bool TryPlayAnimatorAnimation(BattleUnit unit, bool attacking)
+    {
+        if (!UsesAnimatorPlayback(unit))
+        {
+            return false;
+        }
+
+        AnimationClip clip = SelectAnimatorClip(unit, attacking);
+        if (clip == null)
+        {
+            return false;
+        }
+
+        if (!unit.animationGraph.IsValid())
+        {
+            unit.animationGraph = PlayableGraph.Create($"UnitAnimator_{unit.kind}_{unit.id}");
+            unit.animationGraph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+            unit.animationOutput = AnimationPlayableOutput.Create(unit.animationGraph, "Animation", unit.animator);
+            unit.animationGraph.Play();
+        }
+
+        if (!unit.animationPlayable.IsValid() || !string.Equals(unit.currentAnimatorClip, clip.name, StringComparison.Ordinal))
+        {
+            if (unit.animationPlayable.IsValid())
+            {
+                unit.animationPlayable.Destroy();
+            }
+
+            unit.animationPlayable = AnimationClipPlayable.Create(unit.animationGraph, clip);
+            unit.animationPlayable.SetApplyFootIK(false);
+            unit.animationPlayable.SetApplyPlayableIK(false);
+            unit.animationOutput.SetSourcePlayable(unit.animationPlayable);
+            unit.currentAnimatorClip = clip.name;
+        }
+
+        if (unit.animationPlayable.IsValid())
+        {
+            unit.animationPlayable.SetSpeed(GetAnimatorClipSpeed(unit, clip));
+        }
+
+        return true;
+    }
+
+    private AnimationClip SelectAnimatorClip(BattleUnit unit, bool attacking)
+    {
+        if (unit.kind == UnitKind.Tank)
+        {
+            return SelectTankAnimatorClip(unit);
+        }
+
+        if (attacking)
+        {
+            return FindAnimatorClip(unit, "Idle_Gun", "Attack", "Shoot", "Fire", "Punch", "Idle");
+        }
+
+        bool moving = unit.moveSpeed > 1f;
+        if (!moving)
+        {
+            return FindAnimatorClip(unit, "Idle_Gun", "Idle", "Walk_Gun", "Walk");
+        }
+
+        bool running = unit.moveSpeed > unit.speed * 1.08f;
+        return running
+            ? FindAnimatorClip(unit, "Run_Gun", "Run", "Walk_Gun", "Walk")
+            : FindAnimatorClip(unit, "Walk_Gun", "Walk", "Run_Gun", "Run");
+    }
+
+    private AnimationClip SelectTankAnimatorClip(BattleUnit unit)
+    {
+        bool moving = unit.moveSpeed > 1f;
+        if (!moving)
+        {
+            return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight");
+        }
+
+        return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight", "Tank_TurningLeft", "TurningLeft");
+    }
+
+    private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
+    {
+        if (unit.animatorClips == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < namesOrKeywords.Length; i++)
+        {
+            string candidate = namesOrKeywords[i];
+            for (int c = 0; c < unit.animatorClips.Length; c++)
+            {
+                var clip = unit.animatorClips[c];
+                if (clip != null && string.Equals(clip.name, candidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    return clip;
+                }
+            }
+        }
+
+        for (int i = 0; i < namesOrKeywords.Length; i++)
+        {
+            string keyword = namesOrKeywords[i];
+            for (int c = 0; c < unit.animatorClips.Length; c++)
+            {
+                var clip = unit.animatorClips[c];
+                if (clip != null && clip.name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return clip;
+                }
+            }
+        }
+
+        return unit.animatorClips.Length > 0 ? unit.animatorClips[0] : null;
+    }
+
+    private static float GetAnimatorClipSpeed(BattleUnit unit, AnimationClip clip)
+    {
+        if (unit == null || clip == null)
+        {
+            return 1f;
+        }
+
+        float normalizedSpeed = Mathf.Clamp(unit.moveSpeed / Mathf.Max(1f, unit.speed), 0.55f, 1.45f);
+        if (unit.kind == UnitKind.Tank)
+        {
+            return Mathf.Clamp(normalizedSpeed, 0.6f, 1.55f);
+        }
+
+        if (clip.name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return Mathf.Clamp(normalizedSpeed / 0.72f, 0.75f, 1.35f);
+        }
+
+        if (clip.name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return Mathf.Clamp(normalizedSpeed, 0.8f, 1.35f);
+        }
+
+        return 1f;
+    }
+
+    private static bool UsesAnimatorPlayback(BattleUnit unit)
+    {
+        return unit != null
+            && unit.animator != null
+            && unit.animatorClips != null
+            && unit.animatorClips.Length > 0;
+    }
+
+    private static void DisposeUnitAnimator(BattleUnit unit)
+    {
+        if (unit == null)
+        {
+            return;
+        }
+
+        if (unit.animationGraph.IsValid())
+        {
+            unit.animationGraph.Destroy();
+        }
+
+        unit.animationPlayable = default;
+        unit.animationOutput = default;
+        unit.animator = null;
+        unit.animatorClips = null;
+        unit.currentAnimatorClip = string.Empty;
     }
 
     private string GetAnimationName(UnitKind kind, bool attacking)
@@ -2970,6 +3954,48 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return float.IsPositiveInfinity(minimumGap) ? 0f : minimumGap;
     }
 
+    private float GetAverageHeading(List<BattleUnit> units)
+    {
+        float sin = 0f;
+        float cos = 0f;
+        int active = 0;
+
+        for (int i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            if (unit == null || !unit.active)
+            {
+                continue;
+            }
+
+            float radians = unit.headingDegrees * Mathf.Deg2Rad;
+            sin += Mathf.Sin(radians);
+            cos += Mathf.Cos(radians);
+            active++;
+        }
+
+        return active <= 0 ? 0f : Mathf.Atan2(sin / active, cos / active) * Mathf.Rad2Deg;
+    }
+
+    private float GetAverageMoveSpeed(List<BattleUnit> units)
+    {
+        float total = 0f;
+        int active = 0;
+        for (int i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            if (unit == null || !unit.active)
+            {
+                continue;
+            }
+
+            total += unit.moveSpeed;
+            active++;
+        }
+
+        return active <= 0 ? 0f : total / active;
+    }
+
     private Vector2 GetActiveGiantCenter()
     {
         float x = 0f;
@@ -3019,7 +4045,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        return total > 0f ? total : GiantUnitHp * GiantCount;
+        return total > 0f ? total : (giantConfig != null ? giantConfig.MaxHp : 2600f) * GiantCount;
     }
 
     private void RefreshHud()
@@ -3143,6 +4169,34 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
         return total;
+    }
+
+    private int CountAnimatorUnits(List<BattleUnit> units)
+    {
+        int total = 0;
+        for (int i = 0; i < units.Count; i++)
+        {
+            if (UsesAnimatorPlayback(units[i]))
+            {
+                total++;
+            }
+        }
+
+        return total;
+    }
+
+    private string GetFirstAnimatorClipName(List<BattleUnit> units)
+    {
+        for (int i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            if (UsesAnimatorPlayback(unit) && !string.IsNullOrEmpty(unit.currentAnimatorClip))
+            {
+                return unit.currentAnimatorClip;
+            }
+        }
+
+        return string.Empty;
     }
 
     private void ShowLoading(bool visible)
@@ -3694,15 +4748,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private enum UnitKind
-    {
-        Soldier,
-        Tank,
-        Aircraft,
-        Giant,
-        Fireball,
-        Smoke,
-    }
 
     private enum TankModelVariant
     {
@@ -3767,7 +4812,13 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public Transform body;
         public GameObject modelInstance;
         public Animation[] animations;
+        public Animator animator;
+        public AnimationClip[] animatorClips;
+        public PlayableGraph animationGraph;
+        public AnimationClipPlayable animationPlayable;
+        public AnimationPlayableOutput animationOutput;
         public string currentAnimation;
+        public string currentAnimatorClip;
         public bool active;
         public Transform tankAimRoot;
         public Transform tankTurretVisual;
@@ -3794,7 +4845,25 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public float turretYawDegrees;
         public float modelYawOffset;
         public float animTimer;
+        public float moveSpeed;
+        public float rotorSpinDegrees;
+        public float wheelSpinDegrees;
+        public float trackScroll;
         public Vector3 baseModelScale;
+        public Vector3 baseModelLocalPosition;
+        public Transform aircraftRotorRoot;
+        public TankMotionRig tankMotionRig;
+        public GameObject motionAccessoryRoot;
+    }
+
+    private sealed class TankMotionRig
+    {
+        public readonly List<Transform> wheelTransforms = new List<Transform>();
+        public readonly List<Quaternion> wheelBaseRotations = new List<Quaternion>();
+        public readonly List<Material> trackMaterials = new List<Material>();
+        public readonly List<Transform> aimTransforms = new List<Transform>();
+        public readonly List<Quaternion> aimBaseRotations = new List<Quaternion>();
+        public Transform helperRoot;
     }
 
     private sealed class ProjectileView

@@ -25,10 +25,14 @@ namespace UnityGLTF
 		[FormerlySerializedAs("AppendStreamingAssets")] 
 		public bool LoadFromStreamingAssets = true;
 		public bool PlayAnimationOnLoad = true;
+		public AnimationMethod ImportAnimationMethod = AnimationMethod.Legacy;
+		public bool AnimationLoopTime = true;
+		public bool AnimationLoopPose = false;
 		[Tooltip("Hide the scene object during load, then activate it when complete")]
 		public bool HideSceneObjDuringLoad = false;
         public ImporterFactory Factory = null;
         public UnityAction onLoadComplete;
+		public AnimationClip[] CreatedAnimationClips { get; private set; } = new AnimationClip[0];
 
 #if UNITY_ANIMATION
         public IEnumerable<Animation> Animations { get; private set; }
@@ -103,6 +107,9 @@ namespace UnityGLTF
 				ImportTangents = ImportTangents,
 				SwapUVs = SwapUVs,
 				RuntimeTextureCompression = TextureCompression,
+				AnimationMethod = ImportAnimationMethod,
+				AnimationLoopTime = AnimationLoopTime,
+				AnimationLoopPose = AnimationLoopPose,
 			};
 			
 			var settings = GLTFSettings.GetOrCreateSettings();
@@ -149,6 +156,7 @@ namespace UnityGLTF
 
 				// Override the shaders on all materials if a shader is provided
 				ApplyOverrideShader();
+				CreatedAnimationClips = sceneImporter.CreatedAnimationClips ?? new AnimationClip[0];
 
 				LastLoadedScene = sceneImporter.LastLoadedScene;
 
