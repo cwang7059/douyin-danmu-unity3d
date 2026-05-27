@@ -1,0 +1,46 @@
+# Unity generated files
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Visual Studio / Rider / IDE generated files
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.tmp
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity crash reports and diagnostics
+sysinfo.txt
+*.stackdump
+*.log
+player-*.log
+unity-build-*.log
+preview-*.png
+
+# Local asset download source folders kept outside the runtime path
+tank-t-55a/
+Assets/StreamingAssets/Sketchfab/t55a_download/
+Assets/StreamingAssets/Sketchfab/t55a_download.meta
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
