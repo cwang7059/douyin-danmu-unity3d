@@ -6,7 +6,7 @@ param(
     [double]$ProbeDelay = 2.0,
     [double]$ProbeTimeScale = 1.0,
     [string]$ProbeOutput = "preview-manual-probe.png",
-    [string]$LogFile = "player-manual.log"
+    [string]$LogFile = ""
 )
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -43,9 +43,22 @@ elseif ($DanmuHttpPort -gt 0) {
     $arguments += $DanmuHttpPort.ToString([Globalization.CultureInfo]::InvariantCulture)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($LogFile)) {
+if ([string]::IsNullOrWhiteSpace($LogFile)) {
+    $LogFile = Join-Path ([IO.Path]::GetTempPath()) ("danmu-player-" + [Guid]::NewGuid().ToString("N") + ".log")
     $arguments += "-logFile"
-    $arguments += (Join-Path $Root $LogFile)
+    $arguments += $LogFile
+    $deleteLogWhenDone = $true
+}
+else {
+    $arguments += "-logFile"
+    $arguments += $(if ([IO.Path]::IsPathRooted($LogFile)) { $LogFile } else { Join-Path $Root $LogFile })
+    $deleteLogWhenDone = $false
 }
 
-Start-Process -FilePath $GameExe -WorkingDirectory $Root -ArgumentList $arguments
+$process = Start-Process -FilePath $GameExe -WorkingDirectory $Root -ArgumentList $arguments -PassThru
+
+if ($deleteLogWhenDone) {
+    $escapedLogFile = $LogFile.Replace("'", "''")
+    $cleanupCommand = "Wait-Process -Id $($process.Id); Remove-Item -LiteralPath '$escapedLogFile' -Force -ErrorAction SilentlyContinue"
+    Start-Process -FilePath powershell -ArgumentList @("-NoProfile", "-Command", $cleanupCommand) -WindowStyle Hidden
+}

@@ -17,6 +17,7 @@ public sealed class OrbitTouchCamera : MonoBehaviour
     public float mouseZoomSensitivity = 2.2f;
     public Vector2 panXBounds = new Vector2(-7.5f, 7.5f);
     public Vector2 panZBounds = new Vector2(-10.5f, 11.5f);
+    public Vector3 shakeOffset;
 
     private float previousPinchDistance;
 
@@ -38,7 +39,7 @@ public sealed class OrbitTouchCamera : MonoBehaviour
         ClampTarget();
         var rotation = Quaternion.Euler(pitch, yaw, 0f);
         var offset = rotation * new Vector3(0f, 0f, -distance);
-        transform.position = target.position + offset;
+        transform.position = target.position + offset + shakeOffset;
         transform.LookAt(target.position + Vector3.up * 0.65f);
     }
 

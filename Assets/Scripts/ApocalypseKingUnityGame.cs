@@ -29,6 +29,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
     private const string TankAssaultResourceModelPath = TankResourceFolderPath + "/TankC";
     private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
+    private const string GiantResourceFolderPath = "Quaternius/UltimateMonsters";
+    private const string GiantResourceModelPath = GiantResourceFolderPath + "/BlueDemon";
+    private const string MedievalVillageResourceFolderPath = "Quaternius/MedievalVillageMegaKit";
+
+    private static readonly string[] GiantResourceVariantModelPaths =
+    {
+        GiantResourceFolderPath + "/MushroomKing",
+        GiantResourceFolderPath + "/Orc",
+        GiantResourceFolderPath + "/Yeti",
+        GiantResourceFolderPath + "/Dino",
+    };
 
     [Header("Unit Settings")]
     [SerializeField] private UnitConfig soldierConfig;
@@ -66,7 +77,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     };
 
     private static readonly Color BackgroundColor = new Color(0.09f, 0.08f, 0.10f, 1f);
-    private static readonly Color RoadColor = new Color(0.15f, 0.18f, 0.17f, 1f);
+    private static readonly Color RoadColor = new Color(0.33f, 0.25f, 0.16f, 1f);
     private static readonly Color RuinColor = new Color(0.11f, 0.12f, 0.15f, 1f);
     private static readonly Color HumanColor = new Color(0.24f, 0.64f, 1f, 1f);
     private static readonly Color GiantColor = new Color(1f, 0.36f, 0.28f, 1f);
@@ -95,6 +106,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private Camera mainCamera;
     private OrbitTouchCamera orbitCamera;
+    private float cameraShakeTime;
+    private float cameraShakeDuration;
+    private float cameraShakeAmplitude;
 
     private Canvas canvas;
     private RectTransform hudRoot;
@@ -123,13 +137,16 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private readonly Dictionary<UnitKind, GameObject> modelPrototypes = new Dictionary<UnitKind, GameObject>();
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
+    private readonly List<GameObject> giantVariantPrototypes = new List<GameObject>();
     private readonly List<BattleUnit> soldiers = new List<BattleUnit>(SoldierCount);
     private readonly List<BattleUnit> tanks = new List<BattleUnit>(TankCount);
     private readonly List<BattleUnit> aircraft = new List<BattleUnit>(AircraftCount);
     private readonly List<BattleUnit> giants = new List<BattleUnit>(GiantCount);
+    private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
     private readonly List<ProjectileView> projectiles = new List<ProjectileView>(MaxProjectiles);
     private readonly List<EffectView> effects = new List<EffectView>(MaxEffects);
     private readonly Dictionary<string, Material> materialCache = new Dictionary<string, Material>();
+    private readonly Dictionary<string, GameObject> medievalVillagePrefabs = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
 
     private bool assetsReady;
     private bool paused;
@@ -139,6 +156,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private int humanLosses;
     private int nextId = 1;
     private int processedDanmuCommandCount;
+    private int medievalVillagePrefabCount;
     private int selectedResolutionIndex;
     private Rect lastSafeArea;
     private Vector2 lastScreenSize;
@@ -154,8 +172,13 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     public float DiagnosticsAverageTankMoveSpeed => GetAverageMoveSpeed(tanks);
     public int DiagnosticsTankAnimatorCount => CountAnimatorUnits(tanks);
     public string DiagnosticsFirstTankAnimation => GetFirstAnimatorClipName(tanks);
+    public int DiagnosticsMedievalVillagePrefabCount => medievalVillagePrefabCount;
+    public int DiagnosticsBuildingObstacleCount => buildingObstacles.Count;
+    public int DiagnosticsBuildingOverlapCount => CountBuildingOverlaps();
     public int DiagnosticsSoldierAnimatorCount => CountAnimatorUnits(soldiers);
     public string DiagnosticsFirstSoldierAnimation => GetFirstAnimatorClipName(soldiers);
+    public int DiagnosticsGiantAnimatorCount => CountAnimatorUnits(giants);
+    public string DiagnosticsFirstGiantAnimation => GetFirstAnimatorClipName(giants);
     public int DiagnosticsGiantCount => CountActive(giants);
     public float DiagnosticsGiantHp => GetGiantHpTotal();
     public float DiagnosticsGiantMaxHp => GetGiantMaxHpTotal();
@@ -224,6 +247,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             ResetBattle();
         }
+
+        UpdateCameraShake(Time.deltaTime);
 
         if (paused || ended)
         {
@@ -587,14 +612,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateBattlefield()
     {
+        buildingObstacles.Clear();
         CreateGround();
         CreateTerrainDepth();
-        CreateRoad();
+        CreateVillagePaths();
+        CreateMedievalVillage();
         CreateFactionFrontlines();
-        CreateLowBattlefieldDebris();
-        CreateHelipadDecks();
-        CreateHumanStagingArea();
-        CreateGiantEntry();
     }
 
     private void CreateGround()
@@ -602,60 +625,34 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         var ground = CreatePrimitive(PrimitiveType.Cube, "TerrainBase", decorRoot);
         ground.transform.localScale = new Vector3(150f, 0.32f, 210f);
         ground.transform.localPosition = new Vector3(0f, -0.18f, 0f);
-        ground.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.24f, 0.19f, 0.13f, 1f));
+        ground.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.21f, 0.29f, 0.16f, 1f));
     }
 
     private void CreateTerrainDepth()
     {
-        Color ridgeColor = new Color(0.30f, 0.25f, 0.18f, 1f);
-        Color bankColor = new Color(0.20f, 0.17f, 0.13f, 1f);
+        Color ridgeColor = new Color(0.26f, 0.34f, 0.19f, 1f);
+        Color bankColor = new Color(0.16f, 0.24f, 0.14f, 1f);
 
         CreateBattlefieldBlock("NorthDistantRidge", new Vector3(0f, 0.32f, 56f), new Vector3(110f, 0.55f, 2.2f), ridgeColor);
         CreateBattlefieldBlock("SouthDistantRidge", new Vector3(0f, 0.22f, -62f), new Vector3(116f, 0.38f, 2.4f), bankColor);
         CreateBattlefieldBlock("WestDistantBank", new Vector3(-42f, 0.24f, 0f), new Vector3(2.2f, 0.45f, 126f), ridgeColor);
         CreateBattlefieldBlock("EastDistantBank", new Vector3(44f, 0.24f, 0f), new Vector3(2.0f, 0.42f, 126f), ridgeColor);
 
-        for (int i = 0; i < 24; i++)
-        {
-            float ring = i < 12 ? 1f : -1f;
-            float x = -34f + (i % 12) * 6.2f + Noise(i + 501f) * 2.2f;
-            float z = ring * (22f + Noise(i + 539f) * 32f);
-            float height = 0.08f + Noise(i + 571f) * 0.16f;
-            var dune = CreateBattlefieldBlock($"DistantSandDune_{i}", new Vector3(x, height * 0.5f + 0.01f, z), new Vector3(3.2f + Noise(i + 613f) * 4.8f, height, 1.2f + Noise(i + 641f) * 2.4f), new Color(0.27f, 0.22f, 0.15f, 1f));
-            dune.transform.localRotation = Quaternion.Euler(0f, -32f + Noise(i + 677f) * 64f, 0f);
-        }
-
-        for (int i = 0; i < 9; i++)
-        {
-            float x = -9.8f + i * 2.45f;
-            float z = i % 2 == 0 ? 14.4f : -14.1f;
-            float height = 0.16f + Noise(i + 90f) * 0.18f;
-            var block = CreateBattlefieldBlock($"TerrainPlate_{i}", new Vector3(x, height * 0.5f + 0.02f, z), new Vector3(1.25f + Noise(i + 17f), height, 0.85f + Noise(i + 43f) * 0.8f), new Color(0.13f, 0.20f, 0.17f, 1f));
-            block.transform.localRotation = Quaternion.Euler(0f, -18f + Noise(i + 31f) * 36f, 0f);
-        }
-
-        for (int i = 0; i < 7; i++)
-        {
-            float x = -10.6f + i * 3.45f;
-            float height = 0.10f + Noise(i + 140f) * 0.18f;
-            var rubble = CreateBattlefieldBlock($"BackgroundRubble_{i}", new Vector3(x, height * 0.5f + 0.02f, 15.1f), new Vector3(1.15f + Noise(i + 151f) * 1.35f, height, 0.55f + Noise(i + 165f) * 0.45f), new Color(0.15f, 0.15f, 0.14f, 1f));
-            rubble.transform.localRotation = Quaternion.Euler(0f, -12f + Noise(i + 176f) * 24f, 0f);
-        }
     }
 
-    private void CreateHelipadDecks()
+    private void CreateVillageLandingFields()
     {
         for (int i = 0; i < AirLanes.Length; i++)
         {
             float x = (Left + 52f + i * 126f) * LogicalToWorld;
             float z = AirLanes[i] * LogicalToWorld;
-            var deck = CreateBattlefieldBlock($"HelipadDeck_{i}", new Vector3(x, 0.07f, z), new Vector3(1.55f, 0.08f, 1.15f), new Color(0.13f, 0.17f, 0.19f, 1f));
+            var deck = CreateBattlefieldBlock($"VillageLandingField_{i}", new Vector3(x, 0.06f, z), new Vector3(1.72f, 0.07f, 1.22f), new Color(0.31f, 0.24f, 0.15f, 1f));
 
-            var mark = CreateBattlefieldBlock($"HelipadMark_{i}", new Vector3(x, 0.13f, z), new Vector3(0.92f, 0.025f, 0.08f), new Color(0.62f, 0.68f, 0.64f, 1f));
-            var cross = CreateBattlefieldBlock($"HelipadCross_{i}", new Vector3(x, 0.14f, z), new Vector3(0.08f, 0.025f, 0.74f), new Color(0.62f, 0.68f, 0.64f, 1f));
+            var plankA = CreateBattlefieldBlock($"VillageLandingPlankA_{i}", new Vector3(x, 0.12f, z), new Vector3(1.18f, 0.035f, 0.08f), new Color(0.45f, 0.30f, 0.17f, 1f));
+            var plankB = CreateBattlefieldBlock($"VillageLandingPlankB_{i}", new Vector3(x, 0.13f, z), new Vector3(0.08f, 0.035f, 0.86f), new Color(0.45f, 0.30f, 0.17f, 1f));
             deck.transform.localRotation = Quaternion.Euler(0f, i * 8f - 8f, 0f);
-            mark.transform.localRotation = deck.transform.localRotation;
-            cross.transform.localRotation = deck.transform.localRotation;
+            plankA.transform.localRotation = deck.transform.localRotation;
+            plankB.transform.localRotation = deck.transform.localRotation;
         }
     }
 
@@ -666,6 +663,371 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         block.transform.localPosition = position;
         block.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(color);
         return block;
+    }
+
+    private void CreateVillagePaths()
+    {
+        var mainRoad = CreateBattlefieldBlock("VillageDirtRoad_Main", ToWorldPoint(0f, -42f, 0.025f), new Vector3(20.6f, 0.06f, 4.7f), RoadColor);
+        mainRoad.transform.localRotation = Quaternion.Euler(0f, -3f, 0f);
+
+        var crossRoad = CreateBattlefieldBlock("VillageDirtRoad_Cross", ToWorldPoint(48f, 104f, 0.035f), new Vector3(4.1f, 0.055f, 18.4f), new Color(0.36f, 0.27f, 0.17f, 1f));
+        crossRoad.transform.localRotation = Quaternion.Euler(0f, 8f, 0f);
+
+    }
+
+    private void CreateMedievalVillage()
+    {
+        if (CreateMegaKitMedievalVillage())
+        {
+            return;
+        }
+
+        CreatePrimitiveMedievalVillage();
+    }
+
+    private void CreatePrimitiveMedievalVillage()
+    {
+        CreateVillageCottage("VillageForge", -224f, -30f, 92f, 76f, 1.00f, new Color(0.50f, 0.36f, 0.23f, 1f), new Color(0.24f, 0.12f, 0.08f, 1f), -7f);
+        CreateVillageCottage("VillageTavern", -102f, -214f, 108f, 84f, 1.12f, new Color(0.54f, 0.40f, 0.26f, 1f), new Color(0.31f, 0.15f, 0.08f, 1f), 5f);
+        CreateVillageCottage("VillageHouseNorth", -76f, 218f, 96f, 78f, 0.96f, new Color(0.57f, 0.43f, 0.29f, 1f), new Color(0.33f, 0.17f, 0.09f, 1f), -12f);
+        CreateVillageCottage("VillageStable", 78f, 322f, 132f, 82f, 0.86f, new Color(0.42f, 0.30f, 0.18f, 1f), new Color(0.28f, 0.14f, 0.07f, 1f), 9f);
+        CreateVillageCottage("VillageBarn", 150f, 176f, 120f, 94f, 1.10f, new Color(0.49f, 0.30f, 0.18f, 1f), new Color(0.24f, 0.10f, 0.06f, 1f), -8f);
+        CreateVillageCottage("VillageGranary", 278f, 296f, 90f, 70f, 1.26f, new Color(0.58f, 0.45f, 0.28f, 1f), new Color(0.35f, 0.20f, 0.10f, 1f), 13f);
+
+        CreateVillageTower("VillageChapel", 220f, -118f, 82f, 112f, 2.05f, new Color(0.55f, 0.50f, 0.42f, 1f), new Color(0.22f, 0.16f, 0.13f, 1f), 4f);
+        CreateVillageWell(44f, 42f);
+        CreateMarketStalls();
+        CreateVillageFences();
+    }
+
+    private bool CreateMegaKitMedievalVillage()
+    {
+        CacheMedievalVillagePrefabs();
+        if (medievalVillagePrefabCount == 0 || LoadMedievalVillagePrefab("Wall_Plaster_Straight") == null || LoadMedievalVillagePrefab("Roof_RoundTiles_4x4") == null)
+        {
+            return false;
+        }
+
+        CreateMegaKitHouse("VillageForge", -224f, -30f, 104f, 84f, -7f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitHouse("VillageTavern", -102f, -214f, 132f, 92f, 5f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, true);
+        CreateMegaKitHouse("VillageHouseNorth", -76f, 218f, 108f, 88f, -12f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, false);
+        CreateMegaKitHouse("VillageStable", 78f, 322f, 148f, 92f, 9f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, false);
+        CreateMegaKitHouse("VillageBarn", 150f, 176f, 148f, 122f, -8f, true, 3, 3, "Roof_RoundTiles_6x6", 0.54f, true);
+        CreateMegaKitHouse("VillageGranary", 278f, 296f, 104f, 84f, 13f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitHouse("VillageGatehouse", 292f, -18f, 112f, 86f, -10f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitTower("VillageChapel", 220f, -118f, 92f, 112f, 4f, 0.48f);
+        CreateMegaKitMarketProps();
+        CreateMegaKitFenceProps();
+        return true;
+    }
+
+    private void CacheMedievalVillagePrefabs()
+    {
+        if (medievalVillagePrefabCount > 0)
+        {
+            return;
+        }
+
+        var prefabs = Resources.LoadAll<GameObject>(MedievalVillageResourceFolderPath);
+        medievalVillagePrefabCount = prefabs != null ? prefabs.Length : 0;
+        if (prefabs == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < prefabs.Length; i++)
+        {
+            if (prefabs[i] != null && !medievalVillagePrefabs.ContainsKey(prefabs[i].name))
+            {
+                medievalVillagePrefabs.Add(prefabs[i].name, prefabs[i]);
+            }
+        }
+    }
+
+    private GameObject LoadMedievalVillagePrefab(string assetName)
+    {
+        if (string.IsNullOrEmpty(assetName))
+        {
+            return null;
+        }
+
+        GameObject prefab;
+        if (medievalVillagePrefabs.TryGetValue(assetName, out prefab))
+        {
+            return prefab;
+        }
+
+        prefab = Resources.Load<GameObject>(MedievalVillageResourceFolderPath + "/" + assetName);
+        if (prefab != null)
+        {
+            medievalVillagePrefabs[assetName] = prefab;
+        }
+
+        return prefab;
+    }
+
+    private void CreateMegaKitHouse(string name, float centerX, float centerZ, float width, float depth, float yaw, bool brick, int widthModules, int depthModules, string roofName, float scale, bool chimney)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        root.transform.localScale = Vector3.one * scale;
+
+        float module = 2f;
+        float localWidth = Mathf.Max(module, widthModules * module);
+        float localDepth = Mathf.Max(module, depthModules * module);
+        string wall = brick ? "Wall_UnevenBrick_Straight" : "Wall_Plaster_Straight";
+        string door = brick ? "Wall_UnevenBrick_Door_Flat" : "Wall_Plaster_Door_Flat";
+        string window = brick ? "Wall_UnevenBrick_Window_Wide_Flat" : "Wall_Plaster_Window_Wide_Flat";
+        string corner = brick ? "Corner_Exterior_Brick" : "Corner_Exterior_Wood";
+
+        for (int i = 0; i < widthModules; i++)
+        {
+            float x = -localWidth * 0.5f + module * 0.5f + i * module;
+            string frontAsset = i == widthModules / 2 ? door : window;
+            CreateMegaKitModule(frontAsset, root.transform, new Vector3(x, 0f, -localDepth * 0.5f), Quaternion.identity, Vector3.one);
+            CreateMegaKitModule(window, root.transform, new Vector3(x, 0f, localDepth * 0.5f), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+        }
+
+        for (int i = 0; i < depthModules; i++)
+        {
+            float z = -localDepth * 0.5f + module * 0.5f + i * module;
+            CreateMegaKitModule(wall, root.transform, new Vector3(-localWidth * 0.5f, 0f, z), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
+            CreateMegaKitModule(wall, root.transform, new Vector3(localWidth * 0.5f, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        }
+
+        CreateMegaKitModule(corner, root.transform, new Vector3(-localWidth * 0.5f, 0f, -localDepth * 0.5f), Quaternion.identity, Vector3.one);
+        CreateMegaKitModule(corner, root.transform, new Vector3(localWidth * 0.5f, 0f, -localDepth * 0.5f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        CreateMegaKitModule(corner, root.transform, new Vector3(localWidth * 0.5f, 0f, localDepth * 0.5f), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+        CreateMegaKitModule(corner, root.transform, new Vector3(-localWidth * 0.5f, 0f, localDepth * 0.5f), Quaternion.Euler(0f, 270f, 0f), Vector3.one);
+
+        CreateMegaKitModule(roofName, root.transform, new Vector3(0f, 3.0f, 0f), Quaternion.identity, Vector3.one);
+        string roofFront = widthModules >= 3 ? "Roof_Front_Brick6" : "Roof_Front_Brick4";
+        CreateMegaKitModule(roofFront, root.transform, new Vector3(0f, 3.0f, -localDepth * 0.5f - 0.02f), Quaternion.identity, Vector3.one);
+        CreateMegaKitModule(roofFront, root.transform, new Vector3(0f, 3.0f, localDepth * 0.5f + 0.02f), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+
+        CreateMegaKitModule("Door_1_Flat", root.transform, new Vector3(0f, 0.02f, -localDepth * 0.5f - 0.07f), Quaternion.identity, Vector3.one);
+        CreateMegaKitModule("Stairs_Exterior_Straight_Center", root.transform, new Vector3(0f, 0f, -localDepth * 0.5f - 0.92f), Quaternion.identity, Vector3.one * 0.72f);
+        CreateMegaKitModule("Overhang_Plaster_Long", root.transform, new Vector3(0f, 2.35f, -localDepth * 0.5f - 0.16f), Quaternion.identity, Vector3.one);
+
+        if (chimney)
+        {
+            CreateMegaKitModule("Prop_Chimney", root.transform, new Vector3(localWidth * 0.23f, 3.45f, 0.25f), Quaternion.Euler(0f, 12f, 0f), Vector3.one * 0.92f);
+        }
+
+        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, 2.2f, 10f);
+    }
+
+    private void CreateMegaKitTower(string name, float centerX, float centerZ, float width, float depth, float yaw, float scale)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        root.transform.localScale = Vector3.one * scale;
+
+        const float localSize = 4f;
+        for (int level = 0; level < 2; level++)
+        {
+            float y = level * 3f;
+            string front = level == 0 ? "Wall_UnevenBrick_Door_Round" : "Wall_UnevenBrick_Window_Thin_Round";
+            string side = level == 0 ? "Wall_UnevenBrick_Straight" : "Wall_UnevenBrick_Window_Wide_Round";
+            CreateMegaKitModule(front, root.transform, new Vector3(0f, y, -localSize * 0.5f), Quaternion.identity, Vector3.one);
+            CreateMegaKitModule(side, root.transform, new Vector3(0f, y, localSize * 0.5f), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+            CreateMegaKitModule(side, root.transform, new Vector3(-localSize * 0.5f, y, 0f), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
+            CreateMegaKitModule(side, root.transform, new Vector3(localSize * 0.5f, y, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+            CreateMegaKitModule("Corner_Exterior_Brick", root.transform, new Vector3(-localSize * 0.5f, y, -localSize * 0.5f), Quaternion.identity, Vector3.one);
+            CreateMegaKitModule("Corner_Exterior_Brick", root.transform, new Vector3(localSize * 0.5f, y, -localSize * 0.5f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+            CreateMegaKitModule("Corner_Exterior_Brick", root.transform, new Vector3(localSize * 0.5f, y, localSize * 0.5f), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+            CreateMegaKitModule("Corner_Exterior_Brick", root.transform, new Vector3(-localSize * 0.5f, y, localSize * 0.5f), Quaternion.Euler(0f, 270f, 0f), Vector3.one);
+        }
+
+        CreateMegaKitModule("Roof_Tower_RoundTiles", root.transform, new Vector3(0f, 6f, 0f), Quaternion.identity, Vector3.one);
+        CreateMegaKitModule("Door_1_Round", root.transform, new Vector3(0f, 0.02f, -localSize * 0.5f - 0.08f), Quaternion.identity, Vector3.one);
+        CreateMegaKitModule("Stairs_Exterior_Straight_Center", root.transform, new Vector3(0f, 0f, -localSize * 0.5f - 0.92f), Quaternion.identity, Vector3.one * 0.72f);
+        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, 3.8f, 12f);
+    }
+
+    private void CreateMegaKitMarketProps()
+    {
+        CreateMegaKitPlacedProp("Prop_Wagon", -4f, 142f, -18f, 0.46f);
+        CreateMegaKitPlacedProp("Prop_Crate", 28f, 144f, 16f, 0.48f);
+        CreateMegaKitPlacedProp("Prop_Crate", 58f, 174f, -9f, 0.48f);
+        CreateMegaKitPlacedProp("Balcony_Cross_Straight", -34f, 176f, 7f, 0.38f);
+        CreateMegaKitPlacedProp("Prop_MetalFence_Ornament", 88f, 134f, 92f, 0.40f);
+    }
+
+    private void CreateMegaKitFenceProps()
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            float x = -296f + i * 54f;
+            float z = i % 2 == 0 ? 372f : -344f;
+            string asset = i % 3 == 0 ? "Prop_WoodenFence_Extension1" : (i % 3 == 1 ? "Prop_WoodenFence_Extension2" : "Prop_WoodenFence_Single");
+            CreateMegaKitPlacedProp(asset, x, z, -12f + Noise(i + 701f) * 24f, 0.42f);
+        }
+    }
+
+    private void CreateMegaKitPlacedProp(string assetName, float centerX, float centerZ, float yaw, float scale)
+    {
+        var root = new GameObject("Village_" + assetName);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        root.transform.localScale = Vector3.one * scale;
+        CreateMegaKitModule(assetName, root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
+    }
+
+    private GameObject CreateMegaKitModule(string assetName, Transform parent, Vector3 localPosition, Quaternion localRotation, Vector3 localScale)
+    {
+        var prefab = LoadMedievalVillagePrefab(assetName);
+        if (prefab == null)
+        {
+            return null;
+        }
+
+        var instance = Instantiate(prefab, parent, false);
+        instance.name = assetName;
+        instance.transform.localPosition = localPosition;
+        instance.transform.localRotation = localRotation;
+        instance.transform.localScale = localScale;
+        ConfigureMedievalVillageInstance(instance);
+        return instance;
+    }
+
+    private void ConfigureMedievalVillageInstance(GameObject instance)
+    {
+        var renderers = instance.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            renderer.shadowCastingMode = ShadowCastingMode.On;
+            renderer.receiveShadows = true;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+
+            var materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                ApplyOpaqueDoubleSided(materials[m]);
+            }
+        }
+    }
+
+    private void CreateVillageCottage(string name, float centerX, float centerZ, float width, float depth, float bodyHeight, Color wallColor, Color roofColor, float yaw)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+
+        var body = CreatePrimitive(PrimitiveType.Cube, $"{name}_Body", root.transform);
+        body.transform.localScale = LogicalScale(width, bodyHeight, depth);
+        body.transform.localPosition = new Vector3(0f, bodyHeight * 0.5f, 0f);
+        body.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(wallColor);
+
+        var roofLeft = CreatePrimitive(PrimitiveType.Cube, $"{name}_RoofLeft", root.transform);
+        roofLeft.transform.localScale = new Vector3(width * LogicalToWorld * 0.72f, 0.24f, depth * LogicalToWorld * 1.18f);
+        roofLeft.transform.localPosition = new Vector3(-width * LogicalToWorld * 0.18f, bodyHeight + 0.22f, 0f);
+        roofLeft.transform.localRotation = Quaternion.Euler(0f, 0f, -24f);
+        roofLeft.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(roofColor);
+
+        var roofRight = CreatePrimitive(PrimitiveType.Cube, $"{name}_RoofRight", root.transform);
+        roofRight.transform.localScale = roofLeft.transform.localScale;
+        roofRight.transform.localPosition = new Vector3(width * LogicalToWorld * 0.18f, bodyHeight + 0.22f, 0f);
+        roofRight.transform.localRotation = Quaternion.Euler(0f, 0f, 24f);
+        roofRight.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(roofColor);
+
+        var door = CreatePrimitive(PrimitiveType.Cube, $"{name}_Door", root.transform);
+        door.transform.localScale = new Vector3(width * LogicalToWorld * 0.18f, bodyHeight * 0.48f, 0.035f);
+        door.transform.localPosition = new Vector3(0f, bodyHeight * 0.26f, -depth * LogicalToWorld * 0.515f);
+        door.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.18f, 0.09f, 0.04f, 1f));
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var window = CreatePrimitive(PrimitiveType.Cube, side < 0 ? $"{name}_WindowL" : $"{name}_WindowR", root.transform);
+            window.transform.localScale = new Vector3(width * LogicalToWorld * 0.12f, bodyHeight * 0.18f, 0.032f);
+            window.transform.localPosition = new Vector3(side * width * LogicalToWorld * 0.28f, bodyHeight * 0.58f, -depth * LogicalToWorld * 0.518f);
+            window.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.95f, 0.73f, 0.34f, 1f));
+        }
+
+        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.6f, 8f);
+    }
+
+    private void CreateVillageTower(string name, float centerX, float centerZ, float width, float depth, float bodyHeight, Color wallColor, Color roofColor, float yaw)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+
+        var baseBlock = CreatePrimitive(PrimitiveType.Cube, $"{name}_Nave", root.transform);
+        baseBlock.transform.localScale = LogicalScale(width, 1.0f, depth);
+        baseBlock.transform.localPosition = new Vector3(0f, 0.50f, 0f);
+        baseBlock.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(wallColor);
+
+        var tower = CreatePrimitive(PrimitiveType.Cube, $"{name}_Tower", root.transform);
+        tower.transform.localScale = LogicalScale(width * 0.48f, bodyHeight, depth * 0.44f);
+        tower.transform.localPosition = new Vector3(0f, bodyHeight * 0.5f, -depth * LogicalToWorld * 0.24f);
+        tower.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.48f, 0.45f, 0.39f, 1f));
+
+        var roof = CreatePrimitive(PrimitiveType.Cylinder, $"{name}_Spire", root.transform);
+        roof.transform.localScale = new Vector3(width * LogicalToWorld * 0.34f, 0.42f, width * LogicalToWorld * 0.34f);
+        roof.transform.localPosition = new Vector3(0f, bodyHeight + 0.36f, -depth * LogicalToWorld * 0.24f);
+        roof.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(roofColor);
+
+        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.8f, 10f);
+    }
+
+    private void CreateVillageWell(float centerX, float centerZ)
+    {
+        var baseRing = CreatePrimitive(PrimitiveType.Cylinder, "VillageWell_StoneRing", decorRoot);
+        baseRing.transform.localScale = new Vector3(0.54f, 0.16f, 0.54f);
+        baseRing.transform.localPosition = ToWorldPoint(centerX, centerZ, 0.16f);
+        baseRing.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.38f, 0.36f, 0.31f, 1f));
+
+        var beam = CreateBattlefieldBlock("VillageWell_CrossBeam", ToWorldPoint(centerX, centerZ, 0.78f), new Vector3(1.12f, 0.10f, 0.12f), new Color(0.30f, 0.17f, 0.08f, 1f));
+        beam.transform.localRotation = Quaternion.Euler(0f, -16f, 0f);
+
+        AddBuildingObstacle("VillageWell", centerX, centerZ, 28f, 28f, 0.9f, 6f);
+    }
+
+    private void CreateMarketStalls()
+    {
+        Color clothBlue = new Color(0.20f, 0.38f, 0.56f, 1f);
+        Color clothRed = new Color(0.55f, 0.20f, 0.15f, 1f);
+        for (int i = 0; i < 4; i++)
+        {
+            float x = -22f + i * 33f;
+            float z = 138f + (i % 2) * 36f;
+            var table = CreateBattlefieldBlock($"VillageMarketTable_{i}", ToWorldPoint(x, z, 0.22f), new Vector3(0.76f, 0.18f, 0.44f), new Color(0.33f, 0.19f, 0.09f, 1f));
+            table.transform.localRotation = Quaternion.Euler(0f, -18f + i * 9f, 0f);
+
+            var canopy = CreateBattlefieldBlock($"VillageMarketCanopy_{i}", ToWorldPoint(x, z, 0.70f), new Vector3(0.92f, 0.08f, 0.62f), i % 2 == 0 ? clothBlue : clothRed);
+            canopy.transform.localRotation = table.transform.localRotation;
+        }
+    }
+
+    private void CreateVillageFences()
+    {
+        Color fenceColor = new Color(0.32f, 0.20f, 0.10f, 1f);
+        for (int i = 0; i < 18; i++)
+        {
+            float x = -318f + i * 38f;
+            float z = i % 2 == 0 ? 382f : -354f;
+            var fence = CreateBattlefieldBlock($"VillageFence_{i}", ToWorldPoint(x, z, 0.24f), new Vector3(0.78f, 0.18f, 0.10f), fenceColor);
+            fence.transform.localRotation = Quaternion.Euler(0f, -12f + Noise(i + 701f) * 24f, 0f);
+        }
+    }
+
+    private Vector3 LogicalScale(float width, float height, float depth)
+    {
+        return new Vector3(width * LogicalToWorld, height, depth * LogicalToWorld);
+    }
+
+    private void AddBuildingObstacle(string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding)
+    {
+        buildingObstacles.Add(new BuildingObstacle(name, centerX, centerZ, halfX, halfZ, height, padding));
     }
 
     private void CreateRoad()
@@ -757,17 +1119,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private void CreateLowBattlefieldDebris()
+    private void CreateLowVillageDebris()
     {
-        Color slabA = new Color(0.27f, 0.24f, 0.20f, 1f);
-        Color slabB = new Color(0.17f, 0.20f, 0.20f, 1f);
+        Color slabA = new Color(0.34f, 0.32f, 0.27f, 1f);
+        Color slabB = new Color(0.24f, 0.31f, 0.17f, 1f);
 
         for (int i = 0; i < 12; i++)
         {
             float x = -8.8f + (i % 6) * 2.4f + Noise(i + 1201f) * 0.55f;
             float z = -11.2f + (i / 6) * 18.5f + Noise(i + 1229f) * 2.0f;
             float height = 0.08f + Noise(i + 1247f) * 0.16f;
-            var slab = CreateBattlefieldBlock($"LowRubbleSlab_{i}", new Vector3(x, height * 0.5f + 0.02f, z), new Vector3(1.0f + Noise(i + 1277f) * 1.25f, height, 0.65f + Noise(i + 1301f) * 0.85f), i % 2 == 0 ? slabA : slabB);
+            var slab = CreateBattlefieldBlock($"VillageStonePatch_{i}", new Vector3(x, height * 0.5f + 0.02f, z), new Vector3(1.0f + Noise(i + 1277f) * 1.25f, height, 0.65f + Noise(i + 1301f) * 0.85f), i % 2 == 0 ? slabA : slabB);
             slab.transform.localRotation = Quaternion.Euler(0f, -28f + Noise(i + 1319f) * 56f, 0f);
         }
 
@@ -775,8 +1137,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             float x = -6.8f + i * 1.55f;
             float z = -2.9f + Noise(i + 1409f) * 6.6f;
-            var curb = CreateBattlefieldBlock($"BrokenCurb_{i}", new Vector3(x, 0.08f, z), new Vector3(0.74f + Noise(i + 1433f) * 0.78f, 0.08f, 0.18f), new Color(0.23f, 0.22f, 0.20f, 1f));
-            curb.transform.localRotation = Quaternion.Euler(0f, -20f + Noise(i + 1451f) * 40f, 0f);
+            var hay = CreateBattlefieldBlock($"VillageHayBale_{i}", new Vector3(x, 0.15f, z), new Vector3(0.48f + Noise(i + 1433f) * 0.35f, 0.25f, 0.34f), new Color(0.68f, 0.52f, 0.20f, 1f));
+            hay.transform.localRotation = Quaternion.Euler(0f, -20f + Noise(i + 1451f) * 40f, 0f);
         }
     }
 
@@ -784,10 +1146,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         for (int i = 0; i < 8; i++)
         {
-            var crate = CreatePrimitive(PrimitiveType.Cube, $"HumanCrate_{i}", decorRoot);
-            crate.transform.localScale = new Vector3(0.45f, 0.45f + Noise(i + 13f) * 0.3f, 0.45f);
-            crate.transform.localPosition = new Vector3(-9.1f + i * 0.95f, crate.transform.localScale.y * 0.5f, -4.4f - i * 0.08f);
-            crate.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.08f, 0.31f, 0.45f, 1f));
+            var supply = CreatePrimitive(PrimitiveType.Cube, $"VillageSupplyCrate_{i}", decorRoot);
+            supply.transform.localScale = new Vector3(0.45f, 0.38f + Noise(i + 13f) * 0.24f, 0.45f);
+            supply.transform.localPosition = new Vector3(-9.1f + i * 0.95f, supply.transform.localScale.y * 0.5f, -4.4f - i * 0.08f);
+            supply.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.35f, 0.22f, 0.11f, 1f));
         }
     }
 
@@ -795,10 +1157,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         for (int i = 0; i < 8; i++)
         {
-            var mound = CreatePrimitive(PrimitiveType.Cube, $"GiantMound_{i}", decorRoot);
+            var mound = CreatePrimitive(PrimitiveType.Cube, $"ForestMound_{i}", decorRoot);
             mound.transform.localScale = new Vector3(0.45f + i * 0.08f, 0.12f + i * 0.05f, 0.38f + i * 0.05f);
             mound.transform.localPosition = new Vector3(9.2f - i * 0.5f, mound.transform.localScale.y * 0.5f, -4.6f - i * 0.15f);
-            mound.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.08f, 0.18f, 0.09f, 1f));
+            mound.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.07f, 0.22f, 0.08f, 1f));
         }
     }
 
@@ -1021,6 +1383,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         ConfigureTankVariantPrototypes();
+        ConfigureGiantVariantPrototypes();
     }
 
     private string ResolveSoldierModelPath()
@@ -1113,6 +1476,14 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 return tankResourcePrototype;
             }
         }
+        else if (kind == UnitKind.Giant)
+        {
+            var giantResourcePrototype = LoadGiantResourcePrototype(GiantResourceModelPath);
+            if (giantResourcePrototype != null)
+            {
+                return giantResourcePrototype;
+            }
+        }
 
         var loaderRoot = new GameObject($"GLTFLoader_{kind}");
         loaderRoot.transform.SetParent(modelCacheRoot, false);
@@ -1189,6 +1560,23 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return prototype;
     }
 
+    private GameObject LoadGiantResourcePrototype(string resourcePath)
+    {
+        var source = Resources.Load<GameObject>(resourcePath);
+        if (source == null)
+        {
+            return null;
+        }
+
+        var prototype = Instantiate(source, modelCacheRoot, false);
+        prototype.name = $"{UnitKind.Giant}_Prototype";
+        prototype.hideFlags = HideFlags.HideInHierarchy;
+        AttachResourceAnimationClips(prototype, resourcePath, GiantResourceFolderPath);
+        ConfigureImportedPrototype(prototype, UnitKind.Giant);
+        prototype.SetActive(false);
+        return prototype;
+    }
+
     private void ConfigureTankVariantPrototypes()
     {
         tankVariantPrototypes.Clear();
@@ -1204,11 +1592,35 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         AddTankVariantPrototype(tankT55AkPrototype);
     }
 
+    private void ConfigureGiantVariantPrototypes()
+    {
+        giantVariantPrototypes.Clear();
+
+        GameObject standardPrototype;
+        if (modelPrototypes.TryGetValue(UnitKind.Giant, out standardPrototype))
+        {
+            AddGiantVariantPrototype(standardPrototype);
+        }
+
+        for (int i = 0; i < GiantResourceVariantModelPaths.Length; i++)
+        {
+            AddGiantVariantPrototype(LoadGiantResourcePrototype(GiantResourceVariantModelPaths[i]));
+        }
+    }
+
     private void AddTankVariantPrototype(GameObject prototype)
     {
         if (prototype != null && !tankVariantPrototypes.Contains(prototype))
         {
             tankVariantPrototypes.Add(prototype);
+        }
+    }
+
+    private void AddGiantVariantPrototype(GameObject prototype)
+    {
+        if (prototype != null && !giantVariantPrototypes.Contains(prototype))
+        {
+            giantVariantPrototypes.Add(prototype);
         }
     }
 
@@ -1615,7 +2027,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         unit.animatorClips = null;
         unit.currentAnimatorClip = string.Empty;
 
-        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank) || model == null)
+        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank && unit.kind != UnitKind.Giant) || model == null)
         {
             return;
         }
@@ -1940,6 +2352,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             int variantIndex = Mathf.Abs(unit.rank) % tankVariantPrototypes.Count;
             return tankVariantPrototypes[variantIndex];
+        }
+
+        if (unit.kind == UnitKind.Giant && giantVariantPrototypes.Count > 0)
+        {
+            int variantIndex = Mathf.Abs(unit.id + unit.rank) % giantVariantPrototypes.Count;
+            return giantVariantPrototypes[variantIndex];
         }
 
         if (unit.kind == UnitKind.Tank && unit.tankModel == TankModelVariant.T55AK && tankT55AkPrototype != null)
@@ -2319,19 +2737,21 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         float desiredX = HumanHoldX(unit, target);
+        float nextX = unit.x;
         if (unit.x < desiredX)
         {
-            unit.x = Mathf.Min(desiredX, unit.x + unit.speed * dt);
+            nextX = Mathf.Min(desiredX, unit.x + unit.speed * dt);
         }
 
         float desiredZ = HumanHoldZ(unit);
-        unit.z += (desiredZ - unit.z) * dt * 0.45f;
+        float nextZ = unit.z + (desiredZ - unit.z) * dt * 0.45f;
 
         if (unit.kind == UnitKind.Aircraft)
         {
-            unit.z = desiredZ + Mathf.Sin(battleTime * 2.1f + unit.seed * 9f) * 13f;
+            nextZ = desiredZ + Mathf.Sin(battleTime * 2.1f + unit.seed * 9f) * 13f;
         }
 
+        MoveUnitToAvoidingBuildings(unit, nextX, nextZ);
         unit.x = Mathf.Clamp(unit.x, Left - 190f, Right - 48f);
         if (unit.kind == UnitKind.Tank)
         {
@@ -2425,6 +2845,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             changed |= ResolveBetweenGroups(tanks, soldiers, 1.10f);
             changed |= ResolveAwayFromGiant(tanks, 1.12f);
             changed |= ResolveAwayFromGiant(soldiers, 1.02f);
+            changed |= ResolveAwayFromBuildings(soldiers);
+            changed |= ResolveAwayFromBuildings(tanks);
+            changed |= ResolveAwayFromBuildings(aircraft);
+            changed |= ResolveAwayFromBuildings(giants);
         }
 
         if (!changed)
@@ -2434,6 +2858,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         UpdateActiveTransforms(tanks);
         UpdateActiveTransforms(soldiers);
+        UpdateActiveTransforms(aircraft);
         UpdateActiveTransforms(giants);
     }
 
@@ -2501,6 +2926,216 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return changed;
+    }
+
+    private bool ResolveAwayFromBuildings(List<BattleUnit> units)
+    {
+        bool changed = false;
+        for (int i = 0; i < units.Count; i++)
+        {
+            changed |= ResolveBuildingCollision(units[i]);
+        }
+
+        return changed;
+    }
+
+    private void MoveUnitToAvoidingBuildings(BattleUnit unit, float targetX, float targetZ)
+    {
+        if (unit == null)
+        {
+            return;
+        }
+
+        Vector2 steered = ApplyBuildingAvoidanceSteering(unit, new Vector2(targetX, targetZ));
+        float dx = steered.x - unit.x;
+        float dz = steered.y - unit.z;
+        float distance = Mathf.Sqrt(dx * dx + dz * dz);
+        if (distance <= 0.001f)
+        {
+            ClampUnitPosition(unit);
+            return;
+        }
+
+        int steps = Mathf.Clamp(Mathf.CeilToInt(distance / 28f), 1, 8);
+        float stepX = dx / steps;
+        float stepZ = dz / steps;
+        for (int i = 0; i < steps; i++)
+        {
+            unit.x += stepX;
+            unit.z += stepZ;
+            ClampUnitPosition(unit);
+        }
+    }
+
+    private Vector2 ApplyBuildingAvoidanceSteering(BattleUnit unit, Vector2 target)
+    {
+        if (!AvoidsBuildings(unit) || buildingObstacles.Count == 0)
+        {
+            return target;
+        }
+
+        Vector2 from = new Vector2(unit.x, unit.z);
+        Vector2 travel = target - from;
+        if (travel.sqrMagnitude <= 0.01f)
+        {
+            return target;
+        }
+
+        float bestT = float.PositiveInfinity;
+        BuildingObstacle best = null;
+        float radius = BuildingAvoidanceRadius(unit);
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            float t;
+            if (SegmentIntersectsBuilding(from, target, buildingObstacles[i], radius, out t) && t < bestT)
+            {
+                bestT = t;
+                best = buildingObstacles[i];
+            }
+        }
+
+        if (best == null)
+        {
+            return target;
+        }
+
+        float side = BuildingBypassSide(unit, best, target);
+        float expandedZ = best.HalfZ + best.Padding + radius + 18f;
+        target.y = best.CenterZ + side * expandedZ;
+        return target;
+    }
+
+    private static bool SegmentIntersectsBuilding(Vector2 from, Vector2 to, BuildingObstacle obstacle, float radius, out float t)
+    {
+        float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
+        float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
+        float minX = obstacle.CenterX - expandedHalfX;
+        float maxX = obstacle.CenterX + expandedHalfX;
+        float minZ = obstacle.CenterZ - expandedHalfZ;
+        float maxZ = obstacle.CenterZ + expandedHalfZ;
+
+        float tMin = 0f;
+        float tMax = 1f;
+        if (!IntersectSegmentAxis(from.x, to.x, minX, maxX, ref tMin, ref tMax)
+            || !IntersectSegmentAxis(from.y, to.y, minZ, maxZ, ref tMin, ref tMax))
+        {
+            t = 0f;
+            return false;
+        }
+
+        t = tMin;
+        return true;
+    }
+
+    private static bool IntersectSegmentAxis(float from, float to, float min, float max, ref float tMin, ref float tMax)
+    {
+        float delta = to - from;
+        if (Mathf.Abs(delta) <= 0.001f)
+        {
+            return from >= min && from <= max;
+        }
+
+        float inv = 1f / delta;
+        float t1 = (min - from) * inv;
+        float t2 = (max - from) * inv;
+        if (t1 > t2)
+        {
+            float swap = t1;
+            t1 = t2;
+            t2 = swap;
+        }
+
+        tMin = Mathf.Max(tMin, t1);
+        tMax = Mathf.Min(tMax, t2);
+        return tMin <= tMax;
+    }
+
+    private float BuildingBypassSide(BattleUnit unit, BuildingObstacle obstacle, Vector2 target)
+    {
+        float[] preferences =
+        {
+            unit.z - obstacle.CenterZ,
+            unit.baseZ - obstacle.CenterZ,
+            target.y - obstacle.CenterZ,
+        };
+
+        for (int i = 0; i < preferences.Length; i++)
+        {
+            if (Mathf.Abs(preferences[i]) > 3f)
+            {
+                return Mathf.Sign(preferences[i]);
+            }
+        }
+
+        return Noise(unit.id * 19.7f + obstacle.CenterX * 0.031f + obstacle.CenterZ * 0.017f) > 0.5f ? 1f : -1f;
+    }
+
+    private bool ResolveBuildingCollision(BattleUnit unit)
+    {
+        if (!AvoidsBuildings(unit) || buildingObstacles.Count == 0)
+        {
+            return false;
+        }
+
+        bool changed = false;
+        float radius = BuildingAvoidanceRadius(unit);
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            var obstacle = buildingObstacles[i];
+            float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
+            float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
+            float dx = unit.x - obstacle.CenterX;
+            float dz = unit.z - obstacle.CenterZ;
+            float absX = Mathf.Abs(dx);
+            float absZ = Mathf.Abs(dz);
+            if (absX >= expandedHalfX || absZ >= expandedHalfZ)
+            {
+                continue;
+            }
+
+            float signX = absX > 0.001f ? Mathf.Sign(dx) : (unit.facing >= 0 ? -1f : 1f);
+            float signZ = absZ > 0.001f ? Mathf.Sign(dz) : BuildingBypassSide(unit, obstacle, new Vector2(unit.x, unit.z));
+            float penetrationX = expandedHalfX - absX;
+            float penetrationZ = expandedHalfZ - absZ;
+            if (penetrationX < penetrationZ)
+            {
+                unit.x = obstacle.CenterX + signX * expandedHalfX;
+            }
+            else
+            {
+                unit.z = obstacle.CenterZ + signZ * expandedHalfZ;
+            }
+
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool AvoidsBuildings(BattleUnit unit)
+    {
+        return unit != null
+            && (unit.kind == UnitKind.Soldier
+                || unit.kind == UnitKind.Tank
+                || unit.kind == UnitKind.Aircraft
+                || unit.kind == UnitKind.Giant);
+    }
+
+    private float BuildingAvoidanceRadius(BattleUnit unit)
+    {
+        switch (unit.kind)
+        {
+            case UnitKind.Soldier:
+                return 16f;
+            case UnitKind.Tank:
+                return 48f;
+            case UnitKind.Aircraft:
+                return 52f;
+            case UnitKind.Giant:
+                return 76f;
+            default:
+                return Mathf.Max(10f, unit.radius);
+        }
     }
 
     private bool ResolvePair(BattleUnit first, BattleUnit second, float padding)
@@ -2588,13 +3223,16 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void ClampUnitPosition(BattleUnit unit)
     {
-        if (unit == null || unit.kind == UnitKind.Aircraft)
+        if (unit == null)
         {
             return;
         }
 
         float minX = unit.kind == UnitKind.Tank ? Left - 76f : unit.kind == UnitKind.Giant ? Left - 180f : Left - 150f;
         float maxX = unit.kind == UnitKind.Tank ? Right - 160f : unit.kind == UnitKind.Giant ? Right + 260f : Right - 48f;
+        unit.x = Mathf.Clamp(unit.x, minX, maxX);
+        unit.z = Mathf.Clamp(unit.z, Bottom + 44f, Top - 70f);
+        ResolveBuildingCollision(unit);
         unit.x = Mathf.Clamp(unit.x, minX, maxX);
         unit.z = Mathf.Clamp(unit.z, Bottom + 44f, Top - 70f);
     }
@@ -2619,7 +3257,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.kind == UnitKind.Soldier)
         {
-            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, unit.x + aim.x * 20f, unit.z + aim.y * 20f, 0.95f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(0.85f, 0.96f, 1f, 1f));
+            float muzzleX = unit.x + aim.x * 20f;
+            float muzzleZ = unit.z + aim.y * 20f;
+            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzleX, muzzleZ, 0.92f, 0.82f, RotationFromDirection(aim));
+            PlayBattleAudio(BattleAudioCueId.RifleShot, muzzleX, muzzleZ, 0.92f);
+            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzleX, muzzleZ, 0.95f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(0.85f, 0.96f, 1f, 1f));
             return;
         }
 
@@ -2627,13 +3269,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             Vector2 muzzle = TankMuzzlePoint(unit);
             Vector2 barrelAim = DirectionFromYaw(unit.turretYawDegrees);
-            SpawnEffect(muzzle.x, muzzle.y, 0.52f, EffectKind.Fireball, 0.22f);
+            PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 1.0f, RotationFromDirection(barrelAim));
+            PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 1.0f, RotationFromDirection(barrelAim));
+            PlayBattleAudio(BattleAudioCueId.TankShot, muzzle.x, muzzle.y, 0.82f);
+            TriggerCameraShake(0.08f, 0.035f);
             SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, unit.damage, 52f, 520f, new Color(1f, 0.76f, 0.42f, 1f));
             return;
         }
 
-        SpawnEffect(unit.x, unit.z, 0.52f, EffectKind.Fireball, 0.18f);
-        SpawnProjectile(ProjectileKind.Rocket, ProjectileTarget.Giant, unit.x + aim.x * 42f, unit.z + aim.y * 42f, 2.5f, target.x - aim.x * 8f, target.z - aim.y * 8f, 3.65f, unit.damage, 60f, 620f, new Color(0.58f, 0.92f, 1f, 1f));
+        float bombX = unit.x + aim.x * 18f;
+        float bombZ = unit.z + aim.y * 18f;
+        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.85f, RotationFromDirection(aim));
+        PlayBattleEffect(BattleEffectId.BombDropTrail, bombX, bombZ, 2.3f, 0.75f, Quaternion.identity);
+        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x - aim.x * 12f, target.z - aim.y * 12f, 0.18f, unit.damage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
     }
 
     private void UpdateGiants(float dt)
@@ -2681,9 +3329,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             float formationZ = Mathf.Clamp(chaseTarget.z + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
             Vector2 chase = DirectionTo(giant.x, giant.z, chaseTarget.x, formationZ, giant.headingDegrees);
-            giant.x += chase.x * giant.speed * dt;
-            giant.z += chase.y * giant.speed * dt;
-            ClampUnitPosition(giant);
+            MoveUnitToAvoidingBuildings(giant, giant.x + chase.x * giant.speed * dt, giant.z + chase.y * giant.speed * dt);
         }
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
@@ -2917,7 +3563,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             impactZ = giant.z + attackDir.y * whiffDistance;
         }
 
-        SpawnEffect(impactX, impactZ + (target.kind == UnitKind.Aircraft ? 0f : 20f), target.kind == UnitKind.Tank ? 2.0f : 1.55f, EffectKind.Fireball, 0.30f);
+        BattleEffectId impactEffect = target.kind == UnitKind.Tank
+            ? BattleEffectId.MonsterHammerImpact
+            : target.kind == UnitKind.Aircraft
+                ? BattleEffectId.ClawHit
+                : BattleEffectId.MonsterStompDust;
+        PlayBattleEffect(impactEffect, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.4f : 0.16f, target.kind == UnitKind.Tank ? 1.55f : 1.15f, Quaternion.identity);
+        if (target.kind != UnitKind.Aircraft)
+        {
+            PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ, 0.08f, target.kind == UnitKind.Tank ? 1.2f : 0.9f, Quaternion.identity);
+        }
+
+        PlayBattleAudio(BattleAudioCueId.CreatureHit, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.2f : 0.2f);
+        TriggerCameraShake(target.kind == UnitKind.Tank ? 0.20f : 0.14f, target.kind == UnitKind.Tank ? 0.13f : 0.08f);
         ApplyGiantContactDamage(giant);
         ShowBanner(target.kind == UnitKind.Aircraft ? "Giant swat" : target.kind == UnitKind.Tank ? "Giant hammer" : "Giant stomp", true, 0.85f);
     }
@@ -3003,6 +3661,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         projectile.radius = radius;
         projectile.speed = speed;
         projectile.color = color;
+        ConfigureProjectileVisual(projectile, kind, color);
         projectile.duration = Mathf.Max(0.04f, Distance(fromX, fromZ, toX, toZ) / speed);
         projectile.progress = 0f;
         projectile.lastWorldPosition = ToWorldPoint(fromX, fromZ, fromHeight);
@@ -3044,6 +3703,36 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         };
     }
 
+    private void ConfigureProjectileVisual(ProjectileView projectile, ProjectileKind kind, Color color)
+    {
+        if (projectile == null)
+        {
+            return;
+        }
+
+        if (projectile.line != null)
+        {
+            float startWidth = kind == ProjectileKind.Bullet ? 0.03f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
+            float endWidth = kind == ProjectileKind.Bullet ? 0.03f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
+            projectile.line.startWidth = startWidth;
+            projectile.line.endWidth = endWidth;
+            projectile.line.material = GetUnlitMaterial(color);
+            projectile.line.startColor = color;
+            projectile.line.endColor = new Color(color.r, color.g, color.b, Mathf.Clamp01(color.a * 0.55f));
+        }
+
+        if (projectile.head != null)
+        {
+            float scale = ProjectileHeadScale(kind);
+            projectile.head.localScale = new Vector3(scale * 0.7f, scale * 1.2f, scale * 0.7f);
+            var renderer = projectile.head.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.sharedMaterial = GetOpaqueMaterial(color);
+            }
+        }
+    }
+
     private void UpdateProjectiles(float dt)
     {
         for (int i = 0; i < projectiles.Count; i++)
@@ -3056,7 +3745,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
             shot.progress += dt / Mathf.Max(0.04f, shot.duration);
             float t = Mathf.Clamp01(shot.progress);
-            float arc = shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rock ? Mathf.Sin(t * Mathf.PI) * 1.45f : 0f;
+            float arc = shot.kind == ProjectileKind.Bomb
+                ? Mathf.Sin(t * Mathf.PI) * 0.35f - t * t * 1.45f
+                : shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rock
+                    ? Mathf.Sin(t * Mathf.PI) * 1.45f
+                    : 0f;
             shot.lastWorldPosition = shot.worldPosition;
             shot.worldPosition = ToWorldPoint(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t), Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
             UpdateProjectileVisual(shot, t);
@@ -3078,8 +3771,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         shot.line.SetPosition(0, shot.lastWorldPosition);
         shot.line.SetPosition(1, shot.worldPosition);
         shot.head.position = shot.worldPosition;
+        Vector3 direction = shot.worldPosition - shot.lastWorldPosition;
+        if (direction.sqrMagnitude > 0.0001f)
+        {
+            shot.head.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        }
+
         float pulse = shot.kind == ProjectileKind.Bullet ? 1f : 1f + Mathf.Sin(t * Mathf.PI) * 0.2f;
-        shot.head.localScale = Vector3.one * (shot.kind == ProjectileKind.Bullet ? 0.08f : 0.18f) * pulse;
+        float scale = ProjectileHeadScale(shot.kind) * pulse;
+        shot.head.localScale = shot.kind == ProjectileKind.Bomb
+            ? new Vector3(scale * 0.75f, scale * 1.55f, scale * 0.75f)
+            : Vector3.one * scale;
     }
 
     private void ResolveProjectileImpact(ProjectileView shot)
@@ -3089,21 +3791,50 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (shot.target == ProjectileTarget.Giant)
         {
-            DamageGiantAt(shot.toX, shot.toZ, shot.damage);
-            if (shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rocket)
+            if (shot.radius > 0f)
             {
-                SpawnEffect(shot.toX, shot.toZ, shot.kind == ProjectileKind.Rocket ? 1.8f : 1.45f, EffectKind.Fireball, shot.kind == ProjectileKind.Rocket ? 0.28f : 0.22f);
+                DamageGiantsInArea(shot.toX, shot.toZ, shot.radius, shot.damage);
+            }
+            else
+            {
+                DamageGiantAt(shot.toX, shot.toZ, shot.damage);
+            }
+
+            if (shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rocket || shot.kind == ProjectileKind.Bomb)
+            {
+                BattleEffectId impact = shot.kind == ProjectileKind.Bomb ? BattleEffectId.BombExplosion : BattleEffectId.ShellExplosionLarge;
+                float scale = shot.kind == ProjectileKind.Bomb ? 1.7f : shot.kind == ProjectileKind.Rocket ? 1.55f : 1.25f;
+                PlayBattleEffect(impact, shot.toX, shot.toZ, 0.18f, scale, Quaternion.identity);
+                PlayBattleAudio(shot.kind == ProjectileKind.Bomb ? BattleAudioCueId.ExplosionLarge : BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.2f);
+                TriggerCameraShake(shot.kind == ProjectileKind.Bomb ? 0.18f : 0.12f, shot.kind == ProjectileKind.Bomb ? 0.11f : 0.07f);
             }
             else if (Noise(battleTime * 25f + shot.toX) > 0.68f)
             {
-                SpawnEffect(shot.toX, shot.toZ, 0.85f, EffectKind.Fireball, 0.16f);
+                PlayBattleEffect(BattleEffectId.BulletHitMetal, shot.toX, shot.toZ, 1.7f, 0.65f, Quaternion.identity);
             }
 
             return;
         }
 
-        SpawnEffect(shot.toX, shot.toZ, 1.55f, EffectKind.Fireball, 0.24f);
+        PlayBattleEffect(shot.kind == ProjectileKind.Rock ? BattleEffectId.MonsterHammerImpact : BattleEffectId.ShellExplosionSmall, shot.toX, shot.toZ, 0.12f, shot.kind == ProjectileKind.Rock ? 1.35f : 1.0f, Quaternion.identity);
+        PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.12f);
+        TriggerCameraShake(0.12f, 0.08f);
         ApplyAreaDamageToHumans(shot.toX, shot.toZ, shot.radius, shot.damage, false, 36f);
+    }
+
+    private static float ProjectileHeadScale(ProjectileKind kind)
+    {
+        switch (kind)
+        {
+            case ProjectileKind.Bullet:
+                return 0.08f;
+            case ProjectileKind.Bomb:
+                return 0.24f;
+            case ProjectileKind.Rock:
+                return 0.26f;
+            default:
+                return 0.18f;
+        }
     }
 
     private void CleanupProjectiles()
@@ -3168,8 +3899,24 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         unit.root.SetActive(false);
         humanLosses++;
 
-        float size = unit.kind == UnitKind.Tank ? 1.1f : unit.kind == UnitKind.Aircraft ? 1.65f : 0.6f;
-        SpawnEffect(unit.x, unit.z + (unit.kind == UnitKind.Aircraft ? 0f : 18f), size, EffectKind.Smoke, unit.kind == UnitKind.Soldier ? 0.45f : 0.55f);
+        switch (unit.kind)
+        {
+            case UnitKind.Tank:
+                PlayBattleEffect(BattleEffectId.TankDeathExplosion, unit.x, unit.z, 0.35f, 1.45f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.TankWreckSmoke, unit.x, unit.z, 0.25f, 1.1f, Quaternion.identity);
+                PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 0.35f);
+                TriggerCameraShake(0.22f, 0.15f);
+                break;
+            case UnitKind.Aircraft:
+                PlayBattleEffect(BattleEffectId.AircraftDeathExplosion, unit.x, unit.z, 2.45f, 1.5f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, unit.x, unit.z, 1.2f, 1.0f, Quaternion.identity);
+                PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 2.2f);
+                TriggerCameraShake(0.18f, 0.12f);
+                break;
+            default:
+                PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.75f, Quaternion.identity);
+                break;
+        }
     }
 
     private void DamageGiantAt(float x, float z, float amount)
@@ -3248,9 +3995,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         giant.active = false;
         giant.root.SetActive(false);
-        SpawnEffect(giant.x - 38f, giant.z + 80f, 2.8f, EffectKind.Fireball, 0.36f);
-        SpawnEffect(giant.x + 32f, giant.z + 128f, 2.3f, EffectKind.Smoke, 0.62f);
-        SpawnEffect(giant.x - 6f, giant.z + 34f, 3.1f, EffectKind.Fireball, 0.34f);
+        PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 38f, giant.z + 80f, 0.8f, 1.5f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterDeathDust, giant.x + 32f, giant.z + 128f, 0.18f, 1.55f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 6f, giant.z + 34f, 0.45f, 1.35f, Quaternion.identity);
+        PlayBattleAudio(BattleAudioCueId.ExplosionLarge, giant.x, giant.z, 0.4f);
+        TriggerCameraShake(0.32f, 0.24f);
         if (CountActive(giants) <= 0)
         {
             ended = true;
@@ -3713,6 +4462,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return SelectTankAnimatorClip(unit);
         }
 
+        if (unit.kind == UnitKind.Giant)
+        {
+            return SelectGiantAnimatorClip(unit, attacking);
+        }
+
         if (attacking)
         {
             return FindAnimatorClip(unit, "Idle_Gun", "Attack", "Shoot", "Fire", "Punch", "Idle");
@@ -3739,6 +4493,25 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight", "Tank_TurningLeft", "TurningLeft");
+    }
+
+    private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking)
+    {
+        if (attacking)
+        {
+            return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "HitReact", "Idle");
+        }
+
+        bool moving = unit.moveSpeed > 1f;
+        if (!moving)
+        {
+            return FindAnimatorClip(unit, "Idle", "Walk", "Run");
+        }
+
+        bool running = unit.moveSpeed > unit.speed * 1.08f;
+        return running
+            ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
+            : FindAnimatorClip(unit, "Walk", "Run", "Idle");
     }
 
     private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
@@ -3788,6 +4561,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         if (unit.kind == UnitKind.Tank)
         {
             return Mathf.Clamp(normalizedSpeed, 0.6f, 1.55f);
+        }
+
+        if (unit.kind == UnitKind.Giant)
+        {
+            return Mathf.Clamp(normalizedSpeed, 0.7f, 1.3f);
         }
 
         if (clip.name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -4183,6 +4961,54 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return total;
+    }
+
+    private int CountBuildingOverlaps()
+    {
+        int total = 0;
+        total += CountBuildingOverlaps(soldiers);
+        total += CountBuildingOverlaps(tanks);
+        total += CountBuildingOverlaps(aircraft);
+        total += CountBuildingOverlaps(giants);
+        return total;
+    }
+
+    private int CountBuildingOverlaps(List<BattleUnit> units)
+    {
+        int total = 0;
+        for (int i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            if (unit != null && unit.active && IsInsideAnyBuildingObstacle(unit))
+            {
+                total++;
+            }
+        }
+
+        return total;
+    }
+
+    private bool IsInsideAnyBuildingObstacle(BattleUnit unit)
+    {
+        if (!AvoidsBuildings(unit))
+        {
+            return false;
+        }
+
+        float radius = BuildingAvoidanceRadius(unit);
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            var obstacle = buildingObstacles[i];
+            float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
+            float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
+            if (Mathf.Abs(unit.x - obstacle.CenterX) < expandedHalfX
+                && Mathf.Abs(unit.z - obstacle.CenterZ) < expandedHalfZ)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private string GetFirstAnimatorClipName(List<BattleUnit> units)
@@ -4681,6 +5507,78 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return new Vector3(x * LogicalToWorld, height, z * LogicalToWorld);
     }
 
+    private void PlayBattleEffect(BattleEffectId id, float x, float z, float height, float scale, Quaternion rotation)
+    {
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.Play(EffectPlayback.Create(id, ToWorldPoint(x, z, height), rotation, null, scale));
+            return;
+        }
+
+        EffectKind fallback = IsSmokeFallback(id) ? EffectKind.Smoke : EffectKind.Fireball;
+        SpawnEffect(x, z, Mathf.Max(0.1f, scale), fallback, IsSmokeFallback(id) ? 0.55f : 0.28f);
+    }
+
+    private void PlayBattleAudio(BattleAudioCueId id, float x, float z, float height)
+    {
+        if (BattleAudioManager.Instance != null)
+        {
+            BattleAudioManager.Instance.Play(id, ToWorldPoint(x, z, height));
+        }
+    }
+
+    private void TriggerCameraShake(float duration, float amplitude)
+    {
+        cameraShakeDuration = Mathf.Max(cameraShakeDuration, duration);
+        cameraShakeTime = Mathf.Max(cameraShakeTime, duration);
+        cameraShakeAmplitude = Mathf.Max(cameraShakeAmplitude, amplitude);
+    }
+
+    private void UpdateCameraShake(float dt)
+    {
+        if (orbitCamera == null)
+        {
+            return;
+        }
+
+        if (cameraShakeTime <= 0f)
+        {
+            orbitCamera.shakeOffset = Vector3.zero;
+            cameraShakeAmplitude = 0f;
+            cameraShakeDuration = 0f;
+            return;
+        }
+
+        cameraShakeTime = Mathf.Max(0f, cameraShakeTime - dt);
+        float normalized = cameraShakeDuration > 0.001f ? cameraShakeTime / cameraShakeDuration : 0f;
+        float falloff = normalized * normalized;
+        float x = (Noise(battleTime * 91.7f + cameraShakeTime * 13.1f) - 0.5f) * 2f;
+        float y = (Noise(battleTime * 73.3f + cameraShakeTime * 17.7f) - 0.5f) * 2f;
+        orbitCamera.shakeOffset = new Vector3(x, y * 0.45f, 0f) * cameraShakeAmplitude * falloff;
+    }
+
+    private static Quaternion RotationFromDirection(Vector2 direction)
+    {
+        Vector3 forward = new Vector3(direction.x, 0f, direction.y);
+        if (forward.sqrMagnitude <= 0.0001f)
+        {
+            return Quaternion.identity;
+        }
+
+        return Quaternion.LookRotation(forward.normalized, Vector3.up);
+    }
+
+    private static bool IsSmokeFallback(BattleEffectId id)
+    {
+        return id == BattleEffectId.BulletHitDirt
+            || id == BattleEffectId.BombDropTrail
+            || id == BattleEffectId.ShellLaunchSmoke
+            || id == BattleEffectId.TankWreckSmoke
+            || id == BattleEffectId.AircraftCrashSmoke
+            || id == BattleEffectId.MonsterDeathDust
+            || id == BattleEffectId.SoldierDeath;
+    }
+
     private float Distance(float ax, float az, float bx, float bz)
     {
         return Mathf.Sqrt(DistanceSq(ax, az, bx, bz));
@@ -4768,6 +5666,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         Shell,
         Rocket,
         Rock,
+        Bomb,
     }
 
     private enum ProjectileTarget
@@ -4864,6 +5763,28 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public readonly List<Transform> aimTransforms = new List<Transform>();
         public readonly List<Quaternion> aimBaseRotations = new List<Quaternion>();
         public Transform helperRoot;
+    }
+
+    private sealed class BuildingObstacle
+    {
+        public readonly string Name;
+        public readonly float CenterX;
+        public readonly float CenterZ;
+        public readonly float HalfX;
+        public readonly float HalfZ;
+        public readonly float Height;
+        public readonly float Padding;
+
+        public BuildingObstacle(string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding)
+        {
+            Name = name;
+            CenterX = centerX;
+            CenterZ = centerZ;
+            HalfX = halfX;
+            HalfZ = halfZ;
+            Height = height;
+            Padding = padding;
+        }
     }
 
     private sealed class ProjectileView

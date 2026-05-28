@@ -40,12 +40,19 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         Time.timeScale = previousTimeScale;
         float soldierBoneMotionAngle = 0f;
         float soldierBoneMotionDistance = 0f;
+        float giantBoneMotionAngle = 0f;
+        float giantBoneMotionDistance = 0f;
         float tankTrackMotionAngle = 0f;
         float tankTrackMotionDistance = 0f;
         yield return MeasureActiveTransformMotion(0.25f, IsSoldierLegTransform, (angle, distance) =>
         {
             soldierBoneMotionAngle = angle;
             soldierBoneMotionDistance = distance;
+        });
+        yield return MeasureActiveTransformMotion(0.25f, IsGiantLegTransform, (angle, distance) =>
+        {
+            giantBoneMotionAngle = angle;
+            giantBoneMotionDistance = distance;
         });
         yield return MeasureActiveTransformMotion(0.25f, IsTankTrackTransform, (angle, distance) =>
         {
@@ -61,7 +68,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         }
 
         bool captured = CaptureScreen(outputPath);
-        LogDiagnostics(game, captured, outputPath, soldierBoneMotionAngle, soldierBoneMotionDistance, tankTrackMotionAngle, tankTrackMotionDistance);
+        LogDiagnostics(game, captured, outputPath, soldierBoneMotionAngle, soldierBoneMotionDistance, giantBoneMotionAngle, giantBoneMotionDistance, tankTrackMotionAngle, tankTrackMotionDistance);
 
         bool ok = game != null && game.DiagnosticsAssetsReady && game.DiagnosticsPrototypeCount >= 6 && captured;
         Application.Quit(ok ? 0 : 1);
@@ -100,7 +107,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         }
     }
 
-    private static IEnumerator MeasureActiveTransformMotion(float seconds, Func<string, bool> shouldTrack, Action<float, float> onComplete)
+    private static IEnumerator MeasureActiveTransformMotion(float seconds, Func<Transform, bool> shouldTrack, Action<float, float> onComplete)
     {
         var transforms = FindObjectsOfType<Transform>(true);
         var tracked = new System.Collections.Generic.List<Transform>();
@@ -115,8 +122,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
                 continue;
             }
 
-            string name = item.name;
-            if (shouldTrack == null || !shouldTrack(name))
+            if (shouldTrack == null || !shouldTrack(item))
             {
                 continue;
             }
@@ -145,7 +151,21 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         onComplete?.Invoke(maxAngle, maxDistance);
     }
 
-    private static bool IsSoldierLegTransform(string name)
+    private static bool IsSoldierLegTransform(Transform item)
+    {
+        return item != null
+            && IsHumanoidLegTransform(item.name)
+            && HasAncestorName(item, "Unit_Soldier");
+    }
+
+    private static bool IsGiantLegTransform(Transform item)
+    {
+        return item != null
+            && IsHumanoidLegTransform(item.name)
+            && HasAncestorName(item, "Unit_Giant");
+    }
+
+    private static bool IsHumanoidLegTransform(string name)
     {
         return name == "UpperLeg.L"
             || name == "UpperLeg.R"
@@ -155,14 +175,30 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             || name == "Foot.R";
     }
 
-    private static bool IsTankTrackTransform(string name)
+    private static bool IsTankTrackTransform(Transform item)
     {
+        string name = item != null ? item.name : null;
         return !string.IsNullOrEmpty(name)
             && name.IndexOf("TankTrack", StringComparison.OrdinalIgnoreCase) >= 0
             && name.IndexOf("_end", StringComparison.OrdinalIgnoreCase) < 0;
     }
 
-    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
+    private static bool HasAncestorName(Transform item, string nameToken)
+    {
+        while (item != null)
+        {
+            if (!string.IsNullOrEmpty(item.name) && item.name.IndexOf(nameToken, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            item = item.parent;
+        }
+
+        return false;
+    }
+
+    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float giantBoneMotionAngle, float giantBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
     {
         var gateway = game != null ? game.GetComponent<DanmuHttpGateway>() : null;
         var renderers = FindObjectsOfType<Renderer>(true);
@@ -221,6 +257,9 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"minTankGap={(game != null ? game.DiagnosticsMinimumTankGap : 0f):0.0} " +
             $"tankHeading={(game != null ? game.DiagnosticsAverageTankHeading : 0f):0.0} " +
             $"tankMoveSpeed={(game != null ? game.DiagnosticsAverageTankMoveSpeed : 0f):0.0} " +
+            $"villageAssets={(game != null ? game.DiagnosticsMedievalVillagePrefabCount : 0)} " +
+            $"buildings={(game != null ? game.DiagnosticsBuildingObstacleCount : 0)} " +
+            $"buildingOverlaps={(game != null ? game.DiagnosticsBuildingOverlapCount : 0)} " +
             $"tankAnimators={(game != null ? game.DiagnosticsTankAnimatorCount : 0)} " +
             $"tankAnimation={(game != null ? game.DiagnosticsFirstTankAnimation : string.Empty)} " +
             $"tankTrackMotionAngle={tankTrackMotionAngle:0.00} " +
@@ -229,6 +268,10 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"soldierAnimation={(game != null ? game.DiagnosticsFirstSoldierAnimation : string.Empty)} " +
             $"soldierBoneMotionAngle={soldierBoneMotionAngle:0.00} " +
             $"soldierBoneMotionDistance={soldierBoneMotionDistance:0.0000} " +
+            $"giantAnimators={(game != null ? game.DiagnosticsGiantAnimatorCount : 0)} " +
+            $"giantAnimation={(game != null ? game.DiagnosticsFirstGiantAnimation : string.Empty)} " +
+            $"giantBoneMotionAngle={giantBoneMotionAngle:0.00} " +
+            $"giantBoneMotionDistance={giantBoneMotionDistance:0.0000} " +
             $"screen={Screen.width}x{Screen.height} " +
             $"activeRenderers={activeRenderers} " +
             $"transparentMaterials={transparentMaterials} " +

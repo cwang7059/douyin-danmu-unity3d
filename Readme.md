@@ -25,7 +25,13 @@ Unity3D danmu battle prototype for a human-vs-monster battlefield. The project c
 
 Build or open the Unity project with the Unity version listed in `ProjectSettings/ProjectVersion.txt`.
 
-After a Windows build exists under `Builds/`, start the game with:
+Build and start the latest code with:
+
+```powershell
+.\build-and-start.bat
+```
+
+After a Windows build exists under `Builds/`, start the existing build without rebuilding:
 
 ```powershell
 .\start-game.ps1
@@ -45,10 +51,12 @@ Send test danmu commands:
 
 ## Documentation
 
-- [Development plan](doc/danmu-battle-unity3d-development.md)
-- [Free assets and VFX setup](doc/free-assets-and-vfx-setup.md)
-- [Danmu HTTP gateway](doc/danmu-http-gateway.md)
-- [Implementation status](doc/implementation-status.md)
+- [文档目录](doc/文档目录.md)
+- [弹幕对抗游戏开发方案](doc/弹幕对抗游戏开发方案.md)
+- [免费素材与特效环境搭建](doc/免费素材与特效环境搭建.md)
+- [单位运动与动画规范](doc/单位运动与动画规范.md)
+- [本地 HTTP 弹幕网关](doc/本地弹幕网关.md)
+- [实现进度记录](doc/实现进度记录.md)
 
 ## Notes
 
