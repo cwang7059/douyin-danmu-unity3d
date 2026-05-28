@@ -148,6 +148,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<BattleUnit> aircraft = new List<BattleUnit>(AircraftCount);
     private readonly List<BattleUnit> giants = new List<BattleUnit>(GiantCount);
     private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
+    private readonly List<RoadCorridor> roadCorridors = new List<RoadCorridor>();
     private readonly List<ProjectileView> projectiles = new List<ProjectileView>(MaxProjectiles);
     private readonly List<EffectView> effects = new List<EffectView>(MaxEffects);
     private readonly List<DeathVisual> deathVisuals = new List<DeathVisual>(MaxDeathVisuals);
@@ -623,6 +624,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private void CreateBattlefield()
     {
         buildingObstacles.Clear();
+        roadCorridors.Clear();
         CreateGround();
         CreateTerrainDepth();
         CreateVillagePaths();
@@ -679,18 +681,23 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         var mainRoad = CreateBattlefieldBlock("VillageDirtRoad_MainStreet", ToWorldPoint(0f, -184f, 0.026f), new Vector3(21.4f, 0.06f, 3.7f), RoadColor);
         mainRoad.transform.localRotation = Quaternion.Euler(0f, -3f, 0f);
+        AddRoadCorridor("MainStreet", 0f, -184f, 430f, 78f, 0f);
 
         var tankRoad = CreateBattlefieldBlock("VillageDirtRoad_HeavyTrack", ToWorldPoint(-120f, -486f, 0.028f), new Vector3(13.4f, 0.055f, 2.45f), new Color(0.27f, 0.21f, 0.14f, 1f));
         tankRoad.transform.localRotation = Quaternion.Euler(0f, 2f, 0f);
+        AddRoadCorridor("HeavyTrack", -120f, -486f, 270f, 58f, -80f);
 
         var plaza = CreateBattlefieldBlock("VillageMarketPlaza", ToWorldPoint(34f, -52f, 0.034f), new Vector3(6.8f, 0.052f, 5.2f), new Color(0.38f, 0.30f, 0.20f, 1f));
         plaza.transform.localRotation = Quaternion.Euler(0f, 4f, 0f);
+        AddRoadCorridor("MarketPlaza", 34f, -52f, 138f, 112f, -18f);
 
         var crossRoad = CreateBattlefieldBlock("VillageDirtRoad_CrossStreet", ToWorldPoint(58f, 92f, 0.036f), new Vector3(4.2f, 0.055f, 17.7f), new Color(0.34f, 0.26f, 0.17f, 1f));
         crossRoad.transform.localRotation = Quaternion.Euler(0f, 8f, 0f);
+        AddRoadCorridor("CrossStreet", 58f, 92f, 84f, 356f, 12f);
 
         var monsterEntry = CreateBattlefieldBlock("VillageDirtRoad_MonsterGate", ToWorldPoint(282f, -250f, 0.032f), new Vector3(5.8f, 0.055f, 3.1f), new Color(0.30f, 0.22f, 0.15f, 1f));
         monsterEntry.transform.localRotation = Quaternion.Euler(0f, -8f, 0f);
+        AddRoadCorridor("MonsterGate", 282f, -250f, 116f, 70f, -48f);
     }
 
     private void CreateMedievalVillage()
@@ -1046,6 +1053,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private void AddBuildingObstacle(string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding)
     {
         buildingObstacles.Add(new BuildingObstacle(name, centerX, centerZ, halfX, halfZ, height, padding));
+    }
+
+    private void AddRoadCorridor(string name, float centerX, float centerZ, float halfX, float halfZ, float priority)
+    {
+        roadCorridors.Add(new RoadCorridor(name, centerX, centerZ, halfX, halfZ, priority));
     }
 
     private void CreateRoad()
@@ -3026,10 +3038,82 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return target;
         }
 
+        Vector2 roadTarget;
+        if (TryGetRoadBypassTarget(unit, from, best, target, radius, out roadTarget))
+        {
+            return roadTarget;
+        }
+
         float side = BuildingBypassSide(unit, best, target);
         float expandedZ = best.HalfZ + best.Padding + radius + 18f;
         target.y = best.CenterZ + side * expandedZ;
         return target;
+    }
+
+    private bool TryGetRoadBypassTarget(BattleUnit unit, Vector2 from, BuildingObstacle obstacle, Vector2 target, float radius, out Vector2 roadTarget)
+    {
+        roadTarget = target;
+        if (roadCorridors.Count == 0)
+        {
+            return false;
+        }
+
+        RoadCorridor best = null;
+        float bestScore = float.PositiveInfinity;
+        Vector2 obstacleCenter = new Vector2(obstacle.CenterX, obstacle.CenterZ);
+
+        for (int i = 0; i < roadCorridors.Count; i++)
+        {
+            var corridor = roadCorridors[i];
+            float score =
+                corridor.DistanceToPoint(obstacleCenter) * 0.72f
+                + corridor.DistanceToPoint(from) * 0.18f
+                + corridor.DistanceToPoint(target) * 0.10f
+                + corridor.Priority;
+
+            if (unit.kind == UnitKind.Tank && corridor.CenterZ > -320f)
+            {
+                score += 90f;
+            }
+            else if (unit.kind == UnitKind.Giant && corridor.CenterX < -180f)
+            {
+                score += 70f;
+            }
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = corridor;
+            }
+        }
+
+        if (best == null)
+        {
+            return false;
+        }
+
+        roadTarget = target;
+        if (best.Horizontal)
+        {
+            float laneOffset = unit.kind == UnitKind.Soldier
+                ? Mathf.Clamp(unit.baseZ - best.CenterZ, -best.HalfZ * 0.45f, best.HalfZ * 0.45f)
+                : 0f;
+            roadTarget.x = ClampRoadCoordinate(target.x, best.CenterX, best.HalfX, radius);
+            roadTarget.y = ClampRoadCoordinate(best.CenterZ + laneOffset, best.CenterZ, best.HalfZ, radius);
+        }
+        else
+        {
+            roadTarget.x = ClampRoadCoordinate(best.CenterX, best.CenterX, best.HalfX, radius);
+            roadTarget.y = ClampRoadCoordinate(target.y, best.CenterZ, best.HalfZ, radius);
+        }
+
+        return true;
+    }
+
+    private static float ClampRoadCoordinate(float value, float center, float half, float radius)
+    {
+        float innerHalf = Mathf.Max(4f, half - radius * 0.25f);
+        return Mathf.Clamp(value, center - innerHalf, center + innerHalf);
     }
 
     private static bool SegmentIntersectsBuilding(Vector2 from, Vector2 to, BuildingObstacle obstacle, float radius, out float t)
@@ -6106,6 +6190,35 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             HalfZ = halfZ;
             Height = height;
             Padding = padding;
+        }
+    }
+
+    private sealed class RoadCorridor
+    {
+        public readonly string Name;
+        public readonly float CenterX;
+        public readonly float CenterZ;
+        public readonly float HalfX;
+        public readonly float HalfZ;
+        public readonly float Priority;
+
+        public bool Horizontal => HalfX >= HalfZ;
+
+        public RoadCorridor(string name, float centerX, float centerZ, float halfX, float halfZ, float priority)
+        {
+            Name = name;
+            CenterX = centerX;
+            CenterZ = centerZ;
+            HalfX = halfX;
+            HalfZ = halfZ;
+            Priority = priority;
+        }
+
+        public float DistanceToPoint(Vector2 point)
+        {
+            float dx = Mathf.Max(0f, Mathf.Abs(point.x - CenterX) - HalfX);
+            float dz = Mathf.Max(0f, Mathf.Abs(point.y - CenterZ) - HalfZ);
+            return Mathf.Sqrt(dx * dx + dz * dz);
         }
     }
 
