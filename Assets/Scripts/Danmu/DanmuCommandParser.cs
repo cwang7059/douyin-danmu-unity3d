@@ -117,6 +117,11 @@ public static class DanmuCommandParser
             return "tank";
         }
 
+        if (ContainsAny(text, "aircraft", "plane", "helicopter", "heli"))
+        {
+            return "aircraft";
+        }
+
         if (ContainsAny(text, "治疗", "heal", "医疗"))
         {
             return "medic";
@@ -143,4 +148,3 @@ public static class DanmuCommandParser
         return false;
     }
 }
-

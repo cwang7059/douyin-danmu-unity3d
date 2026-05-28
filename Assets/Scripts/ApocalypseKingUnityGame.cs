@@ -18,6 +18,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int TankCount = TankT55ACount + TankT55AkCount;
     private const int AircraftCount = 3;
     private const int GiantCount = 10;
+    private const int MaxSoldierCount = 180;
+    private const int MaxTankCount = 36;
+    private const int MaxAircraftCount = 12;
+    private const int MaxGiantCount = 24;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
@@ -386,11 +390,25 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         if (command.team == BattleTeam.Human)
         {
-            bool spawned = command.key == "tank"
-                ? ReviveTankFromDanmu(command)
-                : command.key == "medic"
-                    ? HealHumanForces(22f)
-                    : ReviveSoldierFromDanmu(command);
+            string key = NormalizeDanmuKey(command.key);
+            bool spawned;
+            if (key == "tank")
+            {
+                spawned = ReviveTankFromDanmu(command);
+            }
+            else if (key == "aircraft" || key == "plane" || key == "helicopter")
+            {
+                spawned = ReviveAircraftFromDanmu(command);
+            }
+            else if (key == "medic")
+            {
+                spawned = HealHumanForces(22f);
+            }
+            else
+            {
+                spawned = ReviveSoldierFromDanmu(command);
+            }
+
             if (!spawned)
             {
                 HealHumanForces(10f);
@@ -408,6 +426,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         ShowBanner("Danmu monster reinforce", true, 0.85f);
+    }
+
+    private static string NormalizeDanmuKey(string key)
+    {
+        return string.IsNullOrWhiteSpace(key) ? string.Empty : key.Trim().ToLowerInvariant();
     }
 
     private void ApplyDanmuSkill(DanmuCommand command)
@@ -2912,7 +2935,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool ReviveSoldierFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveUnit(soldiers);
+        var unit = FindInactiveOrCreateUnit(soldiers, UnitKind.Soldier, MaxSoldierCount);
         if (unit == null)
         {
             return false;
@@ -2929,7 +2952,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool ReviveTankFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveUnit(tanks);
+        TankModelVariant tankModel = tanks.Count % 2 == 0 ? TankModelVariant.T55A : TankModelVariant.T55AK;
+        var unit = FindInactiveOrCreateUnit(tanks, UnitKind.Tank, MaxTankCount, tankModel);
         if (unit == null)
         {
             return false;
@@ -2943,9 +2967,26 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return true;
     }
 
+    private bool ReviveAircraftFromDanmu(DanmuCommand command)
+    {
+        var unit = FindInactiveOrCreateUnit(aircraft, UnitKind.Aircraft, MaxAircraftCount);
+        if (unit == null)
+        {
+            return false;
+        }
+
+        int lane = processedDanmuCommandCount % AirLanes.Length;
+        int rank = Mathf.Max(0, CountActive(aircraft) / AirLanes.Length);
+        float x = Left + 58f + Noise(processedDanmuCommandCount + 61f) * 64f;
+        float z = AirLanes[lane] + (Noise(processedDanmuCommandCount + 67f) - 0.5f) * 22f;
+        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 9f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
+        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.7f);
+        return true;
+    }
+
     private bool ReviveGiantFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveUnit(giants);
+        var unit = FindInactiveOrCreateUnit(giants, UnitKind.Giant, MaxGiantCount);
         if (unit == null)
         {
             return false;
@@ -2971,6 +3012,24 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return null;
+    }
+
+    private BattleUnit FindInactiveOrCreateUnit(List<BattleUnit> units, UnitKind kind, int maxCount, TankModelVariant tankModel = TankModelVariant.None)
+    {
+        var unit = FindInactiveUnit(units);
+        if (unit != null)
+        {
+            return unit;
+        }
+
+        if (units.Count >= maxCount)
+        {
+            return null;
+        }
+
+        unit = CreateUnitShell(kind, tankModel);
+        units.Add(unit);
+        return unit;
     }
 
     private void PrewarmBattlePools()

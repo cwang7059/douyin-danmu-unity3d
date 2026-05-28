@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    >
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>弹幕战手机控制台</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./renderer.js" defer></script>
+  </head>
+  <body>
+    <main class="phone">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Douyin Danmu Battle</p>
+          <h1>手机控制台</h1>
+        </div>
+        <div class="status-pill" data-status="offline">
+          <span class="status-dot"></span>
+          <span id="statusText">离线</span>
+        </div>
+      </header>
+
+      <section class="panel connection-panel">
+        <label class="field">
+          <span>网关</span>
+          <input id="gatewayUrl" type="url" value="http://127.0.0.1:8765" autocomplete="off">
+        </label>
+        <button id="healthButton" class="icon-button" type="button" aria-label="刷新连接">↻</button>
+      </section>
+
+      <section class="quantity-strip" aria-label="发送数量">
+        <button class="quantity active" type="button" data-quantity="1">1</button>
+        <button class="quantity" type="button" data-quantity="5">5</button>
+        <button class="quantity" type="button" data-quantity="10">10</button>
+      </section>
+
+      <section class="command-section">
+        <div class="section-title">
+          <span>人族增援</span>
+          <small>Blue Force</small>
+        </div>
+        <div class="action-grid">
+          <button class="action human" type="button" data-team="human" data-type="spawn" data-key="soldier" data-value="1">
+            <span class="action-code">INF</span>
+            <strong>士兵</strong>
+          </button>
+          <button class="action human" type="button" data-team="human" data-type="spawn" data-key="tank" data-value="1">
+            <span class="action-code">TNK</span>
+            <strong>坦克</strong>
+          </button>
+          <button class="action human accent" type="button" data-team="human" data-type="spawn" data-key="aircraft" data-value="1">
+            <span class="action-code">AIR</span>
+            <strong>直升机</strong>
+          </button>
+          <button class="action skill" type="button" data-team="human" data-type="skill" data-key="air_strike" data-value="100">
+            <span class="action-code">ATK</span>
+            <strong>空袭</strong>
+          </button>
+          <button class="action support" type="button" data-team="human" data-type="heal" data-key="medic" data-value="80">
+            <span class="action-code">HP</span>
+            <strong>治疗</strong>
+          </button>
+          <button class="action support" type="button" data-team="human" data-type="buff" data-key="focus_fire" data-value="60">
+            <span class="action-code">CD</span>
+            <strong>集火</strong>
+          </button>
+        </div>
+      </section>
+
+      <section class="command-section">
+        <div class="section-title">
+          <span>怪物控制</span>
+          <small>Monster Side</small>
+        </div>
+        <div class="action-grid">
+          <button class="action monster accent" type="button" data-team="orc" data-type="spawn" data-key="orc_grunt" data-value="1">
+            <span class="action-code">MON</span>
+            <strong>怪物</strong>
+          </button>
+          <button class="action monster" type="button" data-team="orc" data-type="skill" data-key="rage" data-value="100">
+            <span class="action-code">RAGE</span>
+            <strong>狂暴</strong>
+          </button>
+          <button class="action monster" type="button" data-team="orc" data-type="heal" data-key="heal" data-value="80">
+            <span class="action-code">HP</span>
+            <strong>回血</strong>
+          </button>
+          <button class="action monster" type="button" data-team="orc" data-type="buff" data-key="haste" data-value="60">
+            <span class="action-code">SPD</span>
+            <strong>加速</strong>
+          </button>
+        </div>
+      </section>
+
+      <section class="command-section gift-section">
+        <div class="section-title">
+          <span>礼物模拟</span>
+          <small>Gift</small>
+        </div>
+        <div class="gift-row">
+          <label class="field compact">
+            <span>价值</span>
+            <input id="giftValue" type="number" min="1" max="9999" value="120">
+          </label>
+          <button class="gift-button" type="button" data-gift="human">人族礼物</button>
+          <button class="gift-button monster-gift" type="button" data-gift="orc">怪物礼物</button>
+        </div>
+      </section>
+
+      <section class="log-panel" aria-label="发送记录">
+        <div class="section-title">
+          <span>记录</span>
+          <button id="clearLog" class="text-button" type="button">清空</button>
+        </div>
+        <ol id="logList"></ol>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "douyin-danmu-mobile-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unity local danmu gateway mobile-style control panel.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^42.3.0"
+  }
+}
