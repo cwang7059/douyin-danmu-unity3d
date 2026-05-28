@@ -127,6 +127,57 @@ public sealed class EffectManager : MonoBehaviour
                 ReturnToPool(pair.Key, CreateEffect(pair.Key, pair.Value));
             }
         }
+
+        PrewarmDefaultFallbacks();
+    }
+
+    private void PrewarmDefaultFallbacks()
+    {
+        EnsurePrewarmed(BattleEffectId.HumanSummon, 12);
+        EnsurePrewarmed(BattleEffectId.OrcSummon, 12);
+        EnsurePrewarmed(BattleEffectId.MuzzleRifle, 16);
+        EnsurePrewarmed(BattleEffectId.MuzzleTank, 8);
+        EnsurePrewarmed(BattleEffectId.MuzzleAircraft, 6);
+        EnsurePrewarmed(BattleEffectId.ShellLaunchSmoke, 8);
+        EnsurePrewarmed(BattleEffectId.BombDropTrail, 8);
+        EnsurePrewarmed(BattleEffectId.ShellImpactMonster, 8);
+        EnsurePrewarmed(BattleEffectId.ShellExplosionSmall, 8);
+        EnsurePrewarmed(BattleEffectId.BombExplosion, 6);
+        EnsurePrewarmed(BattleEffectId.MonsterHammerImpact, 6);
+        EnsurePrewarmed(BattleEffectId.MonsterShockwave, 6);
+        EnsurePrewarmed(BattleEffectId.SoldierDeath, 8);
+        EnsurePrewarmed(BattleEffectId.TankDeathExplosion, 4);
+        EnsurePrewarmed(BattleEffectId.AircraftDeathExplosion, 4);
+        EnsurePrewarmed(BattleEffectId.MonsterDeathExplosion, 4);
+        EnsurePrewarmed(BattleEffectId.MonsterDeathDust, 4);
+    }
+
+    private void EnsurePrewarmed(BattleEffectId id, int desiredCount)
+    {
+        if (id == BattleEffectId.None || desiredCount <= 0)
+        {
+            return;
+        }
+
+        Queue<PooledParticleEffect> queue;
+        if (!pools.TryGetValue(id, out queue))
+        {
+            queue = new Queue<PooledParticleEffect>();
+            pools[id] = queue;
+        }
+
+        EffectConfig config = GetConfig(id);
+        int maxCount = config != null ? Mathf.Max(1, config.maxCount) : desiredCount;
+        desiredCount = Mathf.Min(desiredCount, maxCount);
+        int missing = desiredCount - queue.Count;
+        for (int i = 0; i < missing; i++)
+        {
+            var effect = CreateEffect(id, config);
+            if (effect != null)
+            {
+                queue.Enqueue(effect);
+            }
+        }
     }
 
     private PooledParticleEffect GetOrCreate(BattleEffectId id, EffectConfig config)

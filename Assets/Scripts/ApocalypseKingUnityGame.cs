@@ -29,7 +29,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int PrewarmShellProjectiles = 28;
     private const int PrewarmBombProjectiles = 10;
     private const int PrewarmRockProjectiles = 10;
-    private const int PrewarmFallbackEffects = 24;
+    private const int PrewarmFallbackEffects = MaxEffects;
     private const bool ShowResolutionDebugControls = false;
     private const float TankT55AYawOffset = 0f;
     private const float TankT55AkYawOffset = 0f;
@@ -159,10 +159,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
     private readonly List<GameObject> giantVariantPrototypes = new List<GameObject>();
-    private readonly List<BattleUnit> soldiers = new List<BattleUnit>(SoldierCount);
-    private readonly List<BattleUnit> tanks = new List<BattleUnit>(TankCount);
-    private readonly List<BattleUnit> aircraft = new List<BattleUnit>(AircraftCount);
-    private readonly List<BattleUnit> giants = new List<BattleUnit>(GiantCount);
+    private readonly List<BattleUnit> soldiers = new List<BattleUnit>(MaxSoldierCount);
+    private readonly List<BattleUnit> tanks = new List<BattleUnit>(MaxTankCount);
+    private readonly List<BattleUnit> aircraft = new List<BattleUnit>(MaxAircraftCount);
+    private readonly List<BattleUnit> giants = new List<BattleUnit>(MaxGiantCount);
     private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
     private readonly List<RoadCorridor> roadCorridors = new List<RoadCorridor>();
     private readonly List<ProjectileView> projectiles = new List<ProjectileView>(MaxProjectiles);
@@ -1365,23 +1365,23 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         aircraft.Clear();
         giants.Clear();
 
-        for (int i = 0; i < SoldierCount; i++)
+        for (int i = 0; i < MaxSoldierCount; i++)
         {
             soldiers.Add(CreateUnitShell(UnitKind.Soldier));
         }
 
-        for (int i = 0; i < TankCount; i++)
+        for (int i = 0; i < MaxTankCount; i++)
         {
-            TankModelVariant tankModel = i < TankT55ACount ? TankModelVariant.T55A : TankModelVariant.T55AK;
+            TankModelVariant tankModel = i < TankT55ACount || (i >= TankCount && i % 2 == 0) ? TankModelVariant.T55A : TankModelVariant.T55AK;
             tanks.Add(CreateUnitShell(UnitKind.Tank, tankModel));
         }
 
-        for (int i = 0; i < AircraftCount; i++)
+        for (int i = 0; i < MaxAircraftCount; i++)
         {
             aircraft.Add(CreateUnitShell(UnitKind.Aircraft));
         }
 
-        for (int i = 0; i < GiantCount; i++)
+        for (int i = 0; i < MaxGiantCount; i++)
         {
             giants.Add(CreateUnitShell(UnitKind.Giant));
         }
@@ -2845,7 +2845,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             deathVisuals[i].active = false;
         }
 
-        ResetUnitState(soldiers, SoldierLanes, 1);
+        ResetUnitState(soldiers, SoldierLanes, 1, SoldierCount);
         ResetTanks();
         ResetAircraft();
         ResetGiants();
@@ -2853,11 +2853,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         ShowBanner("Battle start", false, 1.8f);
     }
 
-    private void ResetUnitState(List<BattleUnit> units, float[] lanes, int facing)
+    private void ResetUnitState(List<BattleUnit> units, float[] lanes, int facing, int activeCount)
     {
         for (int i = 0; i < units.Count; i++)
         {
             var unit = units[i];
+            if (i >= activeCount)
+            {
+                DeactivatePooledUnit(unit);
+                continue;
+            }
+
             int lane = i % lanes.Length;
             int rank = i / lanes.Length;
             float x = Left + 190f + rank * 38f + Noise(i + 3f) * 5f;
@@ -2870,6 +2876,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         for (int i = 0; i < tanks.Count; i++)
         {
+            if (i >= TankCount)
+            {
+                DeactivatePooledUnit(tanks[i]);
+                continue;
+            }
+
             int lane = i % TankLanes.Length;
             int rank = i / TankLanes.Length;
             float x = Left + 40f + rank * 94f;
@@ -2882,6 +2894,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         for (int i = 0; i < aircraft.Count; i++)
         {
+            if (i >= AircraftCount)
+            {
+                DeactivatePooledUnit(aircraft[i]);
+                continue;
+            }
+
             float x = Left + 52f + i * 126f;
             float z = AirLanes[i % AirLanes.Length];
             ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 9f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
@@ -2892,6 +2910,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         for (int i = 0; i < giants.Count; i++)
         {
+            if (i >= GiantCount)
+            {
+                DeactivatePooledUnit(giants[i]);
+                continue;
+            }
+
             int lane = i % 5;
             int rank = i / 5;
             float x = Right + 72f + rank * 120f;
@@ -2933,9 +2957,29 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         PlayUnitAnimation(unit, false);
     }
 
+    private void DeactivatePooledUnit(BattleUnit unit)
+    {
+        if (unit == null)
+        {
+            return;
+        }
+
+        unit.active = false;
+        unit.hp = 0f;
+        unit.maxHp = 0f;
+        unit.attackVisualTimer = 0f;
+        unit.hitFlashTimer = 0f;
+        unit.attackCooldown = 0f;
+        unit.moveSpeed = 0f;
+        if (unit.root != null)
+        {
+            unit.root.SetActive(false);
+        }
+    }
+
     private bool ReviveSoldierFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveOrCreateUnit(soldiers, UnitKind.Soldier, MaxSoldierCount);
+        var unit = FindInactiveUnit(soldiers);
         if (unit == null)
         {
             return false;
@@ -2952,8 +2996,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool ReviveTankFromDanmu(DanmuCommand command)
     {
-        TankModelVariant tankModel = tanks.Count % 2 == 0 ? TankModelVariant.T55A : TankModelVariant.T55AK;
-        var unit = FindInactiveOrCreateUnit(tanks, UnitKind.Tank, MaxTankCount, tankModel);
+        var unit = FindInactiveUnit(tanks);
         if (unit == null)
         {
             return false;
@@ -2969,7 +3012,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool ReviveAircraftFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveOrCreateUnit(aircraft, UnitKind.Aircraft, MaxAircraftCount);
+        var unit = FindInactiveUnit(aircraft);
         if (unit == null)
         {
             return false;
@@ -2986,7 +3029,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool ReviveGiantFromDanmu(DanmuCommand command)
     {
-        var unit = FindInactiveOrCreateUnit(giants, UnitKind.Giant, MaxGiantCount);
+        var unit = FindInactiveUnit(giants);
         if (unit == null)
         {
             return false;
@@ -3012,24 +3055,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return null;
-    }
-
-    private BattleUnit FindInactiveOrCreateUnit(List<BattleUnit> units, UnitKind kind, int maxCount, TankModelVariant tankModel = TankModelVariant.None)
-    {
-        var unit = FindInactiveUnit(units);
-        if (unit != null)
-        {
-            return unit;
-        }
-
-        if (units.Count >= maxCount)
-        {
-            return null;
-        }
-
-        unit = CreateUnitShell(kind, tankModel);
-        units.Add(unit);
-        return unit;
     }
 
     private void PrewarmBattlePools()
@@ -5888,7 +5913,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < giants.Count; i++)
         {
             var unit = giants[i];
-            if (unit != null && unit.active)
+            if (unit != null && unit.maxHp > 0f)
             {
                 total += Mathf.Max(0f, unit.hp);
             }
@@ -5903,7 +5928,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < giants.Count; i++)
         {
             var unit = giants[i];
-            if (unit != null)
+            if (unit != null && unit.maxHp > 0f)
             {
                 total += Mathf.Max(0f, unit.maxHp);
             }
@@ -5918,7 +5943,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         int tankAlive = CountActive(tanks);
         int airAlive = CountActive(aircraft);
         int humanAlive = soldierAlive + tankAlive + airAlive;
-        int humanTotal = SoldierCount + TankCount + AircraftCount;
+        int humanTotal = MaxSoldierCount + MaxTankCount + MaxAircraftCount;
         int giantAlive = CountActive(giants);
         float giantHp = Mathf.Ceil(GetGiantHpTotal());
         float giantMax = GetGiantMaxHpTotal();
@@ -5954,7 +5979,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         humanLabel.text = $"Force {humanAlive}/{humanTotal}  Tanks {tankAlive}";
-        giantLabel.text = $"Boss {giantAlive}/{GiantCount} HP {giantHp:0}";
+        giantLabel.text = $"Boss {giantAlive}/{MaxGiantCount} HP {giantHp:0}";
 
         if (statusLabel != null)
         {
@@ -6001,11 +6026,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         switch (index)
         {
             case 0:
-                return $"Barrage: blue force focus fire  soldiers {soldierAlive}/{SoldierCount}";
+                return $"Barrage: blue force focus fire  soldiers {soldierAlive}/{MaxSoldierCount}";
             case 1:
-                return $"Barrage: tank line spacing stable  {tankAlive}/{TankCount} online";
+                return $"Barrage: tank line spacing stable  {tankAlive}/{MaxTankCount} online";
             case 2:
-                return $"Barrage: air support suppressing  helicopters {airAlive}/{AircraftCount}";
+                return $"Barrage: air support suppressing  helicopters {airAlive}/{MaxAircraftCount}";
             case 3:
                 return $"Barrage: boss HP {giantHp:0}  breach contested";
             default:
