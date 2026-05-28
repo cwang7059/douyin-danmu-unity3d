@@ -677,12 +677,20 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateVillagePaths()
     {
-        var mainRoad = CreateBattlefieldBlock("VillageDirtRoad_Main", ToWorldPoint(0f, -42f, 0.025f), new Vector3(20.6f, 0.06f, 4.7f), RoadColor);
+        var mainRoad = CreateBattlefieldBlock("VillageDirtRoad_MainStreet", ToWorldPoint(0f, -184f, 0.026f), new Vector3(21.4f, 0.06f, 3.7f), RoadColor);
         mainRoad.transform.localRotation = Quaternion.Euler(0f, -3f, 0f);
 
-        var crossRoad = CreateBattlefieldBlock("VillageDirtRoad_Cross", ToWorldPoint(48f, 104f, 0.035f), new Vector3(4.1f, 0.055f, 18.4f), new Color(0.36f, 0.27f, 0.17f, 1f));
+        var tankRoad = CreateBattlefieldBlock("VillageDirtRoad_HeavyTrack", ToWorldPoint(-120f, -486f, 0.028f), new Vector3(13.4f, 0.055f, 2.45f), new Color(0.27f, 0.21f, 0.14f, 1f));
+        tankRoad.transform.localRotation = Quaternion.Euler(0f, 2f, 0f);
+
+        var plaza = CreateBattlefieldBlock("VillageMarketPlaza", ToWorldPoint(34f, -52f, 0.034f), new Vector3(6.8f, 0.052f, 5.2f), new Color(0.38f, 0.30f, 0.20f, 1f));
+        plaza.transform.localRotation = Quaternion.Euler(0f, 4f, 0f);
+
+        var crossRoad = CreateBattlefieldBlock("VillageDirtRoad_CrossStreet", ToWorldPoint(58f, 92f, 0.036f), new Vector3(4.2f, 0.055f, 17.7f), new Color(0.34f, 0.26f, 0.17f, 1f));
         crossRoad.transform.localRotation = Quaternion.Euler(0f, 8f, 0f);
 
+        var monsterEntry = CreateBattlefieldBlock("VillageDirtRoad_MonsterGate", ToWorldPoint(282f, -250f, 0.032f), new Vector3(5.8f, 0.055f, 3.1f), new Color(0.30f, 0.22f, 0.15f, 1f));
+        monsterEntry.transform.localRotation = Quaternion.Euler(0f, -8f, 0f);
     }
 
     private void CreateMedievalVillage()
@@ -697,15 +705,15 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreatePrimitiveMedievalVillage()
     {
-        CreateVillageCottage("VillageForge", -224f, -30f, 92f, 76f, 1.00f, new Color(0.50f, 0.36f, 0.23f, 1f), new Color(0.24f, 0.12f, 0.08f, 1f), -7f);
-        CreateVillageCottage("VillageTavern", -102f, -214f, 108f, 84f, 1.12f, new Color(0.54f, 0.40f, 0.26f, 1f), new Color(0.31f, 0.15f, 0.08f, 1f), 5f);
-        CreateVillageCottage("VillageHouseNorth", -76f, 218f, 96f, 78f, 0.96f, new Color(0.57f, 0.43f, 0.29f, 1f), new Color(0.33f, 0.17f, 0.09f, 1f), -12f);
-        CreateVillageCottage("VillageStable", 78f, 322f, 132f, 82f, 0.86f, new Color(0.42f, 0.30f, 0.18f, 1f), new Color(0.28f, 0.14f, 0.07f, 1f), 9f);
-        CreateVillageCottage("VillageBarn", 150f, 176f, 120f, 94f, 1.10f, new Color(0.49f, 0.30f, 0.18f, 1f), new Color(0.24f, 0.10f, 0.06f, 1f), -8f);
-        CreateVillageCottage("VillageGranary", 278f, 296f, 90f, 70f, 1.26f, new Color(0.58f, 0.45f, 0.28f, 1f), new Color(0.35f, 0.20f, 0.10f, 1f), 13f);
+        CreateVillageCottage("VillageForge", -248f, -58f, 92f, 76f, 1.00f, new Color(0.50f, 0.36f, 0.23f, 1f), new Color(0.24f, 0.12f, 0.08f, 1f), -9f);
+        CreateVillageCottage("VillageTavern", -116f, 96f, 108f, 84f, 1.12f, new Color(0.54f, 0.40f, 0.26f, 1f), new Color(0.31f, 0.15f, 0.08f, 1f), 8f);
+        CreateVillageCottage("VillageHouseNorth", -86f, 318f, 96f, 78f, 0.96f, new Color(0.57f, 0.43f, 0.29f, 1f), new Color(0.33f, 0.17f, 0.09f, 1f), -12f);
+        CreateVillageCottage("VillageStable", 112f, 330f, 132f, 82f, 0.86f, new Color(0.42f, 0.30f, 0.18f, 1f), new Color(0.28f, 0.14f, 0.07f, 1f), 10f);
+        CreateVillageCottage("VillageBarn", 196f, 126f, 120f, 94f, 1.10f, new Color(0.49f, 0.30f, 0.18f, 1f), new Color(0.24f, 0.10f, 0.06f, 1f), -10f);
+        CreateVillageCottage("VillageGranary", 294f, 298f, 90f, 70f, 1.26f, new Color(0.58f, 0.45f, 0.28f, 1f), new Color(0.35f, 0.20f, 0.10f, 1f), 13f);
 
-        CreateVillageTower("VillageChapel", 220f, -118f, 82f, 112f, 2.05f, new Color(0.55f, 0.50f, 0.42f, 1f), new Color(0.22f, 0.16f, 0.13f, 1f), 4f);
-        CreateVillageWell(44f, 42f);
+        CreateVillageTower("VillageChapel", 222f, -332f, 82f, 112f, 2.05f, new Color(0.55f, 0.50f, 0.42f, 1f), new Color(0.22f, 0.16f, 0.13f, 1f), 4f);
+        CreateVillageWell(34f, -52f);
         CreateMarketStalls();
         CreateVillageFences();
     }
@@ -718,14 +726,14 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        CreateMegaKitHouse("VillageForge", -224f, -30f, 104f, 84f, -7f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
-        CreateMegaKitHouse("VillageTavern", -102f, -214f, 132f, 92f, 5f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, true);
-        CreateMegaKitHouse("VillageHouseNorth", -76f, 218f, 108f, 88f, -12f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, false);
-        CreateMegaKitHouse("VillageStable", 78f, 322f, 148f, 92f, 9f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, false);
-        CreateMegaKitHouse("VillageBarn", 150f, 176f, 148f, 122f, -8f, true, 3, 3, "Roof_RoundTiles_6x6", 0.54f, true);
-        CreateMegaKitHouse("VillageGranary", 278f, 296f, 104f, 84f, 13f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
-        CreateMegaKitHouse("VillageGatehouse", 292f, -18f, 112f, 86f, -10f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
-        CreateMegaKitTower("VillageChapel", 220f, -118f, 92f, 112f, 4f, 0.48f);
+        CreateMegaKitHouse("VillageForge", -248f, -58f, 104f, 84f, -9f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitHouse("VillageTavern", -116f, 96f, 132f, 92f, 8f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, true);
+        CreateMegaKitHouse("VillageHouseNorth", -86f, 318f, 108f, 88f, -12f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, false);
+        CreateMegaKitHouse("VillageStable", 112f, 330f, 148f, 92f, 10f, false, 3, 2, "Roof_RoundTiles_6x4", 0.52f, false);
+        CreateMegaKitHouse("VillageBarn", 196f, 126f, 148f, 122f, -10f, true, 3, 3, "Roof_RoundTiles_6x6", 0.54f, true);
+        CreateMegaKitHouse("VillageGranary", 294f, 298f, 104f, 84f, 13f, false, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitHouse("VillageGatehouse", 294f, -98f, 112f, 86f, -12f, true, 2, 2, "Roof_RoundTiles_4x4", 0.50f, true);
+        CreateMegaKitTower("VillageChapel", 222f, -332f, 92f, 112f, 4f, 0.48f);
         CreateMegaKitMarketProps();
         CreateMegaKitFenceProps();
         return true;
@@ -861,11 +869,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateMegaKitMarketProps()
     {
-        CreateMegaKitPlacedProp("Prop_Wagon", -4f, 142f, -18f, 0.46f);
-        CreateMegaKitPlacedProp("Prop_Crate", 28f, 144f, 16f, 0.48f);
-        CreateMegaKitPlacedProp("Prop_Crate", 58f, 174f, -9f, 0.48f);
-        CreateMegaKitPlacedProp("Balcony_Cross_Straight", -34f, 176f, 7f, 0.38f);
-        CreateMegaKitPlacedProp("Prop_MetalFence_Ornament", 88f, 134f, 92f, 0.40f);
+        CreateMegaKitPlacedProp("Prop_Wagon", -34f, 28f, -18f, 0.46f);
+        CreateMegaKitPlacedProp("Prop_Crate", 18f, 36f, 16f, 0.48f);
+        CreateMegaKitPlacedProp("Prop_Crate", 72f, 18f, -9f, 0.48f);
+        CreateMegaKitPlacedProp("Balcony_Cross_Straight", -58f, 158f, 7f, 0.38f);
+        CreateMegaKitPlacedProp("Prop_MetalFence_Ornament", 118f, 46f, 92f, 0.40f);
     }
 
     private void CreateMegaKitFenceProps()
@@ -1008,8 +1016,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         Color clothRed = new Color(0.55f, 0.20f, 0.15f, 1f);
         for (int i = 0; i < 4; i++)
         {
-            float x = -22f + i * 33f;
-            float z = 138f + (i % 2) * 36f;
+            float x = -44f + i * 36f;
+            float z = 24f + (i % 2) * 40f;
             var table = CreateBattlefieldBlock($"VillageMarketTable_{i}", ToWorldPoint(x, z, 0.22f), new Vector3(0.76f, 0.18f, 0.44f), new Color(0.33f, 0.19f, 0.09f, 1f));
             table.transform.localRotation = Quaternion.Euler(0f, -18f + i * 9f, 0f);
 
