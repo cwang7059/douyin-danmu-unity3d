@@ -403,7 +403,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             DamageGiantsInArea(center.x, center.y, 290f, 330f);
-            SpawnEffect(center.x, center.y, 2.8f, EffectKind.Fireball, 0.34f);
             ShowBanner("Danmu air strike", true, 1.1f);
             return;
         }
@@ -3543,7 +3542,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         float impactX = Mathf.Min(giant.x - 62f, target.x + 16f);
         float impactZ = target.z;
-        SpawnEffect(impactX, impactZ + 24f, 1.75f, EffectKind.Fireball, 0.32f);
+        PlayBattleEffect(BattleEffectId.MonsterHammerImpact, impactX, impactZ + 24f, 0.18f, 1.45f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ + 24f, 0.08f, 1.1f, Quaternion.identity);
         ApplyAreaDamageToHumans(impactX, impactZ, 162f, giant.damage, true, 44f);
         ShowBanner("Giant smash", true, 0.95f);
     }

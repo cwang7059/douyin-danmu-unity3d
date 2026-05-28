@@ -12,6 +12,11 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureExplosionKenney = VfxSelectedPath + "explosion_kenney";
     private const string TextureExplosionFireball = VfxSelectedPath + "explosion_fireball";
     private const string TextureExplosionBomb = VfxSelectedPath + "explosion_bomb";
+    private const string TextureExplosionSinestesiaSmall = VfxSelectedPath + "explosion_sinestesia_small";
+    private const string TextureExplosionSinestesiaLarge = VfxSelectedPath + "explosion_sinestesia_large";
+    private const string TextureExplosionSinestesiaBomb = VfxSelectedPath + "explosion_sinestesia_bomb";
+    private const string TextureImpactSinestesiaHit = VfxSelectedPath + "impact_sinestesia_hit";
+    private const string TextureImpactSinestesiaSlash = VfxSelectedPath + "impact_sinestesia_slash";
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
 
     [SerializeField] private EffectConfig[] configs;
@@ -223,7 +228,7 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "BombTrailSmoke", 0.72f, 0.38f, 0.88f, 0.18f, 0.7f, 0.16f, 0.34f, 10, new Color(0.70f, 0.72f, 0.70f, 0.48f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitMetal:
-                AddBurst(root, "BulletSparks", 0.22f, 0.12f, 0.28f, 3.6f, 7.5f, 0.055f, 0.12f, 12, new Color(1f, 0.88f, 0.34f, 1f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.05f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "BulletImpactFlash", 0.24f, 0.18f, 0.24f, 0.02f, 0.12f, 0.34f, 0.52f, 2, Color.white, new Color(1f, 0.22f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.06f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaSlash);
                 AddBurst(root, "BulletDust", 0.34f, 0.16f, 0.36f, 0.3f, 1.2f, 0.08f, 0.18f, 8, new Color(0.55f, 0.51f, 0.42f, 0.5f), new Color(0.24f, 0.22f, 0.18f, 0f), ParticleSystemShapeType.Sphere, 0.07f, 0f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitDirt:
@@ -232,7 +237,7 @@ public sealed class EffectManager : MonoBehaviour
                 break;
             case BattleEffectId.ShellExplosionSmall:
             case BattleEffectId.ExplosionSmall:
-                AddExplosion(root, 0.72f, 16, 18, 1.0f, TextureExplosionKenney);
+                AddExplosion(root, 0.72f, 16, 18, 1.0f, TextureExplosionSinestesiaSmall);
                 break;
             case BattleEffectId.ShellExplosionLarge:
             case BattleEffectId.BombExplosion:
@@ -248,7 +253,7 @@ public sealed class EffectManager : MonoBehaviour
                 break;
             case BattleEffectId.MonsterHammerImpact:
                 AddBurst(root, "HammerDebris", 0.72f, 0.34f, 0.82f, 2.0f, 5.0f, 0.12f, 0.30f, 28, new Color(0.68f, 0.58f, 0.42f, 0.9f), new Color(0.22f, 0.18f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.22f, 0f, -0.16f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
-                AddBurst(root, "HammerSparks", 0.28f, 0.12f, 0.24f, 3.0f, 7.2f, 0.075f, 0.16f, 15, new Color(1f, 0.74f, 0.26f, 1f), new Color(1f, 0.12f, 0.04f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.15f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "HammerImpactFlash", 0.34f, 0.22f, 0.34f, 0.04f, 0.16f, 0.70f, 1.05f, 2, Color.white, new Color(1f, 0.22f, 0.06f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.08f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaHit);
                 AddShockwave(root, 20, 1.1f, new Color(1f, 0.74f, 0.34f, 0.58f));
                 break;
             case BattleEffectId.MonsterStompDust:
@@ -259,10 +264,10 @@ public sealed class EffectManager : MonoBehaviour
                 AddShockwave(root, 36, 1.35f, new Color(1f, 0.88f, 0.50f, 0.48f));
                 break;
             case BattleEffectId.ClawHit:
-                AddBurst(root, "ClawSlash", 0.36f, 0.12f, 0.28f, 1.5f, 4.5f, 0.12f, 0.24f, 14, new Color(1f, 0.24f, 0.12f, 0.92f), new Color(0.40f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.1f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "ClawSlash", 0.32f, 0.20f, 0.32f, 0.02f, 0.12f, 0.56f, 0.84f, 2, Color.white, new Color(1f, 0.18f, 0.06f, 0f), ParticleSystemShapeType.Hemisphere, 0.08f, 0f, 0.06f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaSlash);
                 break;
             case BattleEffectId.MonsterDeathExplosion:
-                AddExplosion(root, 1.25f, 26, 36, 1.45f, TextureExplosionFireball);
+                AddExplosion(root, 1.25f, 26, 36, 1.45f, TextureExplosionSinestesiaBomb);
                 break;
             case BattleEffectId.MonsterDeathDust:
                 AddBurst(root, "MonsterDeathDust", 1.6f, 0.8f, 1.8f, 1.5f, 4.6f, 0.44f, 1.08f, 72, new Color(0.48f, 0.40f, 0.30f, 0.72f), new Color(0.18f, 0.15f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.48f, 0f, -0.28f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
@@ -283,7 +288,8 @@ public sealed class EffectManager : MonoBehaviour
 
     private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
     {
-        AddBurst(root, "ExplosionFire", duration, 0.18f, 0.42f, 2.2f * scale, 5.4f * scale, 0.44f * scale, 0.96f * scale, fireCount, Color.white, new Color(1f, 0.30f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.26f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, fireTextureResourcePath);
+        int animatedFireCount = Mathf.Clamp(Mathf.CeilToInt(fireCount / 12f), 1, 3);
+        AddBurst(root, "ExplosionFire", duration, 0.34f, 0.58f, 0.05f * scale, 0.28f * scale, 0.95f * scale, 1.45f * scale, animatedFireCount, Color.white, new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.12f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, fireTextureResourcePath);
         AddBurst(root, "ExplosionSmoke", duration + 1.2f, 0.8f, 1.85f, 0.8f * scale, 2.2f * scale, 0.36f * scale, 0.92f * scale, Mathf.Max(18, fireCount), new Color(0.34f, 0.32f, 0.28f, 0.78f), new Color(0.10f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Hemisphere, 0.34f * scale, 0f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
         AddBurst(root, "ExplosionDebris", duration, 0.28f, 0.75f, 2.6f * scale, 7.0f * scale, 0.07f * scale, 0.18f * scale, debrisCount, new Color(0.58f, 0.46f, 0.32f, 0.95f), new Color(0.18f, 0.13f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.28f * scale, 0f, -0.30f, ParticleSystemRenderMode.Stretch);
         AddShockwave(root, Mathf.RoundToInt(24 * scale), 1.0f * scale, new Color(1f, 0.70f, 0.28f, 0.42f));
@@ -366,10 +372,10 @@ public sealed class EffectManager : MonoBehaviour
             || id == BattleEffectId.AircraftDeathExplosion
             || id == BattleEffectId.AirCrashExplosion)
         {
-            return TextureExplosionBomb;
+            return TextureExplosionSinestesiaBomb;
         }
 
-        return TextureExplosionFireball;
+        return TextureExplosionSinestesiaLarge;
     }
 
     private static Material GetParticleMaterial(string textureResourcePath, ParticleSystemRenderMode renderMode)
@@ -478,9 +484,20 @@ public sealed class EffectManager : MonoBehaviour
 
     private static bool TryGetTextureSheetTiles(string textureResourcePath, out int tilesX, out int tilesY)
     {
+        if (textureResourcePath == TextureExplosionSinestesiaSmall
+            || textureResourcePath == TextureExplosionSinestesiaLarge
+            || textureResourcePath == TextureExplosionSinestesiaBomb)
+        {
+            tilesX = 8;
+            tilesY = 8;
+            return true;
+        }
+
         if (textureResourcePath == TextureExplosionFireball
             || textureResourcePath == TextureExplosionBomb
-            || textureResourcePath == TextureShockwaveRing)
+            || textureResourcePath == TextureShockwaveRing
+            || textureResourcePath == TextureImpactSinestesiaHit
+            || textureResourcePath == TextureImpactSinestesiaSlash)
         {
             tilesX = 4;
             tilesY = 4;
