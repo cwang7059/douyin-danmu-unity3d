@@ -4,6 +4,7 @@ using UnityEngine;
 public sealed class EffectManager : MonoBehaviour
 {
     private const string VfxSelectedPath = "VFX/Online/Selected/";
+    private const string ShaderRuntimeUnlitTint = "RuntimeMaterials/RuntimeUnlitTint";
     private const string TextureSmokeBlack = VfxSelectedPath + "smoke_black";
     private const string TextureSmokeWhite = VfxSelectedPath + "smoke_white";
     private const string TextureFlashKenney = VfxSelectedPath + "flash_kenney";
@@ -394,29 +395,28 @@ public sealed class EffectManager : MonoBehaviour
 
     private static Material GetParticleMaterial(string textureResourcePath, ParticleSystemRenderMode renderMode)
     {
-        if (string.IsNullOrEmpty(textureResourcePath))
-        {
-            return null;
-        }
-
-        string cacheKey = textureResourcePath + "|" + renderMode;
+        string cacheKey = (string.IsNullOrEmpty(textureResourcePath) ? "__solid" : textureResourcePath) + "|" + renderMode;
         Material material;
         if (particleMaterialCache.TryGetValue(cacheKey, out material))
         {
             return material;
         }
 
-        var texture = Resources.Load<Texture2D>(textureResourcePath);
-        if (texture == null)
+        Texture2D texture = null;
+        if (!string.IsNullOrEmpty(textureResourcePath))
         {
-            Debug.LogWarning($"VFX texture not found in Resources: {textureResourcePath}");
-            return null;
+            texture = Resources.Load<Texture2D>(textureResourcePath);
+            if (texture == null)
+            {
+                Debug.LogWarning($"VFX texture not found in Resources: {textureResourcePath}");
+                return null;
+            }
         }
 
-        Material baseMaterial = Resources.GetBuiltinResource<Material>("Default-Particle.mat");
-        if (baseMaterial != null)
+        Shader tintShader = Resources.Load<Shader>(ShaderRuntimeUnlitTint) ?? Shader.Find("ApocalypseKing/UnlitTint");
+        if (tintShader != null)
         {
-            material = new Material(baseMaterial);
+            material = new Material(tintShader);
         }
         else
         {
@@ -432,10 +432,10 @@ public sealed class EffectManager : MonoBehaviour
             material = new Material(shader);
         }
 
-        material.name = "VFX_" + texture.name;
+        material.name = texture != null ? "VFX_" + texture.name : "VFX_Solid";
         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
-        if (material.HasProperty("_MainTex"))
+        if (texture != null && material.HasProperty("_MainTex"))
         {
             material.SetTexture("_MainTex", texture);
         }

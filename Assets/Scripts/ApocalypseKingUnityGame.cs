@@ -36,7 +36,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private static readonly string[] GiantResourceVariantModelPaths =
     {
-        GiantResourceFolderPath + "/MushroomKing",
         GiantResourceFolderPath + "/Orc",
         GiantResourceFolderPath + "/Yeti",
         GiantResourceFolderPath + "/Dino",
@@ -3272,7 +3271,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             float muzzleZ = unit.z + aim.y * 20f;
             PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzleX, muzzleZ, 0.92f, 0.82f, RotationFromDirection(aim));
             PlayBattleAudio(BattleAudioCueId.RifleShot, muzzleX, muzzleZ, 0.92f);
-            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzleX, muzzleZ, 0.95f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(0.85f, 0.96f, 1f, 1f));
+            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzleX, muzzleZ, 0.95f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
             return;
         }
 
@@ -3698,7 +3697,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         line.numCornerVertices = 2;
         line.startWidth = kind == ProjectileKind.Bullet ? 0.03f : 0.08f;
         line.endWidth = kind == ProjectileKind.Bullet ? 0.03f : 0.06f;
-        line.material = GetUnlitMaterial(color);
+        line.material = GetOpaqueMaterial(color);
         line.startColor = color;
         line.endColor = color;
 
@@ -3729,9 +3728,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             float endWidth = kind == ProjectileKind.Bullet ? 0.03f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
             projectile.line.startWidth = startWidth;
             projectile.line.endWidth = endWidth;
-            projectile.line.material = GetUnlitMaterial(color);
+            projectile.line.material = GetOpaqueMaterial(color);
             projectile.line.startColor = color;
-            projectile.line.endColor = new Color(color.r, color.g, color.b, Mathf.Clamp01(color.a * 0.55f));
+            projectile.line.endColor = color;
         }
 
         if (projectile.head != null)
@@ -5352,7 +5351,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return material;
         }
 
-        Shader shader = FindRuntimeShader("RuntimeMaterials/RuntimeUnlit", "Sprites/Default", "Unlit/Color", "Standard");
+        Shader shader = FindRuntimeShader("RuntimeMaterials/RuntimeUnlitTint", "ApocalypseKing/UnlitTint", "Unlit/Color", "Sprites/Default", "Standard");
 
         material = new Material(shader);
         material.color = color;
@@ -5363,6 +5362,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private Shader FindRuntimeShader(string resourceMaterialPath, params string[] shaderNames)
     {
+        var resourceShader = Resources.Load<Shader>(resourceMaterialPath);
+        if (resourceShader != null)
+        {
+            return resourceShader;
+        }
+
         var resourceMaterial = Resources.Load<Material>(resourceMaterialPath);
         if (resourceMaterial != null && resourceMaterial.shader != null)
         {
