@@ -1408,7 +1408,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             giantConfig.Kind = UnitKind.Giant;
             giantConfig.MaxHp = 2600f;
             giantConfig.Damage = 42f;
-            giantConfig.MoveSpeed = 25f;
+            giantConfig.MoveSpeed = 42f;
             giantConfig.Radius = 82f;
             giantConfig.AttackRange = 126f;
             giantConfig.AttackInterval = 1.12f;
@@ -2888,6 +2888,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         unit.hp = hp;
         unit.maxHp = hp;
         unit.damage = damage;
+        unit.baseSpeed = speed;
         unit.speed = speed;
         unit.radius = radius;
         unit.attackRange = range;
@@ -2953,7 +2954,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         int lane = processedDanmuCommandCount % 5;
         float x = Right + 88f + Noise(processedDanmuCommandCount + 71f) * 36f;
         float z = -460f + lane * 230f + (Noise(processedDanmuCommandCount + 83f) - 0.5f) * 34f;
-        ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 3f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
+        ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 5f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
         PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 2.0f);
         return true;
@@ -3936,8 +3937,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         var chaseTarget = FindNearestHuman(giant, true);
         var contactTarget = FindGiantContactTarget(giant);
         var engagementTarget = contactTarget ?? FindGiantEngagementTarget(giant);
-        float rage = giant.hp / giant.maxHp < 0.45f ? 1.18f : 1f;
-        float baseGiantSpeed = giantConfig != null ? giantConfig.MoveSpeed : Mathf.Max(1f, giant.speed);
+        float rage = giant.hp / giant.maxHp < 0.45f ? 1.22f : 1f;
+        float configuredSpeed = giantConfig != null ? giantConfig.MoveSpeed : 42f;
+        float baseGiantSpeed = Mathf.Max(configuredSpeed, giant.baseSpeed);
         giant.speed = baseGiantSpeed * rage;
         float previousX = giant.x;
         float previousZ = giant.z;
@@ -5234,7 +5236,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             case UnitKind.Soldier:
                 return Mathf.Lerp(5.8f, 10.8f, moveFactor);
             case UnitKind.Giant:
-                return Mathf.Lerp(2.2f, 4.1f, moveFactor);
+                return Mathf.Lerp(3.0f, 5.8f, moveFactor);
             case UnitKind.Tank:
                 return Mathf.Lerp(2.2f, 6.0f, moveFactor);
             default:
@@ -5522,21 +5524,21 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking)
     {
+        bool moving = unit.moveSpeed > 1f;
+        if (moving)
+        {
+            bool running = unit.moveSpeed > unit.speed * 1.02f;
+            return running
+                ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
+                : FindAnimatorClip(unit, "Walk", "Run", "Idle");
+        }
+
         if (attacking)
         {
-            return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "HitReact", "Idle");
+            return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "Idle");
         }
 
-        bool moving = unit.moveSpeed > 1f;
-        if (!moving)
-        {
-            return FindAnimatorClip(unit, "Idle", "Walk", "Run");
-        }
-
-        bool running = unit.moveSpeed > unit.speed * 1.08f;
-        return running
-            ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
-            : FindAnimatorClip(unit, "Walk", "Run", "Idle");
+        return FindAnimatorClip(unit, "Idle", "Walk", "Run");
     }
 
     private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
@@ -5590,7 +5592,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.kind == UnitKind.Giant)
         {
-            return Mathf.Clamp(normalizedSpeed, 0.7f, 1.3f);
+            return Mathf.Clamp(normalizedSpeed, 0.95f, 1.55f);
         }
 
         if (clip.name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -6902,6 +6904,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public float hp;
         public float maxHp;
         public float damage;
+        public float baseSpeed;
         public float speed;
         public float radius;
         public float attackRange;
