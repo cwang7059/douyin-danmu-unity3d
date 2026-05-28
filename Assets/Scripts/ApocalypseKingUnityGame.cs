@@ -2810,6 +2810,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             UpdateTankAiming(unit, target, dt);
         }
+        else if (unit.kind == UnitKind.Soldier)
+        {
+            UpdateSoldierAiming(unit, target, dt);
+        }
 
         float dx = target.x - unit.x;
         float dz = target.z - unit.z;
@@ -2918,6 +2922,20 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.turretYawDegrees);
         unit.turretYawDegrees = Mathf.LerpAngle(unit.turretYawDegrees, aimYaw, Mathf.Clamp01(dt * 7.2f));
+    }
+
+    private void UpdateSoldierAiming(BattleUnit unit, BattleUnit target, float dt)
+    {
+        if (unit == null || target == null)
+        {
+            return;
+        }
+
+        float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.headingDegrees);
+        float turnRate = unit.attackVisualTimer > 0f ? 13f : 8.5f;
+        unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, Mathf.Clamp01(dt * turnRate));
+        unit.turretYawDegrees = unit.headingDegrees;
+        unit.facing = DirectionFromYaw(unit.headingDegrees).x >= 0f ? 1 : -1;
     }
 
     private void ResolveUnitOverlaps()
@@ -3046,8 +3064,23 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         float stepZ = dz / steps;
         for (int i = 0; i < steps; i++)
         {
-            unit.x += stepX;
-            unit.z += stepZ;
+            float nextX = unit.x + stepX;
+            float nextZ = unit.z + stepZ;
+            if (WouldOverlapBuilding(unit, nextX, nextZ, BuildingAvoidanceRadius(unit)))
+            {
+                bool movedOnX = TryMoveUnitAroundBuilding(unit, nextX, unit.z);
+                bool movedOnZ = TryMoveUnitAroundBuilding(unit, unit.x, nextZ);
+                if (!movedOnX && !movedOnZ)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                unit.x = nextX;
+                unit.z = nextZ;
+            }
+
             ClampUnitPosition(unit);
         }
     }
@@ -3087,13 +3120,69 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         Vector2 roadTarget;
         if (TryGetRoadBypassTarget(unit, from, best, target, radius, out roadTarget))
         {
-            return roadTarget;
+            if (!SegmentIntersectsAnyBuilding(from, roadTarget, radius * 0.85f))
+            {
+                return roadTarget;
+            }
+
+            return BuildBuildingBypassTarget(unit, from, best, roadTarget, radius);
         }
 
-        float side = BuildingBypassSide(unit, best, target);
-        float expandedZ = best.HalfZ + best.Padding + radius + 18f;
-        target.y = best.CenterZ + side * expandedZ;
-        return target;
+        return BuildBuildingBypassTarget(unit, from, best, target, radius);
+    }
+
+    private bool TryMoveUnitAroundBuilding(BattleUnit unit, float candidateX, float candidateZ)
+    {
+        float radius = BuildingAvoidanceRadius(unit);
+        if (WouldOverlapBuilding(unit, candidateX, candidateZ, radius))
+        {
+            return false;
+        }
+
+        unit.x = candidateX;
+        unit.z = candidateZ;
+        return true;
+    }
+
+    private Vector2 BuildBuildingBypassTarget(BattleUnit unit, Vector2 from, BuildingObstacle obstacle, Vector2 target, float radius)
+    {
+        float extraClearance = unit.kind == UnitKind.Giant ? 34f : unit.kind == UnitKind.Tank ? 24f : 18f;
+        float sideZ = BuildingBypassSide(unit, obstacle, target);
+        float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius + extraClearance * 0.35f;
+        float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius + extraClearance;
+        float bypassZ = obstacle.CenterZ + sideZ * expandedHalfZ;
+
+        float sideX = Mathf.Abs(from.x - obstacle.CenterX) > 3f
+            ? Mathf.Sign(from.x - obstacle.CenterX)
+            : Mathf.Sign(target.x - obstacle.CenterX);
+        if (Mathf.Abs(sideX) < 0.1f)
+        {
+            sideX = unit.facing >= 0 ? -1f : 1f;
+        }
+
+        if (Mathf.Abs(from.y - bypassZ) > 8f)
+        {
+            float safeX = Mathf.Abs(from.x - obstacle.CenterX) < expandedHalfX + 4f
+                ? obstacle.CenterX + sideX * expandedHalfX
+                : from.x;
+            return new Vector2(safeX, bypassZ);
+        }
+
+        return new Vector2(target.x, bypassZ);
+    }
+
+    private bool SegmentIntersectsAnyBuilding(Vector2 from, Vector2 target, float radius)
+    {
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            float t;
+            if (SegmentIntersectsBuilding(from, target, buildingObstacles[i], radius, out t))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool TryGetRoadBypassTarget(BattleUnit unit, Vector2 from, BuildingObstacle obstacle, Vector2 target, float radius, out Vector2 roadTarget)
@@ -3295,6 +3384,28 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private bool WouldOverlapBuilding(BattleUnit unit, float x, float z, float radius)
+    {
+        if (!AvoidsBuildings(unit) || buildingObstacles.Count == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            var obstacle = buildingObstacles[i];
+            float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
+            float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
+            if (Mathf.Abs(x - obstacle.CenterX) < expandedHalfX
+                && Mathf.Abs(z - obstacle.CenterZ) < expandedHalfZ)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool ResolvePair(BattleUnit first, BattleUnit second, float padding)
     {
         if (first == null || second == null || !first.active || !second.active || first == second)
@@ -3414,11 +3525,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.kind == UnitKind.Soldier)
         {
-            float muzzleX = unit.x + aim.x * 20f;
-            float muzzleZ = unit.z + aim.y * 20f;
-            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzleX, muzzleZ, 0.92f, 0.82f, RotationFromDirection(aim));
-            PlayBattleAudio(BattleAudioCueId.RifleShot, muzzleX, muzzleZ, 0.92f);
-            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzleX, muzzleZ, 0.95f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
+            Vector2 muzzleAim = DirectionFromYaw(unit.turretYawDegrees);
+            Vector2 muzzle = SoldierMuzzlePoint(unit, muzzleAim);
+            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 1.08f, RotationFromDirection(muzzleAim));
+            PlayBattleAudio(BattleAudioCueId.RifleShot, muzzle.x, muzzle.y, 1.02f);
+            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzle.x, muzzle.y, 1.05f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
             return;
         }
 
@@ -4304,7 +4415,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         visual.root.SetActive(true);
         visual.root.transform.position = ToWorldPoint(unit.x, unit.z, unit.kind == UnitKind.Aircraft ? 2.25f : 0.04f);
 
-        float yaw = unit.kind == UnitKind.Tank || unit.kind == UnitKind.Giant ? unit.headingDegrees : unit.facing < 0 ? -90f : 90f;
+        float yaw = unit.kind == UnitKind.Soldier || unit.kind == UnitKind.Tank || unit.kind == UnitKind.Giant ? unit.headingDegrees : unit.facing < 0 ? -90f : 90f;
         switch (unit.kind)
         {
             case UnitKind.Soldier:
@@ -4727,7 +4838,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool UsesDynamicHeading(UnitKind kind)
     {
-        return kind == UnitKind.Tank || kind == UnitKind.Giant;
+        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Giant;
     }
 
     private float DefaultHeadingYaw(UnitKind kind)
@@ -6075,6 +6186,21 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         float radians = yawDegrees * Mathf.Deg2Rad;
         return new Vector2(Mathf.Sin(radians), Mathf.Cos(radians));
+    }
+
+    private Vector2 SoldierMuzzlePoint(BattleUnit unit, Vector2 direction)
+    {
+        if (direction.sqrMagnitude <= 0.0001f)
+        {
+            direction = DirectionFromYaw(unit.headingDegrees);
+        }
+
+        direction.Normalize();
+        Vector2 side = new Vector2(direction.y, -direction.x);
+        float shoulderOffset = unit.rank % 2 == 0 ? 3.2f : -3.2f;
+        return new Vector2(
+            unit.x + direction.x * 25f + side.x * shoulderOffset,
+            unit.z + direction.y * 25f + side.y * shoulderOffset);
     }
 
     private Vector2 TankMuzzlePoint(BattleUnit unit)

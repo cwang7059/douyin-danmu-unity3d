@@ -206,9 +206,10 @@ public sealed class EffectManager : MonoBehaviour
         switch (id)
         {
             case BattleEffectId.MuzzleRifle:
-                AddBurst(root, "RifleFlash", 0.08f, 0.045f, 0.09f, 2.8f, 5.2f, 0.14f, 0.26f, 3, Color.white, new Color(1f, 0.35f, 0.08f, 0f), ParticleSystemShapeType.Cone, 0.035f, 13f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleRifle);
+                AddBurst(root, "RifleFlashCore", 0.10f, 0.045f, 0.10f, 3.2f, 6.4f, 0.24f, 0.42f, 2, Color.white, new Color(1f, 0.42f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.035f, 9f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleRifle);
+                AddBurst(root, "RifleFlashSparks", 0.18f, 0.055f, 0.18f, 5.6f, 9.2f, 0.035f, 0.075f, 7, new Color(1f, 0.82f, 0.24f, 1f), new Color(1f, 0.20f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.04f, 17f, 0.03f, ParticleSystemRenderMode.Stretch);
                 AddBurst(root, "RifleSmoke", 0.35f, 0.18f, 0.36f, 0.35f, 0.95f, 0.08f, 0.20f, 7, new Color(0.62f, 0.64f, 0.62f, 0.65f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.055f, 11f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
-                AddPointLight(root, "RifleFlashLight", new Color(1f, 0.78f, 0.38f, 1f), 1.5f, 3f);
+                AddPointLight(root, "RifleFlashLight", new Color(1f, 0.74f, 0.30f, 1f), 2.2f, 4.2f);
                 break;
             case BattleEffectId.MuzzleTank:
                 AddBurst(root, "TankFlash", 0.16f, 0.06f, 0.13f, 4.5f, 7.8f, 0.48f, 0.86f, 4, Color.white, new Color(1f, 0.25f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.12f, 16f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleTank);
