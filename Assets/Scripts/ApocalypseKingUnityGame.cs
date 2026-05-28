@@ -21,6 +21,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
+    private const bool ShowResolutionDebugControls = false;
     private const float TankT55AYawOffset = 0f;
     private const float TankT55AkYawOffset = 0f;
     private const string SoldierResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
@@ -111,6 +112,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private float cameraShakeAmplitude;
 
     private Canvas canvas;
+    private Canvas staticHudCanvas;
+    private Canvas dynamicHudCanvas;
+    private RectTransform staticHudRoot;
     private RectTransform hudRoot;
     private Font uiFont;
     private Image loadingPanel;
@@ -129,6 +133,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private Text statusLabel;
     private Button[] resolutionButtons;
     private Image[] resolutionButtonImages;
+    private Image resolutionStrip;
     private Image hpFill;
     private Image humanPowerFill;
     private Image monsterPowerFill;
@@ -509,87 +514,91 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         uiFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        var canvasObject = new GameObject("HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        canvasObject.transform.SetParent(transform, false);
-        canvas = canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        staticHudCanvas = CreateHudCanvas("HUD_Static", 0, ShowResolutionDebugControls);
+        dynamicHudCanvas = CreateHudCanvas("HUD_Dynamic", 1, true);
+        canvas = dynamicHudCanvas;
 
-        var scaler = canvasObject.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(720f, 1280f);
-        scaler.matchWidthOrHeight = 0.55f;
+        var staticHudRootObject = new GameObject("StaticHudRoot", typeof(RectTransform));
+        staticHudRootObject.transform.SetParent(staticHudCanvas.transform, false);
+        staticHudRoot = staticHudRootObject.GetComponent<RectTransform>();
 
         var hudRootObject = new GameObject("HudRoot", typeof(RectTransform));
-        hudRootObject.transform.SetParent(canvas.transform, false);
+        hudRootObject.transform.SetParent(dynamicHudCanvas.transform, false);
         hudRoot = hudRootObject.GetComponent<RectTransform>();
         ApplySafeArea();
 
-        var topPanel = CreatePanel(hudRoot, "TopPanel", new Color(0.03f, 0.035f, 0.045f, 0.88f));
+        var topPanel = CreatePanel(staticHudRoot, "TopPanel", new Color(0.03f, 0.035f, 0.045f, 0.88f));
         SetAnchors(topPanel.rectTransform, 0.035f, 0.89f, 0.965f, 0.992f);
 
-        leftTeamLabel = CreateText(topPanel.transform, "LeftTeamLabel", "BLUE FORCE", 15, HumanColor, TextAnchor.MiddleLeft);
+        var topDynamicRoot = CreateRectRoot(hudRoot, "TopDynamicRoot");
+        SetAnchors(topDynamicRoot, 0.035f, 0.89f, 0.965f, 0.992f);
+
+        leftTeamLabel = CreateText(topDynamicRoot, "LeftTeamLabel", "BLUE FORCE", 15, HumanColor, TextAnchor.MiddleLeft);
         SetAnchors(leftTeamLabel.rectTransform, 0.03f, 0.66f, 0.25f, 0.93f);
         ConfigureTextFit(leftTeamLabel, 10, 15);
 
-        rightTeamLabel = CreateText(topPanel.transform, "RightTeamLabel", "MONSTER", 15, GiantColor, TextAnchor.MiddleRight);
+        rightTeamLabel = CreateText(topDynamicRoot, "RightTeamLabel", "MONSTER", 15, GiantColor, TextAnchor.MiddleRight);
         SetAnchors(rightTeamLabel.rectTransform, 0.75f, 0.66f, 0.97f, 0.93f);
         ConfigureTextFit(rightTeamLabel, 10, 15);
 
-        battlePhaseLabel = CreateText(topPanel.transform, "BattlePhaseLabel", "LIVE BARRAGE WAR", 12, new Color(0.78f, 0.82f, 0.86f, 1f), TextAnchor.MiddleCenter);
+        battlePhaseLabel = CreateText(topDynamicRoot, "BattlePhaseLabel", "LIVE BARRAGE WAR", 12, new Color(0.78f, 0.82f, 0.86f, 1f), TextAnchor.MiddleCenter);
         SetAnchors(battlePhaseLabel.rectTransform, 0.30f, 0.72f, 0.70f, 0.94f);
         ConfigureTextFit(battlePhaseLabel, 9, 12);
 
-        poolLabel = CreateText(topPanel.transform, "PoolLabel", "POINT POOL 000,000", 24, new Color(1f, 0.85f, 0.34f, 1f), TextAnchor.MiddleCenter);
+        poolLabel = CreateText(topDynamicRoot, "PoolLabel", "POINT POOL 000,000", 24, new Color(1f, 0.85f, 0.34f, 1f), TextAnchor.MiddleCenter);
         SetAnchors(poolLabel.rectTransform, 0.24f, 0.42f, 0.76f, 0.80f);
         ConfigureTextFit(poolLabel, 16, 24);
 
-        timerLabel = CreateText(topPanel.transform, "TimerLabel", "03:00", 18, Color.white, TextAnchor.MiddleCenter);
+        timerLabel = CreateText(topDynamicRoot, "TimerLabel", "03:00", 18, Color.white, TextAnchor.MiddleCenter);
         SetAnchors(timerLabel.rectTransform, 0.40f, 0.18f, 0.60f, 0.46f);
         ConfigureTextFit(timerLabel, 13, 18);
 
         var humanPowerBack = CreatePanel(topPanel.transform, "HumanPowerBack", new Color(0.06f, 0.12f, 0.18f, 1f));
         SetAnchors(humanPowerBack.rectTransform, 0.03f, 0.03f, 0.47f, 0.17f);
 
-        humanPowerFill = CreatePanel(humanPowerBack.transform, "HumanPowerFill", new Color(0.24f, 0.70f, 1f, 1f));
+        humanPowerFill = CreatePanel(topDynamicRoot, "HumanPowerFill", new Color(0.24f, 0.70f, 1f, 1f));
         humanPowerFill.type = Image.Type.Filled;
         humanPowerFill.fillMethod = Image.FillMethod.Horizontal;
         humanPowerFill.fillOrigin = 0;
-        SetAnchors(humanPowerFill.rectTransform, 0f, 0f, 1f, 1f);
+        SetAnchors(humanPowerFill.rectTransform, 0.03f, 0.03f, 0.47f, 0.17f);
 
         var monsterPowerBack = CreatePanel(topPanel.transform, "MonsterPowerBack", new Color(0.18f, 0.08f, 0.07f, 1f));
         SetAnchors(monsterPowerBack.rectTransform, 0.53f, 0.03f, 0.97f, 0.17f);
 
-        monsterPowerFill = CreatePanel(monsterPowerBack.transform, "MonsterPowerFill", GiantColor);
+        monsterPowerFill = CreatePanel(topDynamicRoot, "MonsterPowerFill", GiantColor);
         monsterPowerFill.type = Image.Type.Filled;
         monsterPowerFill.fillMethod = Image.FillMethod.Horizontal;
         monsterPowerFill.fillOrigin = 1;
-        SetAnchors(monsterPowerFill.rectTransform, 0f, 0f, 1f, 1f);
+        SetAnchors(monsterPowerFill.rectTransform, 0.53f, 0.03f, 0.97f, 0.17f);
         hpFill = monsterPowerFill;
 
-        humanLabel = CreateText(topPanel.transform, "HumanLabel", "Force 0/0", 12, Color.white, TextAnchor.MiddleLeft);
+        humanLabel = CreateText(topDynamicRoot, "HumanLabel", "Force 0/0", 12, Color.white, TextAnchor.MiddleLeft);
         SetAnchors(humanLabel.rectTransform, 0.03f, 0.18f, 0.34f, 0.36f);
         ConfigureTextFit(humanLabel, 9, 12);
 
-        giantLabel = CreateText(topPanel.transform, "GiantLabel", "Boss HP 0", 12, Color.white, TextAnchor.MiddleRight);
+        giantLabel = CreateText(topDynamicRoot, "GiantLabel", "Boss HP 0", 12, Color.white, TextAnchor.MiddleRight);
         SetAnchors(giantLabel.rectTransform, 0.66f, 0.18f, 0.97f, 0.36f);
         ConfigureTextFit(giantLabel, 9, 12);
 
-        var bottomPanel = CreatePanel(hudRoot, "LiveBottomPanel", new Color(0.025f, 0.03f, 0.04f, 0.84f));
+        var bottomPanel = CreatePanel(staticHudRoot, "LiveBottomPanel", new Color(0.025f, 0.03f, 0.04f, 0.84f));
         SetAnchors(bottomPanel.rectTransform, 0.035f, 0.050f, 0.965f, 0.158f);
 
-        bottomTickerLabel = CreateText(bottomPanel.transform, "BottomTickerLabel", "Barrage connected", 14, new Color(0.94f, 0.97f, 1f, 1f), TextAnchor.MiddleLeft);
+        var bottomDynamicRoot = CreateRectRoot(hudRoot, "BottomDynamicRoot");
+        SetAnchors(bottomDynamicRoot, 0.035f, 0.050f, 0.965f, 0.158f);
+
+        bottomTickerLabel = CreateText(bottomDynamicRoot, "BottomTickerLabel", "Barrage connected", 14, new Color(0.94f, 0.97f, 1f, 1f), TextAnchor.MiddleLeft);
         SetAnchors(bottomTickerLabel.rectTransform, 0.03f, 0.56f, 0.72f, 0.88f);
         ConfigureTextFit(bottomTickerLabel, 10, 14);
 
-        giftFeedLabel = CreateText(bottomPanel.transform, "GiftFeedLabel", "Gift heat 0", 13, new Color(1f, 0.83f, 0.38f, 1f), TextAnchor.MiddleLeft);
+        giftFeedLabel = CreateText(bottomDynamicRoot, "GiftFeedLabel", "Gift heat 0", 13, new Color(1f, 0.83f, 0.38f, 1f), TextAnchor.MiddleLeft);
         SetAnchors(giftFeedLabel.rectTransform, 0.03f, 0.24f, 0.62f, 0.56f);
         ConfigureTextFit(giftFeedLabel, 9, 13);
 
-        statusLabel = CreateText(bottomPanel.transform, "StatusLabel", "Ready", 12, new Color(0.70f, 0.78f, 0.84f, 1f), TextAnchor.MiddleLeft);
+        statusLabel = CreateText(bottomDynamicRoot, "StatusLabel", "Ready", 12, new Color(0.70f, 0.78f, 0.84f, 1f), TextAnchor.MiddleLeft);
         SetAnchors(statusLabel.rectTransform, 0.03f, 0.04f, 0.62f, 0.26f);
         ConfigureTextFit(statusLabel, 8, 12);
 
-        skillCountdownLabel = CreateText(bottomPanel.transform, "SkillCountdownLabel", "Skill CD 00s", 14, new Color(0.78f, 1f, 0.82f, 1f), TextAnchor.MiddleRight);
+        skillCountdownLabel = CreateText(bottomDynamicRoot, "SkillCountdownLabel", "Skill CD 00s", 14, new Color(0.78f, 1f, 0.82f, 1f), TextAnchor.MiddleRight);
         SetAnchors(skillCountdownLabel.rectTransform, 0.66f, 0.18f, 0.97f, 0.84f);
         ConfigureTextFit(skillCountdownLabel, 10, 14);
 
@@ -5580,7 +5589,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void ApplySafeArea()
     {
-        if (hudRoot == null)
+        if (hudRoot == null && staticHudRoot == null)
         {
             return;
         }
@@ -5601,15 +5610,13 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         max.x /= Screen.width;
         max.y /= Screen.height;
 
-        hudRoot.anchorMin = min;
-        hudRoot.anchorMax = max;
-        hudRoot.offsetMin = Vector2.zero;
-        hudRoot.offsetMax = Vector2.zero;
+        ApplySafeAreaToRoot(staticHudRoot, min, max);
+        ApplySafeAreaToRoot(hudRoot, min, max);
     }
 
     private void UpdateSafeAreaIfNeeded()
     {
-        if (hudRoot == null)
+        if (hudRoot == null && staticHudRoot == null)
         {
             return;
         }
@@ -5620,10 +5627,23 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private static void ApplySafeAreaToRoot(RectTransform root, Vector2 min, Vector2 max)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        root.anchorMin = min;
+        root.anchorMax = max;
+        root.offsetMin = Vector2.zero;
+        root.offsetMax = Vector2.zero;
+    }
+
     private void CreateResolutionControls()
     {
-        var strip = CreatePanel(hudRoot, "ResolutionStrip", new Color(0.03f, 0.04f, 0.05f, 0.82f));
-        SetAnchors(strip.rectTransform, 0.035f, 0.006f, 0.965f, 0.046f);
+        resolutionStrip = CreatePanel(staticHudRoot, "ResolutionStrip", new Color(0.03f, 0.04f, 0.05f, 0.82f));
+        SetAnchors(resolutionStrip.rectTransform, 0.035f, 0.006f, 0.965f, 0.046f);
 
         resolutionButtons = new Button[ResolutionPresets.Length];
         resolutionButtonImages = new Image[ResolutionPresets.Length];
@@ -5635,12 +5655,14 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             float minX = 0.01f + i * (buttonWidth + gap);
             float maxX = minX + buttonWidth;
-            var button = CreateResolutionButton(strip.transform, $"Resolution_{i}", ResolutionPresets[i].Label, minX, maxX);
+            var button = CreateResolutionButton(resolutionStrip.transform, $"Resolution_{i}", ResolutionPresets[i].Label, minX, maxX);
             int index = i;
             button.onClick.AddListener(() => ApplyResolutionPreset(index));
             resolutionButtons[i] = button;
             resolutionButtonImages[i] = button.GetComponent<Image>();
         }
+
+        resolutionStrip.gameObject.SetActive(ShowResolutionDebugControls);
     }
 
     private Button CreateResolutionButton(Transform parent, string name, string text, float minX, float maxX)
@@ -5700,6 +5722,39 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                     : new Color(0.12f, 0.16f, 0.2f, 0.96f);
             }
         }
+    }
+
+    private Canvas CreateHudCanvas(string name, int sortingOrder, bool raycaster)
+    {
+        var canvasObject = new GameObject(name, typeof(Canvas), typeof(CanvasScaler));
+        canvasObject.transform.SetParent(transform, false);
+
+        var hudCanvas = canvasObject.GetComponent<Canvas>();
+        hudCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        hudCanvas.overrideSorting = true;
+        hudCanvas.sortingOrder = sortingOrder;
+
+        var scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(720f, 1280f);
+        scaler.matchWidthOrHeight = 0.55f;
+
+        if (raycaster)
+        {
+            canvasObject.AddComponent<GraphicRaycaster>();
+        }
+
+        return hudCanvas;
+    }
+
+    private RectTransform CreateRectRoot(Transform parent, string name)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rect = go.GetComponent<RectTransform>();
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        return rect;
     }
 
     private Image CreatePanel(Transform parent, string name, Color color)
