@@ -3824,9 +3824,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
             if (shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rocket || shot.kind == ProjectileKind.Bomb)
             {
-                BattleEffectId impact = shot.kind == ProjectileKind.Bomb ? BattleEffectId.BombExplosion : BattleEffectId.ShellExplosionLarge;
+                BattleEffectId impact = shot.kind == ProjectileKind.Bomb ? BattleEffectId.BombExplosion : BattleEffectId.ShellImpactMonster;
                 float scale = shot.kind == ProjectileKind.Bomb ? 1.7f : shot.kind == ProjectileKind.Rocket ? 1.55f : 1.25f;
-                PlayBattleEffect(impact, shot.toX, shot.toZ, 0.18f, scale, Quaternion.identity);
+                float impactHeight = shot.kind == ProjectileKind.Bomb ? 0.18f : 1.72f;
+                PlayBattleEffect(impact, shot.toX, shot.toZ, impactHeight, scale, Quaternion.identity);
                 PlayBattleAudio(shot.kind == ProjectileKind.Bomb ? BattleAudioCueId.ExplosionLarge : BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.2f);
                 TriggerCameraShake(shot.kind == ProjectileKind.Bomb ? 0.18f : 0.12f, shot.kind == ProjectileKind.Bomb ? 0.11f : 0.07f);
             }

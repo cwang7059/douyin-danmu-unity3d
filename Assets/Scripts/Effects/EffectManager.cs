@@ -17,6 +17,7 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureExplosionSinestesiaBomb = VfxSelectedPath + "explosion_sinestesia_bomb";
     private const string TextureImpactSinestesiaHit = VfxSelectedPath + "impact_sinestesia_hit";
     private const string TextureImpactSinestesiaSlash = VfxSelectedPath + "impact_sinestesia_slash";
+    private const string TextureImpactInguzMonsterShell = VfxSelectedPath + "impact_inguz_monster_shell";
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
 
     [SerializeField] private EffectConfig[] configs;
@@ -239,6 +240,9 @@ public sealed class EffectManager : MonoBehaviour
             case BattleEffectId.ExplosionSmall:
                 AddExplosion(root, 0.72f, 16, 18, 1.0f, TextureExplosionSinestesiaSmall);
                 break;
+            case BattleEffectId.ShellImpactMonster:
+                AddMonsterShellImpact(root);
+                break;
             case BattleEffectId.ShellExplosionLarge:
             case BattleEffectId.BombExplosion:
             case BattleEffectId.TankDeathExplosion:
@@ -284,6 +288,16 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "FallbackBurst", IsLargeEffect(id) ? 0.9f : 0.45f, IsSmokeLike(id) ? 0.7f : 0.25f, IsSmokeLike(id) ? 1.2f : 0.45f, IsLargeEffect(id) ? 3.5f : 1.4f, IsLargeEffect(id) ? 7f : 3.5f, IsLargeEffect(id) ? 0.32f : 0.16f, IsLargeEffect(id) ? 0.62f : 0.28f, IsLargeEffect(id) ? 42 : 16, FallbackColor(id), new Color(0.36f, 0.36f, 0.36f, 0f), ParticleSystemShapeType.Sphere, IsLargeEffect(id) ? 0.55f : 0.18f, 0f, IsSmokeLike(id) ? -0.1f : 0f);
                 break;
         }
+    }
+
+    private static void AddMonsterShellImpact(Transform root)
+    {
+        AddBurst(root, "MonsterShellImpactCore", 0.82f, 0.46f, 0.74f, 0.02f, 0.18f, 1.25f, 1.9f, 2, Color.white, new Color(0.20f, 0.94f, 1f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.02f, ParticleSystemRenderMode.Billboard, TextureImpactInguzMonsterShell);
+        AddBurst(root, "MonsterShellImpactGlow", 0.56f, 0.22f, 0.42f, 0.08f, 0.36f, 0.72f, 1.2f, 2, new Color(1f, 0.86f, 0.35f, 0.86f), new Color(0.18f, 0.88f, 1f, 0f), ParticleSystemShapeType.Sphere, 0.12f, 0f, -0.02f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+        AddBurst(root, "MonsterShellImpactSmoke", 1.35f, 0.55f, 1.25f, 0.32f, 1.4f, 0.32f, 0.86f, 20, new Color(0.30f, 0.32f, 0.34f, 0.62f), new Color(0.04f, 0.07f, 0.08f, 0f), ParticleSystemShapeType.Sphere, 0.18f, 0f, -0.24f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+        AddBurst(root, "MonsterShellImpactDebris", 0.58f, 0.20f, 0.52f, 2.8f, 7.5f, 0.08f, 0.18f, 22, new Color(0.96f, 0.78f, 0.36f, 0.95f), new Color(0.05f, 0.88f, 1f, 0f), ParticleSystemShapeType.Sphere, 0.24f, 0f, -0.18f, ParticleSystemRenderMode.Stretch);
+        AddShockwave(root, 30, 1.18f, new Color(0.18f, 0.92f, 1f, 0.52f));
+        AddPointLight(root, "MonsterShellImpactLight", new Color(0.36f, 0.94f, 1f, 1f), 6.8f, 9.5f);
     }
 
     private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
@@ -486,7 +500,8 @@ public sealed class EffectManager : MonoBehaviour
     {
         if (textureResourcePath == TextureExplosionSinestesiaSmall
             || textureResourcePath == TextureExplosionSinestesiaLarge
-            || textureResourcePath == TextureExplosionSinestesiaBomb)
+            || textureResourcePath == TextureExplosionSinestesiaBomb
+            || textureResourcePath == TextureImpactInguzMonsterShell)
         {
             tilesX = 8;
             tilesY = 8;
@@ -533,6 +548,7 @@ public sealed class EffectManager : MonoBehaviour
     {
         return id == BattleEffectId.ExplosionLarge
             || id == BattleEffectId.ShellExplosionLarge
+            || id == BattleEffectId.ShellImpactMonster
             || id == BattleEffectId.BombExplosion
             || id == BattleEffectId.TankDeathExplosion
             || id == BattleEffectId.AircraftDeathExplosion

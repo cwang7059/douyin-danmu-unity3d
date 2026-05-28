@@ -17,6 +17,7 @@ public enum BattleEffectId
     ShellLaunchSmoke,
     ShellExplosionSmall,
     ShellExplosionLarge,
+    ShellImpactMonster,
     BombDropTrail,
     BombExplosion,
     AirCrashExplosion,
