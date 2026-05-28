@@ -4,6 +4,14 @@
 
 ## 启动
 
+项目根目录双击：
+
+```powershell
+.\start-control-panel.bat
+```
+
+或手动启动：
+
 ```powershell
 cd tools/control-panel
 npm install
