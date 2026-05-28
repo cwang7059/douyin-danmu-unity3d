@@ -8,3 +8,4 @@
 - 源素材路径：`Assets/DownloadedAssets/VFX/Online/OpenGameArtInguzImpact/impact08_0.png`
 - 运行时精选贴图：`Assets/Resources/VFX/Online/Selected/impact_inguz_monster_shell.png`
 - 用途：坦克炮弹/火箭命中怪物身体时的专用金蓝冲击爆炸特效。
+- 2026-05-28 更新：同一金蓝冲击贴图也替换了原先偏紫红的 `impact_sinestesia_hit.png`、`impact_sinestesia_slash.png` 运行时贴图，用于锤击、爪击和子弹命中闪光。

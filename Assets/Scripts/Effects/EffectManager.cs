@@ -15,8 +15,6 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureExplosionSinestesiaSmall = VfxSelectedPath + "explosion_sinestesia_small";
     private const string TextureExplosionSinestesiaLarge = VfxSelectedPath + "explosion_sinestesia_large";
     private const string TextureExplosionSinestesiaBomb = VfxSelectedPath + "explosion_sinestesia_bomb";
-    private const string TextureImpactSinestesiaHit = VfxSelectedPath + "impact_sinestesia_hit";
-    private const string TextureImpactSinestesiaSlash = VfxSelectedPath + "impact_sinestesia_slash";
     private const string TextureImpactInguzMonsterShell = VfxSelectedPath + "impact_inguz_monster_shell";
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
 
@@ -229,7 +227,7 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "BombTrailSmoke", 0.72f, 0.38f, 0.88f, 0.18f, 0.7f, 0.16f, 0.34f, 10, new Color(0.70f, 0.72f, 0.70f, 0.48f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitMetal:
-                AddBurst(root, "BulletImpactFlash", 0.24f, 0.18f, 0.24f, 0.02f, 0.12f, 0.34f, 0.52f, 2, Color.white, new Color(1f, 0.22f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.06f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaSlash);
+                AddBurst(root, "BulletImpactFlash", 0.24f, 0.18f, 0.24f, 0.02f, 0.12f, 0.30f, 0.48f, 1, Color.white, new Color(0.18f, 0.92f, 1f, 0f), ParticleSystemShapeType.Hemisphere, 0.06f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureImpactInguzMonsterShell);
                 AddBurst(root, "BulletDust", 0.34f, 0.16f, 0.36f, 0.3f, 1.2f, 0.08f, 0.18f, 8, new Color(0.55f, 0.51f, 0.42f, 0.5f), new Color(0.24f, 0.22f, 0.18f, 0f), ParticleSystemShapeType.Sphere, 0.07f, 0f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitDirt:
@@ -257,7 +255,7 @@ public sealed class EffectManager : MonoBehaviour
                 break;
             case BattleEffectId.MonsterHammerImpact:
                 AddBurst(root, "HammerDebris", 0.72f, 0.34f, 0.82f, 2.0f, 5.0f, 0.12f, 0.30f, 28, new Color(0.68f, 0.58f, 0.42f, 0.9f), new Color(0.22f, 0.18f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.22f, 0f, -0.16f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
-                AddBurst(root, "HammerImpactFlash", 0.34f, 0.22f, 0.34f, 0.04f, 0.16f, 0.70f, 1.05f, 2, Color.white, new Color(1f, 0.22f, 0.06f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.08f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaHit);
+                AddBurst(root, "HammerImpactFlash", 0.42f, 0.28f, 0.42f, 0.04f, 0.16f, 0.82f, 1.18f, 2, Color.white, new Color(0.18f, 0.92f, 1f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.08f, ParticleSystemRenderMode.Billboard, TextureImpactInguzMonsterShell);
                 AddShockwave(root, 20, 1.1f, new Color(1f, 0.74f, 0.34f, 0.58f));
                 break;
             case BattleEffectId.MonsterStompDust:
@@ -268,7 +266,7 @@ public sealed class EffectManager : MonoBehaviour
                 AddShockwave(root, 36, 1.35f, new Color(1f, 0.88f, 0.50f, 0.48f));
                 break;
             case BattleEffectId.ClawHit:
-                AddBurst(root, "ClawSlash", 0.32f, 0.20f, 0.32f, 0.02f, 0.12f, 0.56f, 0.84f, 2, Color.white, new Color(1f, 0.18f, 0.06f, 0f), ParticleSystemShapeType.Hemisphere, 0.08f, 0f, 0.06f, ParticleSystemRenderMode.Billboard, TextureImpactSinestesiaSlash);
+                AddBurst(root, "ClawImpactFlash", 0.34f, 0.22f, 0.34f, 0.02f, 0.12f, 0.62f, 0.92f, 1, Color.white, new Color(0.18f, 0.92f, 1f, 0f), ParticleSystemShapeType.Hemisphere, 0.08f, 0f, 0.06f, ParticleSystemRenderMode.Billboard, TextureImpactInguzMonsterShell);
                 break;
             case BattleEffectId.MonsterDeathExplosion:
                 AddExplosion(root, 1.25f, 26, 36, 1.45f, TextureExplosionSinestesiaBomb);
@@ -510,9 +508,7 @@ public sealed class EffectManager : MonoBehaviour
 
         if (textureResourcePath == TextureExplosionFireball
             || textureResourcePath == TextureExplosionBomb
-            || textureResourcePath == TextureShockwaveRing
-            || textureResourcePath == TextureImpactSinestesiaHit
-            || textureResourcePath == TextureImpactSinestesiaSlash)
+            || textureResourcePath == TextureShockwaveRing)
         {
             tilesX = 4;
             tilesY = 4;
