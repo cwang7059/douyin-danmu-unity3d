@@ -39,6 +39,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const string GiantResourceFolderPath = "Quaternius/UltimateMonsters";
     private const string GiantResourceModelPath = GiantResourceFolderPath + "/BlueDemon";
     private const string MedievalVillageResourceFolderPath = "Quaternius/MedievalVillageMegaKit";
+    private const string EnvironmentResourceFolderPath = "Environment/Online";
+    private const string GrassTextureResourcePath = EnvironmentResourceFolderPath + "/grass_meadow";
+    private const string CoastSandTextureResourcePath = EnvironmentResourceFolderPath + "/coast_sand";
+    private const string SunsetSkyboxResourcePath = EnvironmentResourceFolderPath + "/cape_hill_sunset";
 
     private static readonly string[] GiantResourceVariantModelPaths =
     {
@@ -463,8 +467,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         var cameraObject = new GameObject("Main Camera");
         cameraObject.tag = "MainCamera";
         mainCamera = cameraObject.AddComponent<Camera>();
-        mainCamera.clearFlags = CameraClearFlags.SolidColor;
-        mainCamera.backgroundColor = BackgroundColor;
+        mainCamera.clearFlags = CameraClearFlags.Skybox;
+        mainCamera.backgroundColor = new Color(0.78f, 0.55f, 0.38f, 1f);
         mainCamera.nearClipPlane = 0.1f;
         mainCamera.farClipPlane = 180f;
         mainCamera.fieldOfView = 31f;
@@ -487,19 +491,20 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         orbitCamera.target = cameraTarget;
 
         var lightObject = new GameObject("Sun Light");
-        lightObject.transform.rotation = Quaternion.Euler(58f, -47f, 0f);
+        lightObject.transform.rotation = Quaternion.Euler(38f, -62f, 0f);
         var light = lightObject.AddComponent<Light>();
         light.type = LightType.Directional;
-        light.color = new Color(1f, 0.95f, 0.88f, 1f);
-        light.intensity = 1.35f;
+        light.color = new Color(1f, 0.72f, 0.48f, 1f);
+        light.intensity = 1.18f;
         light.shadows = LightShadows.Soft;
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.38f, 0.45f, 0.50f, 1f);
+        RenderSettings.ambientLight = new Color(0.48f, 0.42f, 0.37f, 1f);
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
-        RenderSettings.fogColor = BackgroundColor;
-        RenderSettings.fogDensity = 0.010f;
+        RenderSettings.fogColor = new Color(0.56f, 0.44f, 0.34f, 1f);
+        RenderSettings.fogDensity = 0.0075f;
+        ApplySunsetSkybox();
 
         worldRoot = new GameObject("WorldRoot").transform;
         decorRoot = new GameObject("DecorRoot").transform;
@@ -516,6 +521,47 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         modelCacheRoot.SetParent(transform, false);
 
         cameraObject.transform.SetParent(transform, false);
+    }
+
+    private void ApplySunsetSkybox()
+    {
+        Cubemap skyCubemap = Resources.Load<Cubemap>(SunsetSkyboxResourcePath);
+        Texture skyTexture = skyCubemap != null ? skyCubemap : Resources.Load<Texture>(SunsetSkyboxResourcePath);
+        Shader skyShader = skyCubemap != null
+            ? Shader.Find("Skybox/Cubemap") ?? Shader.Find("Skybox/Panoramic")
+            : Shader.Find("Skybox/Panoramic") ?? Shader.Find("Skybox/Cubemap");
+        if (skyTexture == null || skyShader == null)
+        {
+            return;
+        }
+
+        var skybox = new Material(skyShader);
+        if (skybox.HasProperty("_Tex"))
+        {
+            skybox.SetTexture("_Tex", skyTexture);
+        }
+
+        if (skybox.HasProperty("_MainTex"))
+        {
+            skybox.SetTexture("_MainTex", skyTexture);
+        }
+
+        if (skybox.HasProperty("_Tint"))
+        {
+            skybox.SetColor("_Tint", new Color(1f, 0.74f, 0.54f, 1f));
+        }
+
+        if (skybox.HasProperty("_Exposure"))
+        {
+            skybox.SetFloat("_Exposure", 0.88f);
+        }
+
+        if (skybox.HasProperty("_Rotation"))
+        {
+            skybox.SetFloat("_Rotation", 118f);
+        }
+
+        RenderSettings.skybox = skybox;
     }
 
     private void CreateHud()
@@ -641,22 +687,14 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateGround()
     {
-        var ground = CreatePrimitive(PrimitiveType.Cube, "TerrainBase", decorRoot);
-        ground.transform.localScale = new Vector3(150f, 0.32f, 210f);
-        ground.transform.localPosition = new Vector3(0f, -0.18f, 0f);
-        ground.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.21f, 0.29f, 0.16f, 1f));
+        Material grassMaterial = GetTexturedOpaqueMaterial(GrassTextureResourcePath, new Color(0.66f, 0.78f, 0.50f, 1f), new Vector2(18f, 24f), 0.08f);
+        var ground = CreateBattlefieldPlane("GrasslandTerrain", Vector3.zero, new Vector2(150f, 210f), grassMaterial);
+        ground.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
     }
 
     private void CreateTerrainDepth()
     {
-        Color ridgeColor = new Color(0.26f, 0.34f, 0.19f, 1f);
-        Color bankColor = new Color(0.16f, 0.24f, 0.14f, 1f);
-
-        CreateBattlefieldBlock("NorthDistantRidge", new Vector3(0f, 0.32f, 56f), new Vector3(110f, 0.55f, 2.2f), ridgeColor);
-        CreateBattlefieldBlock("SouthDistantRidge", new Vector3(0f, 0.22f, -62f), new Vector3(116f, 0.38f, 2.4f), bankColor);
-        CreateBattlefieldBlock("WestDistantBank", new Vector3(-42f, 0.24f, 0f), new Vector3(2.2f, 0.45f, 126f), ridgeColor);
-        CreateBattlefieldBlock("EastDistantBank", new Vector3(44f, 0.24f, 0f), new Vector3(2.0f, 0.42f, 126f), ridgeColor);
-
+        CreateCoastalSunsetBackdrop();
     }
 
     private void CreateVillageLandingFields()
@@ -684,26 +722,111 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return block;
     }
 
+    private GameObject CreateBattlefieldPlane(string name, Vector3 position, Vector2 size, Material material, float yawDegrees = 0f)
+    {
+        var plane = CreatePrimitive(PrimitiveType.Plane, name, decorRoot);
+        plane.transform.localScale = new Vector3(size.x / 10f, 1f, size.y / 10f);
+        plane.transform.localPosition = position;
+        plane.transform.localRotation = Quaternion.Euler(0f, yawDegrees, 0f);
+
+        var renderer = plane.GetComponent<Renderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = ShadowCastingMode.Off;
+        renderer.receiveShadows = true;
+        return plane;
+    }
+
+    private void CreateCoastalSunsetBackdrop()
+    {
+        Material coastMaterial = GetTexturedOpaqueMaterial(CoastSandTextureResourcePath, new Color(1f, 0.84f, 0.58f, 1f), new Vector2(10f, 3f), 0.06f);
+        Material oceanMaterial = GetOpaqueMaterial(new Color(0.09f, 0.30f, 0.42f, 1f));
+        Material shallowWaterMaterial = GetTransparentMaterial(new Color(0.23f, 0.58f, 0.62f, 0.32f));
+        Material sunsetReflectionMaterial = GetTransparentMaterial(new Color(1f, 0.62f, 0.22f, 0.28f));
+
+        CreateBattlefieldPlane("DistantCoastSand", new Vector3(0f, 0.018f, 28f), new Vector2(132f, 9.5f), coastMaterial, -2f);
+        CreateBattlefieldPlane("DistantOcean", new Vector3(0f, 0.010f, 48f), new Vector2(170f, 44f), oceanMaterial);
+        CreateBattlefieldPlane("CoastShallowWater", new Vector3(0f, 0.024f, 34f), new Vector2(148f, 9f), shallowWaterMaterial);
+        CreateBattlefieldPlane("SunsetWaterReflection", new Vector3(20f, 0.030f, 45f), new Vector2(24f, 15f), sunsetReflectionMaterial, -6f);
+
+        CreateMountainRange("DistantMountainBack", 67f, 1.2f, -72f, 72f, new Color(0.17f, 0.22f, 0.24f, 1f), 8.5f, 31f);
+        CreateMountainRange("DistantMountainFront", 60f, 0.55f, -78f, 78f, new Color(0.23f, 0.31f, 0.26f, 1f), 6.2f, 79f);
+
+        var sun = CreatePrimitive(PrimitiveType.Sphere, "SunsetSunDisk", decorRoot);
+        sun.transform.localPosition = new Vector3(23f, 11.5f, 58f);
+        sun.transform.localScale = new Vector3(4.1f, 4.1f, 0.35f);
+        sun.GetComponent<Renderer>().sharedMaterial = GetUnlitMaterial(new Color(1f, 0.53f, 0.18f, 1f));
+
+        var haze = CreatePrimitive(PrimitiveType.Plane, "SunsetHorizonGlow", decorRoot);
+        haze.transform.localPosition = new Vector3(0f, 5.2f, 57f);
+        haze.transform.localScale = new Vector3(17f, 1f, 1.2f);
+        haze.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        haze.GetComponent<Renderer>().sharedMaterial = GetTransparentMaterial(new Color(1f, 0.55f, 0.25f, 0.22f));
+    }
+
+    private void CreateMountainRange(string name, float z, float baseY, float minX, float maxX, Color color, float heightScale, float seed)
+    {
+        const int segments = 22;
+        var vertices = new Vector3[(segments + 1) * 2];
+        var triangles = new int[segments * 6];
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float x = Mathf.Lerp(minX, maxX, t);
+            float wave = Mathf.Sin((t * 3.2f + seed) * Mathf.PI) * 0.5f + 0.5f;
+            float rough = Noise(seed + i * 9.31f);
+            float height = 1.8f + heightScale * (0.25f + wave * 0.45f + rough * 0.35f);
+            vertices[i * 2] = new Vector3(x, baseY, z);
+            vertices[i * 2 + 1] = new Vector3(x, baseY + height, z);
+        }
+
+        for (int i = 0; i < segments; i++)
+        {
+            int v = i * 2;
+            int t = i * 6;
+            triangles[t] = v;
+            triangles[t + 1] = v + 1;
+            triangles[t + 2] = v + 2;
+            triangles[t + 3] = v + 1;
+            triangles[t + 4] = v + 3;
+            triangles[t + 5] = v + 2;
+        }
+
+        var range = new GameObject(name);
+        range.transform.SetParent(decorRoot, false);
+
+        var mesh = new Mesh { name = $"{name}_Mesh" };
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.RecalculateBounds();
+        mesh.RecalculateNormals();
+
+        var meshFilter = range.AddComponent<MeshFilter>();
+        meshFilter.sharedMesh = mesh;
+
+        var meshRenderer = range.AddComponent<MeshRenderer>();
+        meshRenderer.sharedMaterial = GetOpaqueMaterial(color);
+        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        meshRenderer.receiveShadows = false;
+    }
+
     private void CreateVillagePaths()
     {
-        var mainRoad = CreateBattlefieldBlock("VillageDirtRoad_MainStreet", ToWorldPoint(0f, -184f, 0.026f), new Vector3(21.4f, 0.06f, 3.7f), RoadColor);
-        mainRoad.transform.localRotation = Quaternion.Euler(0f, -3f, 0f);
+        Material roadMaterial = GetTexturedOpaqueMaterial(CoastSandTextureResourcePath, new Color(0.55f, 0.42f, 0.25f, 1f), new Vector2(5f, 1.3f), 0.04f);
+
+        CreateBattlefieldPlane("VillageDirtRoad_MainStreet", ToWorldPoint(0f, -184f, 0.032f), new Vector2(21.4f, 3.7f), roadMaterial, -3f);
         AddRoadCorridor("MainStreet", 0f, -184f, 430f, 78f, 0f);
 
-        var tankRoad = CreateBattlefieldBlock("VillageDirtRoad_HeavyTrack", ToWorldPoint(-120f, -486f, 0.028f), new Vector3(13.4f, 0.055f, 2.45f), new Color(0.27f, 0.21f, 0.14f, 1f));
-        tankRoad.transform.localRotation = Quaternion.Euler(0f, 2f, 0f);
+        CreateBattlefieldPlane("VillageDirtRoad_HeavyTrack", ToWorldPoint(-120f, -486f, 0.034f), new Vector2(13.4f, 2.45f), roadMaterial, 2f);
         AddRoadCorridor("HeavyTrack", -120f, -486f, 270f, 58f, -80f);
 
-        var plaza = CreateBattlefieldBlock("VillageMarketPlaza", ToWorldPoint(34f, -52f, 0.034f), new Vector3(6.8f, 0.052f, 5.2f), new Color(0.38f, 0.30f, 0.20f, 1f));
-        plaza.transform.localRotation = Quaternion.Euler(0f, 4f, 0f);
+        CreateBattlefieldPlane("VillageMarketPlaza", ToWorldPoint(34f, -52f, 0.036f), new Vector2(6.8f, 5.2f), roadMaterial, 4f);
         AddRoadCorridor("MarketPlaza", 34f, -52f, 138f, 112f, -18f);
 
-        var crossRoad = CreateBattlefieldBlock("VillageDirtRoad_CrossStreet", ToWorldPoint(58f, 92f, 0.036f), new Vector3(4.2f, 0.055f, 17.7f), new Color(0.34f, 0.26f, 0.17f, 1f));
-        crossRoad.transform.localRotation = Quaternion.Euler(0f, 8f, 0f);
+        CreateBattlefieldPlane("VillageDirtRoad_CrossStreet", ToWorldPoint(58f, 92f, 0.038f), new Vector2(4.2f, 17.7f), roadMaterial, 8f);
         AddRoadCorridor("CrossStreet", 58f, 92f, 84f, 356f, 12f);
 
-        var monsterEntry = CreateBattlefieldBlock("VillageDirtRoad_MonsterGate", ToWorldPoint(282f, -250f, 0.032f), new Vector3(5.8f, 0.055f, 3.1f), new Color(0.30f, 0.22f, 0.15f, 1f));
-        monsterEntry.transform.localRotation = Quaternion.Euler(0f, -8f, 0f);
+        CreateBattlefieldPlane("VillageDirtRoad_MonsterGate", ToWorldPoint(282f, -250f, 0.040f), new Vector2(5.8f, 3.1f), roadMaterial, -8f);
         AddRoadCorridor("MonsterGate", 282f, -250f, 116f, 70f, -48f);
     }
 
@@ -1085,26 +1208,22 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateFactionFrontlines()
     {
-        var blueBase = CreateBattlefieldBlock("BlueFrontlineBase", new Vector3(-8.25f, 0.10f, -6.8f), new Vector3(2.4f, 0.14f, 6.4f), new Color(0.09f, 0.22f, 0.31f, 1f));
-        blueBase.transform.localRotation = Quaternion.Euler(0f, -7f, 0f);
+        Material blueZone = GetTransparentMaterial(new Color(0.10f, 0.38f, 0.58f, 0.44f));
+        Material blueMarkerMaterial = GetTransparentMaterial(new Color(0.20f, 0.68f, 0.92f, 0.50f));
+        Material redZone = GetTransparentMaterial(new Color(0.55f, 0.20f, 0.12f, 0.42f));
+        Material redMarkerMaterial = GetTransparentMaterial(new Color(0.92f, 0.36f, 0.18f, 0.52f));
 
-        var blueMarker = CreateBattlefieldBlock("BlueFrontlineMarker", new Vector3(-9.2f, 0.12f, -5.1f), new Vector3(0.58f, 0.16f, 0.52f), new Color(0.12f, 0.42f, 0.63f, 1f));
-        blueMarker.transform.localRotation = Quaternion.Euler(0f, 15f, 0f);
+        CreateBattlefieldPlane("BlueFrontlineBase", new Vector3(-8.25f, 0.046f, -6.8f), new Vector2(2.4f, 6.4f), blueZone, -7f);
+        CreateBattlefieldPlane("BlueFrontlineMarker", new Vector3(-9.2f, 0.052f, -5.1f), new Vector2(0.58f, 0.52f), blueMarkerMaterial, 15f);
 
-        var redBase = CreateBattlefieldBlock("RedFrontlineBase", new Vector3(8.25f, 0.10f, -6.8f), new Vector3(2.4f, 0.14f, 6.4f), new Color(0.27f, 0.15f, 0.11f, 1f));
-        redBase.transform.localRotation = Quaternion.Euler(0f, 11f, 0f);
-
-        var redMarker = CreateBattlefieldBlock("RedFrontlineMarker", new Vector3(9.2f, 0.12f, -4.9f), new Vector3(0.64f, 0.16f, 0.54f), new Color(0.73f, 0.29f, 0.18f, 1f));
-        redMarker.transform.localRotation = Quaternion.Euler(0f, -12f, 0f);
+        CreateBattlefieldPlane("RedFrontlineBase", new Vector3(8.25f, 0.046f, -6.8f), new Vector2(2.4f, 6.4f), redZone, 11f);
+        CreateBattlefieldPlane("RedFrontlineMarker", new Vector3(9.2f, 0.052f, -4.9f), new Vector2(0.64f, 0.54f), redMarkerMaterial, -12f);
 
         for (int i = 0; i < 3; i++)
         {
             float z = -11.2f + i * 4.6f;
-            var blueMark = CreateBattlefieldBlock($"BlueFrontlineMark_{i}", new Vector3(-6.9f + Noise(i + 211f) * 0.45f, 0.05f, z), new Vector3(1.15f, 0.04f, 0.74f), new Color(0.14f, 0.50f, 0.74f, 1f));
-            blueMark.transform.localRotation = Quaternion.Euler(0f, -10f + i * 6f, 0f);
-
-            var redMark = CreateBattlefieldBlock($"RedFrontlineMark_{i}", new Vector3(6.9f - Noise(i + 257f) * 0.45f, 0.05f, z + 0.4f), new Vector3(1.15f, 0.04f, 0.74f), new Color(0.78f, 0.31f, 0.20f, 1f));
-            redMark.transform.localRotation = Quaternion.Euler(0f, 10f - i * 6f, 0f);
+            CreateBattlefieldPlane($"BlueFrontlineMark_{i}", new Vector3(-6.9f + Noise(i + 211f) * 0.45f, 0.058f, z), new Vector2(1.15f, 0.74f), blueMarkerMaterial, -10f + i * 6f);
+            CreateBattlefieldPlane($"RedFrontlineMark_{i}", new Vector3(6.9f - Noise(i + 257f) * 0.45f, 0.058f, z + 0.4f), new Vector2(1.15f, 0.74f), redMarkerMaterial, 10f - i * 6f);
         }
     }
 
@@ -5586,6 +5705,56 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return material;
     }
 
+    private Material GetTexturedOpaqueMaterial(string textureResourcePath, Color tint, Vector2 tiling, float glossiness)
+    {
+        string key = $"tex-opaque:{textureResourcePath}:{tint.r:F3}:{tint.g:F3}:{tint.b:F3}:{tiling.x:F2}:{tiling.y:F2}:{glossiness:F2}";
+        Material material;
+        if (materialCache.TryGetValue(key, out material))
+        {
+            return material;
+        }
+
+        Texture texture = Resources.Load<Texture>(textureResourcePath);
+        if (texture == null)
+        {
+            return GetOpaqueMaterial(tint);
+        }
+
+        texture.wrapMode = TextureWrapMode.Repeat;
+        texture.filterMode = FilterMode.Trilinear;
+        texture.anisoLevel = 4;
+
+        Shader shader = FindRuntimeShader(null, "Standard", "Legacy Shaders/Diffuse", "Unlit/Texture", "Sprites/Default");
+        material = new Material(shader);
+        material.color = tint;
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture("_MainTex", texture);
+            material.SetTextureScale("_MainTex", tiling);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTexture("_BaseMap", texture);
+            material.SetTextureScale("_BaseMap", tiling);
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", tint);
+        }
+
+        if (material.HasProperty("_Glossiness"))
+        {
+            material.SetFloat("_Glossiness", glossiness);
+        }
+
+        ApplyOpaqueDoubleSided(material);
+        materialCache[key] = material;
+        return material;
+    }
+
     private Material GetTransparentMaterial(Color color)
     {
         string key = $"transparent:{color.r:F3}:{color.g:F3}:{color.b:F3}:{color.a:F3}";
@@ -5626,16 +5795,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private Shader FindRuntimeShader(string resourceMaterialPath, params string[] shaderNames)
     {
-        var resourceShader = Resources.Load<Shader>(resourceMaterialPath);
-        if (resourceShader != null)
+        if (!string.IsNullOrEmpty(resourceMaterialPath))
         {
-            return resourceShader;
-        }
+            var resourceShader = Resources.Load<Shader>(resourceMaterialPath);
+            if (resourceShader != null)
+            {
+                return resourceShader;
+            }
 
-        var resourceMaterial = Resources.Load<Material>(resourceMaterialPath);
-        if (resourceMaterial != null && resourceMaterial.shader != null)
-        {
-            return resourceMaterial.shader;
+            var resourceMaterial = Resources.Load<Material>(resourceMaterialPath);
+            if (resourceMaterial != null && resourceMaterial.shader != null)
+            {
+                return resourceMaterial.shader;
+            }
         }
 
         for (int i = 0; i < shaderNames.Length; i++)
