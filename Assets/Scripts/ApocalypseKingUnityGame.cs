@@ -20,6 +20,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int GiantCount = 10;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
+    private const int MaxDeathVisuals = 56;
     private const float TankT55AYawOffset = 0f;
     private const float TankT55AkYawOffset = 0f;
     private const string SoldierResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
@@ -145,6 +146,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
     private readonly List<ProjectileView> projectiles = new List<ProjectileView>(MaxProjectiles);
     private readonly List<EffectView> effects = new List<EffectView>(MaxEffects);
+    private readonly List<DeathVisual> deathVisuals = new List<DeathVisual>(MaxDeathVisuals);
     private readonly Dictionary<string, Material> materialCache = new Dictionary<string, Material>();
     private readonly Dictionary<string, GameObject> medievalVillagePrefabs = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
 
@@ -265,6 +267,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         ResolveUnitOverlaps();
         UpdateProjectiles(dt);
         UpdateEffects(dt);
+        UpdateDeathVisuals(dt);
         CleanupProjectiles();
         CheckBattleEnd();
         RefreshHud();
@@ -2448,6 +2451,15 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             effects[i].active = false;
         }
 
+        for (int i = 0; i < deathVisuals.Count; i++)
+        {
+            if (deathVisuals[i].root != null)
+            {
+                deathVisuals[i].root.SetActive(false);
+            }
+            deathVisuals[i].active = false;
+        }
+
         ResetUnitState(soldiers, SoldierLanes, 1);
         ResetTanks();
         ResetAircraft();
@@ -3664,6 +3676,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         ConfigureProjectileVisual(projectile, kind, color);
         projectile.duration = Mathf.Max(0.04f, Distance(fromX, fromZ, toX, toZ) / speed);
         projectile.progress = 0f;
+        projectile.trailTimer = 0f;
         projectile.lastWorldPosition = ToWorldPoint(fromX, fromZ, fromHeight);
         projectile.worldPosition = projectile.lastWorldPosition;
         projectile.active = true;
@@ -3752,6 +3765,15 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                     : 0f;
             shot.lastWorldPosition = shot.worldPosition;
             shot.worldPosition = ToWorldPoint(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t), Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+            if (shot.kind == ProjectileKind.Bomb)
+            {
+                shot.trailTimer -= dt;
+                if (shot.trailTimer <= 0f)
+                {
+                    shot.trailTimer = 0.08f;
+                    PlayBattleEffect(BattleEffectId.BombDropTrail, shot.worldPosition, 0.42f, Quaternion.identity);
+                }
+            }
             UpdateProjectileVisual(shot, t);
 
             if (t >= 1f)
@@ -3902,18 +3924,21 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         switch (unit.kind)
         {
             case UnitKind.Tank:
+                SpawnDeathVisual(unit);
                 PlayBattleEffect(BattleEffectId.TankDeathExplosion, unit.x, unit.z, 0.35f, 1.45f, Quaternion.identity);
                 PlayBattleEffect(BattleEffectId.TankWreckSmoke, unit.x, unit.z, 0.25f, 1.1f, Quaternion.identity);
                 PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 0.35f);
                 TriggerCameraShake(0.22f, 0.15f);
                 break;
             case UnitKind.Aircraft:
+                SpawnDeathVisual(unit);
                 PlayBattleEffect(BattleEffectId.AircraftDeathExplosion, unit.x, unit.z, 2.45f, 1.5f, Quaternion.identity);
                 PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, unit.x, unit.z, 1.2f, 1.0f, Quaternion.identity);
                 PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 2.2f);
                 TriggerCameraShake(0.18f, 0.12f);
                 break;
             default:
+                SpawnDeathVisual(unit);
                 PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.75f, Quaternion.identity);
                 break;
         }
@@ -3995,6 +4020,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         giant.active = false;
         giant.root.SetActive(false);
+        SpawnDeathVisual(giant);
         PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 38f, giant.z + 80f, 0.8f, 1.5f, Quaternion.identity);
         PlayBattleEffect(BattleEffectId.MonsterDeathDust, giant.x + 32f, giant.z + 128f, 0.18f, 1.55f, Quaternion.identity);
         PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 6f, giant.z + 34f, 0.45f, 1.35f, Quaternion.identity);
@@ -4101,6 +4127,211 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 effect.active = false;
                 effect.root.SetActive(false);
             }
+        }
+    }
+
+    private void SpawnDeathVisual(BattleUnit unit)
+    {
+        if (unit == null)
+        {
+            return;
+        }
+
+        var visual = GetOrCreateDeathVisual(unit.kind);
+        if (visual == null)
+        {
+            return;
+        }
+
+        visual.kind = unit.kind;
+        visual.life = DeathVisualLifetime(unit.kind);
+        visual.maxLife = visual.life;
+        visual.active = true;
+        visual.crashTriggered = false;
+        visual.smokeTimer = unit.kind == UnitKind.Tank ? 0.35f : 0f;
+        visual.root.SetActive(true);
+        visual.root.transform.position = ToWorldPoint(unit.x, unit.z, unit.kind == UnitKind.Aircraft ? 2.25f : 0.04f);
+
+        float yaw = unit.kind == UnitKind.Tank || unit.kind == UnitKind.Giant ? unit.headingDegrees : unit.facing < 0 ? -90f : 90f;
+        switch (unit.kind)
+        {
+            case UnitKind.Soldier:
+                visual.root.transform.rotation = Quaternion.Euler(0f, yaw, 82f);
+                visual.root.transform.localScale = Vector3.one * 0.9f;
+                visual.velocity = Vector3.zero;
+                break;
+            case UnitKind.Tank:
+                visual.root.transform.rotation = Quaternion.Euler(0f, yaw + Noise(unit.id * 0.31f) * 18f - 9f, 0f);
+                visual.root.transform.localScale = Vector3.one * 1.0f;
+                visual.velocity = Vector3.zero;
+                break;
+            case UnitKind.Aircraft:
+                visual.root.transform.rotation = Quaternion.Euler(-12f, yaw, 28f);
+                visual.root.transform.localScale = Vector3.one * 0.95f;
+                visual.velocity = new Vector3(unit.facing * 0.9f, -2.6f, -0.35f + Noise(unit.id + 71f) * 0.7f);
+                break;
+            case UnitKind.Giant:
+                visual.root.transform.rotation = Quaternion.Euler(0f, yaw - 18f, 74f);
+                visual.root.transform.localScale = Vector3.one * 1.0f;
+                visual.velocity = Vector3.zero;
+                break;
+            default:
+                visual.root.transform.rotation = Quaternion.identity;
+                visual.root.transform.localScale = Vector3.one;
+                visual.velocity = Vector3.zero;
+                break;
+        }
+    }
+
+    private DeathVisual GetOrCreateDeathVisual(UnitKind kind)
+    {
+        for (int i = 0; i < deathVisuals.Count; i++)
+        {
+            var visual = deathVisuals[i];
+            if (!visual.active && visual.kind == kind)
+            {
+                return visual;
+            }
+        }
+
+        if (deathVisuals.Count < MaxDeathVisuals)
+        {
+            var visual = CreateDeathVisual(kind);
+            deathVisuals.Add(visual);
+            return visual;
+        }
+
+        DeathVisual oldest = null;
+        for (int i = 0; i < deathVisuals.Count; i++)
+        {
+            if (oldest == null || deathVisuals[i].life < oldest.life)
+            {
+                oldest = deathVisuals[i];
+            }
+        }
+
+        return oldest != null && oldest.kind == kind ? oldest : null;
+    }
+
+    private DeathVisual CreateDeathVisual(UnitKind kind)
+    {
+        var root = new GameObject($"{kind}_DeathVisual");
+        root.transform.SetParent(effectRoot, false);
+
+        switch (kind)
+        {
+            case UnitKind.Soldier:
+                CreateDeathVisualPart(root.transform, PrimitiveType.Capsule, "FallenSoldierBody", new Vector3(0f, 0.16f, 0f), new Vector3(0.12f, 0.32f, 0.12f), Quaternion.Euler(0f, 0f, 90f), new Color(0.13f, 0.20f, 0.24f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Sphere, "FallenSoldierHead", new Vector3(0.22f, 0.18f, 0f), new Vector3(0.09f, 0.09f, 0.09f), Quaternion.identity, new Color(0.72f, 0.58f, 0.42f, 1f));
+                break;
+            case UnitKind.Tank:
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "TankWreckHull", new Vector3(0f, 0.18f, 0f), new Vector3(0.72f, 0.24f, 0.48f), Quaternion.Euler(0f, 0f, -4f), new Color(0.10f, 0.11f, 0.10f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cylinder, "TankWreckTurret", new Vector3(0.05f, 0.35f, 0.02f), new Vector3(0.30f, 0.13f, 0.30f), Quaternion.Euler(0f, 28f, 0f), new Color(0.12f, 0.12f, 0.11f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "TankWreckBarrel", new Vector3(0.40f, 0.36f, 0.02f), new Vector3(0.58f, 0.055f, 0.055f), Quaternion.Euler(0f, 84f, 0f), new Color(0.08f, 0.08f, 0.08f, 1f));
+                break;
+            case UnitKind.Aircraft:
+                CreateDeathVisualPart(root.transform, PrimitiveType.Capsule, "AircraftWreckBody", new Vector3(0f, 0f, 0f), new Vector3(0.18f, 0.54f, 0.18f), Quaternion.Euler(90f, 0f, 0f), new Color(0.08f, 0.12f, 0.13f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "AircraftWreckWing", new Vector3(0f, 0f, 0f), new Vector3(0.90f, 0.035f, 0.18f), Quaternion.identity, new Color(0.10f, 0.15f, 0.16f, 1f));
+                break;
+            case UnitKind.Giant:
+                CreateDeathVisualPart(root.transform, PrimitiveType.Capsule, "MonsterFallenBody", new Vector3(0f, 0.42f, 0f), new Vector3(0.82f, 1.35f, 0.82f), Quaternion.Euler(0f, 0f, 90f), new Color(0.20f, 0.12f, 0.10f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Sphere, "MonsterFallenHead", new Vector3(0.92f, 0.46f, 0f), new Vector3(0.44f, 0.44f, 0.44f), Quaternion.identity, new Color(0.28f, 0.16f, 0.12f, 1f));
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "MonsterFallenArm", new Vector3(0.05f, 0.22f, 0.52f), new Vector3(1.05f, 0.18f, 0.24f), Quaternion.Euler(0f, 0f, 15f), new Color(0.18f, 0.10f, 0.08f, 1f));
+                break;
+            default:
+                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "DeathMarker", new Vector3(0f, 0.08f, 0f), new Vector3(0.3f, 0.12f, 0.3f), Quaternion.identity, new Color(0.10f, 0.10f, 0.10f, 1f));
+                break;
+        }
+
+        root.SetActive(false);
+        return new DeathVisual
+        {
+            kind = kind,
+            root = root,
+            active = false,
+        };
+    }
+
+    private GameObject CreateDeathVisualPart(Transform parent, PrimitiveType primitive, string name, Vector3 localPosition, Vector3 localScale, Quaternion localRotation, Color color)
+    {
+        var part = CreatePrimitive(primitive, name, parent);
+        part.transform.localPosition = localPosition;
+        part.transform.localScale = localScale;
+        part.transform.localRotation = localRotation;
+        part.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(color);
+        return part;
+    }
+
+    private void UpdateDeathVisuals(float dt)
+    {
+        for (int i = 0; i < deathVisuals.Count; i++)
+        {
+            var visual = deathVisuals[i];
+            if (!visual.active)
+            {
+                continue;
+            }
+
+            visual.life -= dt;
+            if (visual.kind == UnitKind.Aircraft)
+            {
+                UpdateAircraftDeathVisual(visual, dt);
+            }
+            else if (visual.kind == UnitKind.Tank)
+            {
+                visual.smokeTimer -= dt;
+                if (visual.smokeTimer <= 0f)
+                {
+                    visual.smokeTimer = 1.05f;
+                    Vector3 position = visual.root.transform.position;
+                    PlayBattleEffect(BattleEffectId.TankWreckSmoke, position, 0.75f, Quaternion.identity);
+                }
+            }
+
+            float t = 1f - Mathf.Clamp01(visual.life / Mathf.Max(0.001f, visual.maxLife));
+            float shrink = visual.kind == UnitKind.Soldier ? Mathf.Lerp(1f, 0.75f, Mathf.Clamp01((t - 0.55f) / 0.45f)) : 1f;
+            visual.root.transform.localScale = Vector3.one * shrink;
+
+            if (visual.life <= 0f)
+            {
+                visual.active = false;
+                visual.root.SetActive(false);
+            }
+        }
+    }
+
+    private void UpdateAircraftDeathVisual(DeathVisual visual, float dt)
+    {
+        visual.velocity += Vector3.down * dt * 2.8f;
+        visual.root.transform.position += visual.velocity * dt;
+        visual.root.transform.Rotate(52f * dt, 28f * dt, 114f * dt, Space.Self);
+        if (!visual.crashTriggered && visual.root.transform.position.y <= 0.14f)
+        {
+            visual.crashTriggered = true;
+            visual.velocity = Vector3.zero;
+            Vector3 position = visual.root.transform.position;
+            position.y = 0.08f;
+            visual.root.transform.position = position;
+            PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, position, 1.0f, Quaternion.identity);
+            PlayBattleEffect(BattleEffectId.ShellExplosionSmall, position, 0.9f, Quaternion.identity);
+            TriggerCameraShake(0.10f, 0.07f);
+        }
+    }
+
+    private static float DeathVisualLifetime(UnitKind kind)
+    {
+        switch (kind)
+        {
+            case UnitKind.Soldier:
+                return 1.4f;
+            case UnitKind.Aircraft:
+                return 2.4f;
+            case UnitKind.Giant:
+                return 3.2f;
+            case UnitKind.Tank:
+                return 5.8f;
+            default:
+                return 1.5f;
         }
     }
 
@@ -5519,6 +5750,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         SpawnEffect(x, z, Mathf.Max(0.1f, scale), fallback, IsSmokeFallback(id) ? 0.55f : 0.28f);
     }
 
+    private void PlayBattleEffect(BattleEffectId id, Vector3 worldPosition, float scale, Quaternion rotation)
+    {
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.Play(EffectPlayback.Create(id, worldPosition, rotation, null, scale));
+            return;
+        }
+
+        SpawnEffect(worldPosition.x / LogicalToWorld, worldPosition.z / LogicalToWorld, Mathf.Max(0.1f, scale), IsSmokeFallback(id) ? EffectKind.Smoke : EffectKind.Fireball, IsSmokeFallback(id) ? 0.55f : 0.28f);
+    }
+
     private void PlayBattleAudio(BattleAudioCueId id, float x, float z, float height)
     {
         if (BattleAudioManager.Instance != null)
@@ -5803,6 +6045,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public float toHeight;
         public float progress;
         public float duration;
+        public float trailTimer;
         public float damage;
         public float radius;
         public float speed;
@@ -5821,5 +6064,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public float baseScale;
         public float life;
         public float maxLife;
+    }
+
+    private sealed class DeathVisual
+    {
+        public UnitKind kind;
+        public GameObject root;
+        public bool active;
+        public float life;
+        public float maxLife;
+        public float smokeTimer;
+        public bool crashTriggered;
+        public Vector3 velocity;
     }
 }

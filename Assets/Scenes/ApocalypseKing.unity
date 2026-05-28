@@ -122,7 +122,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &1096708126
+--- !u!1 &1983415492
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -130,13 +130,13 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1096708133}
-  - component: {fileID: 1096708132}
-  - component: {fileID: 1096708131}
-  - component: {fileID: 1096708130}
-  - component: {fileID: 1096708129}
-  - component: {fileID: 1096708128}
-  - component: {fileID: 1096708127}
+  - component: {fileID: 1983415499}
+  - component: {fileID: 1983415498}
+  - component: {fileID: 1983415497}
+  - component: {fileID: 1983415496}
+  - component: {fileID: 1983415495}
+  - component: {fileID: 1983415494}
+  - component: {fileID: 1983415493}
   m_Layer: 0
   m_Name: ApocalypseKingGame
   m_TagString: Untagged
@@ -144,25 +144,25 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1096708127
+--- !u!114 &1983415493
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 92b5a0b181937d14395b4b07249453ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1096708128
+--- !u!114 &1983415494
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ff41736975d3a842892258a97ece7dd, type: 3}
@@ -175,13 +175,13 @@ MonoBehaviour:
   cameraYaw: 0
   cameraPitch: 18
   cameraDistance: 88
---- !u!114 &1096708129
+--- !u!114 &1983415495
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 13e14e814d4aa004eb01d526de83b7ba, type: 3}
@@ -200,13 +200,13 @@ MonoBehaviour:
   uiGroup: {fileID: 0}
   voiceGroup: {fileID: 0}
   ambienceGroup: {fileID: 0}
---- !u!114 &1096708130
+--- !u!114 &1983415496
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6175ac856a469274c9477e326140946b, type: 3}
@@ -214,13 +214,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   configs: []
   createFallbackEffects: 1
---- !u!114 &1096708131
+--- !u!114 &1983415497
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ab1fa431c030e84cbf16768c7c2111f, type: 3}
@@ -231,13 +231,13 @@ MonoBehaviour:
   port: 8765
   maxPendingHttpMessages: 1024
   maxMessagesPerFrame: 64
---- !u!114 &1096708132
+--- !u!114 &1983415498
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 22cd6ef09b0551641976cd1aa9420a7d, type: 3}
@@ -246,13 +246,13 @@ MonoBehaviour:
   maxPendingCommands: 512
   maxCommandsPerFrame: 24
   defaultUserCooldown: 1.25
---- !u!4 &1096708133
+--- !u!4 &1983415499
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1096708126}
+  m_GameObject: {fileID: 1983415492}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -265,4 +265,4 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1096708133}
+  - {fileID: 1983415499}
