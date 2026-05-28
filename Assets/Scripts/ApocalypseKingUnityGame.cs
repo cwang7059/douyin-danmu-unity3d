@@ -29,6 +29,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const bool ShowResolutionDebugControls = false;
     private const float TankT55AYawOffset = 0f;
     private const float TankT55AkYawOffset = 0f;
+    private const float AircraftModelTargetHeight = 0.62f;
     private const string SoldierResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
     private const string SoldierResourceFolderPath = "Quaternius/ZombieApocalypse";
     private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
@@ -98,7 +99,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         { UnitKind.Soldier, new ModelPose(0.88f, 0f, 90f, 0f, 0f, true) },
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
-        { UnitKind.Aircraft, new ModelPose(1.18f, 0f, 108f, 0f, 0.2f, true) },
+        { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 108f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
@@ -2188,6 +2189,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
             unit.aircraftRotorRoot = null;
             unit.aircraftRotorBaseLocalRotation = Quaternion.identity;
+            unit.aircraftRotorRigs.Clear();
             unit.tankMotionRig = null;
 
             GameObject prototype = ResolvePrototypeForUnit(unit);
@@ -2230,7 +2232,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         unit.animatorClips = null;
         unit.currentAnimatorClip = string.Empty;
 
-        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank && unit.kind != UnitKind.Aircraft && unit.kind != UnitKind.Giant) || model == null)
+        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank && unit.kind != UnitKind.Giant) || model == null)
         {
             return;
         }
@@ -2362,7 +2364,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         var root = new GameObject("AircraftRotorMotionRig");
         root.transform.SetParent(unit.body, false);
-        root.transform.localPosition = new Vector3(0f, 1.18f, 0f);
+        root.transform.localPosition = new Vector3(0f, AircraftModelTargetHeight * 0.95f, 0f);
 
         var hub = CreatePrimitive(PrimitiveType.Cylinder, "RotorHub", root.transform);
         hub.transform.localScale = new Vector3(0.09f, 0.05f, 0.09f);
@@ -2378,8 +2380,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         bladeB.GetComponent<Renderer>().sharedMaterial = GetTransparentMaterial(new Color(0.68f, 0.82f, 0.92f, 0.30f));
 
         unit.motionAccessoryRoot = root;
-        unit.aircraftRotorRoot = root.transform;
-        unit.aircraftRotorBaseLocalRotation = root.transform.localRotation;
+        RegisterAircraftRotor(unit, root.transform, Vector3.up, 1f);
     }
 
     private bool TryBindAircraftRotorRig(BattleUnit unit)
@@ -2389,9 +2390,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
+        Transform mainRotor = null;
+        Transform tailRotor = null;
+        int mainScore = 0;
+        int tailScore = 0;
         var transforms = unit.modelInstance.GetComponentsInChildren<Transform>(true);
-        Transform best = null;
-        int bestScore = 0;
         for (int i = 0; i < transforms.Length; i++)
         {
             Transform candidate = transforms[i];
@@ -2400,32 +2403,53 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            int score = AircraftRotorNameScore(candidate.name);
-            if (score > bestScore)
+            int candidateMainScore = AircraftMainRotorNameScore(candidate);
+            if (candidateMainScore > mainScore)
             {
-                best = candidate;
-                bestScore = score;
+                mainRotor = candidate;
+                mainScore = candidateMainScore;
+            }
+
+            int candidateTailScore = AircraftTailRotorNameScore(candidate);
+            if (candidateTailScore > tailScore)
+            {
+                tailRotor = candidate;
+                tailScore = candidateTailScore;
             }
         }
 
-        if (best == null)
+        if (mainRotor != null)
         {
-            return false;
+            RegisterAircraftRotor(unit, mainRotor, Vector3.up, 1f);
         }
 
-        unit.aircraftRotorRoot = best;
-        unit.aircraftRotorBaseLocalRotation = best.localRotation;
-        return true;
+        if (tailRotor != null && tailRotor != mainRotor)
+        {
+            RegisterAircraftRotor(unit, tailRotor, Vector3.up, -2.4f);
+        }
+
+        return unit.aircraftRotorRigs.Count > 0;
     }
 
-    private static int AircraftRotorNameScore(string name)
+    private static int AircraftMainRotorNameScore(Transform transform)
     {
-        if (string.IsNullOrEmpty(name))
+        if (transform == null || string.IsNullOrEmpty(transform.name))
         {
             return 0;
         }
 
-        string lower = name.ToLowerInvariant();
+        string lower = transform.name.ToLowerInvariant();
+        if (lower.EndsWith("_end", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        bool parentRotor = transform.GetComponent<Renderer>() == null && transform.GetComponentsInChildren<Renderer>(true).Length > 0;
+        if (string.Equals(lower, "heli", StringComparison.OrdinalIgnoreCase))
+        {
+            return parentRotor ? 170 : 115;
+        }
+
         if (lower.Contains("main") && lower.Contains("rotor"))
         {
             return 130;
@@ -2452,6 +2476,56 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return 0;
+    }
+
+    private static int AircraftTailRotorNameScore(Transform transform)
+    {
+        if (transform == null || string.IsNullOrEmpty(transform.name))
+        {
+            return 0;
+        }
+
+        string lower = transform.name.ToLowerInvariant();
+        if (lower.EndsWith("_end", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        bool parentRotor = transform.GetComponent<Renderer>() == null && transform.GetComponentsInChildren<Renderer>(true).Length > 0;
+        if (string.Equals(lower, "tail", StringComparison.OrdinalIgnoreCase))
+        {
+            return parentRotor ? 160 : 105;
+        }
+
+        if (lower.Contains("tail") && (lower.Contains("rotor") || lower.Contains("prop") || lower.Contains("blade")))
+        {
+            return parentRotor ? 150 : 100;
+        }
+
+        return 0;
+    }
+
+    private static void RegisterAircraftRotor(BattleUnit unit, Transform rotor, Vector3 localAxis, float speedMultiplier)
+    {
+        if (unit == null || rotor == null)
+        {
+            return;
+        }
+
+        var rig = new AircraftRotorRig
+        {
+            rotor = rotor,
+            baseLocalRotation = rotor.localRotation,
+            localAxis = localAxis.sqrMagnitude > 0.001f ? localAxis.normalized : Vector3.up,
+            speedMultiplier = speedMultiplier,
+        };
+
+        unit.aircraftRotorRigs.Add(rig);
+        if (unit.aircraftRotorRoot == null)
+        {
+            unit.aircraftRotorRoot = rotor;
+            unit.aircraftRotorBaseLocalRotation = rotor.localRotation;
+        }
     }
 
     private void ConfigureTankMotionRig(BattleUnit unit, bool animatorDrivenTracks)
@@ -5009,10 +5083,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        if (unit.aircraftRotorRoot != null)
+        if (unit.aircraftRotorRigs != null && unit.aircraftRotorRigs.Count > 0)
         {
             unit.rotorSpinDegrees = Mathf.Repeat(unit.rotorSpinDegrees + dt * (1680f + moveFactor * 620f), 360f);
-            unit.aircraftRotorRoot.localRotation = unit.aircraftRotorBaseLocalRotation * Quaternion.Euler(0f, unit.rotorSpinDegrees, 0f);
+            for (int i = 0; i < unit.aircraftRotorRigs.Count; i++)
+            {
+                AircraftRotorRig rotor = unit.aircraftRotorRigs[i];
+                if (rotor == null || rotor.rotor == null)
+                {
+                    continue;
+                }
+
+                rotor.rotor.localRotation = rotor.baseLocalRotation * Quaternion.AngleAxis(unit.rotorSpinDegrees * rotor.speedMultiplier, rotor.localAxis);
+            }
         }
 
         var rig = unit.tankMotionRig;
@@ -5203,11 +5286,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return SelectGiantAnimatorClip(unit, attacking);
         }
 
-        if (unit.kind == UnitKind.Aircraft)
-        {
-            return SelectAircraftAnimatorClip(unit);
-        }
-
         if (attacking)
         {
             return FindAnimatorClip(unit, "Idle_Gun", "Attack", "Shoot", "Fire", "Punch", "Idle");
@@ -5253,11 +5331,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return running
             ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
             : FindAnimatorClip(unit, "Walk", "Run", "Idle");
-    }
-
-    private AnimationClip SelectAircraftAnimatorClip(BattleUnit unit)
-    {
-        return FindAnimatorClip(unit, "Helicopter", "Rotor", "Propeller", "Fly", "Idle", "Take");
     }
 
     private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
@@ -5314,11 +5387,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return Mathf.Clamp(normalizedSpeed, 0.7f, 1.3f);
         }
 
-        if (unit.kind == UnitKind.Aircraft)
-        {
-            return Mathf.Clamp(0.95f + normalizedSpeed * 0.35f, 0.95f, 1.45f);
-        }
-
         if (clip.name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0)
         {
             return Mathf.Clamp(normalizedSpeed / 0.72f, 0.75f, 1.35f);
@@ -5367,8 +5435,6 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 return attacking ? "CharacterArmature|Idle_Shoot" : "CharacterArmature|Run_Gun";
             case UnitKind.Tank:
                 return attacking ? "TankArmature|Tank_TurningRight" : "TankArmature|Tank_Forward";
-            case UnitKind.Aircraft:
-                return "Helicopter";
             case UnitKind.Giant:
                 return attacking ? "EnemyArmature|EnemyArmature|EnemyArmature|Attack" : "EnemyArmature|EnemyArmature|EnemyArmature|Walk";
             default:
@@ -6647,8 +6713,17 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public Vector3 baseModelLocalPosition;
         public Transform aircraftRotorRoot;
         public Quaternion aircraftRotorBaseLocalRotation;
+        public readonly List<AircraftRotorRig> aircraftRotorRigs = new List<AircraftRotorRig>(2);
         public TankMotionRig tankMotionRig;
         public GameObject motionAccessoryRoot;
+    }
+
+    private sealed class AircraftRotorRig
+    {
+        public Transform rotor;
+        public Quaternion baseLocalRotation;
+        public Vector3 localAxis;
+        public float speedMultiplier;
     }
 
     private sealed class TankMotionRig
