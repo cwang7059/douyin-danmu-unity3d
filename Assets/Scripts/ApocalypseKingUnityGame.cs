@@ -21,6 +21,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
+    private const int PrewarmBulletProjectiles = 80;
+    private const int PrewarmShellProjectiles = 28;
+    private const int PrewarmBombProjectiles = 10;
+    private const int PrewarmRockProjectiles = 10;
+    private const int PrewarmFallbackEffects = 24;
     private const bool ShowResolutionDebugControls = false;
     private const float TankT55AYawOffset = 0f;
     private const float TankT55AkYawOffset = 0f;
@@ -217,6 +222,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             await LoadPrototypes();
             AttachPrototypesToUnits();
+            PrewarmBattlePools();
             assetsReady = true;
             ShowLoading(false);
             ResetBattle();
@@ -228,6 +234,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             assetsReady = true;
             ShowLoading(false);
             AttachFallbackPrototypes();
+            PrewarmBattlePools();
             ResetBattle();
             ShowBanner("Loaded with fallback geometry", true, 3f);
         }
@@ -2637,6 +2644,45 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         return null;
     }
 
+    private void PrewarmBattlePools()
+    {
+        if (projectiles.Count > 0 || effects.Count > 0 || deathVisuals.Count > 0)
+        {
+            return;
+        }
+
+        PrewarmProjectiles(ProjectileKind.Bullet, PrewarmBulletProjectiles, new Color(1f, 0.82f, 0.32f, 1f));
+        PrewarmProjectiles(ProjectileKind.Shell, PrewarmShellProjectiles, new Color(1f, 0.76f, 0.42f, 1f));
+        PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, new Color(0.42f, 0.50f, 0.48f, 1f));
+        PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
+
+        for (int i = 0; i < PrewarmFallbackEffects && effects.Count < MaxEffects; i++)
+        {
+            effects.Add(CreateEffectView());
+        }
+
+        PrewarmDeathVisuals(UnitKind.Soldier, 24);
+        PrewarmDeathVisuals(UnitKind.Tank, 8);
+        PrewarmDeathVisuals(UnitKind.Aircraft, 4);
+        PrewarmDeathVisuals(UnitKind.Giant, 8);
+    }
+
+    private void PrewarmProjectiles(ProjectileKind kind, int count, Color color)
+    {
+        for (int i = 0; i < count && projectiles.Count < MaxProjectiles; i++)
+        {
+            projectiles.Add(CreateProjectileView(kind, color));
+        }
+    }
+
+    private void PrewarmDeathVisuals(UnitKind kind, int count)
+    {
+        for (int i = 0; i < count && deathVisuals.Count < MaxDeathVisuals; i++)
+        {
+            deathVisuals.Add(CreateDeathVisual(kind));
+        }
+    }
+
     private bool HealHumanForces(float amount)
     {
         bool changed = false;
@@ -4150,6 +4196,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         if (effect == null)
         {
+            if (effects.Count >= MaxEffects)
+            {
+                return;
+            }
+
             effect = CreateEffectView();
             effects.Add(effect);
         }
