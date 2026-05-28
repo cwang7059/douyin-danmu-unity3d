@@ -98,9 +98,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
     };
 
-    [SerializeField] private float cameraYaw = 0f;
-    [SerializeField] private float cameraPitch = 18f;
-    [SerializeField] private float cameraDistance = 88f;
+    [SerializeField] private float cameraYaw = -14f;
+    [SerializeField] private float cameraPitch = 24f;
+    [SerializeField] private float cameraDistance = 84f;
 
     private Transform worldRoot;
     private Transform decorRoot;
@@ -469,37 +469,37 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         mainCamera.farClipPlane = 180f;
         mainCamera.fieldOfView = 31f;
         mainCamera.transform.position = new Vector3(0f, 22f, -20f);
-        mainCamera.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
+        mainCamera.transform.rotation = Quaternion.Euler(24f, -14f, 0f);
 
         orbitCamera = cameraObject.AddComponent<OrbitTouchCamera>();
-        orbitCamera.yaw = cameraYaw;
-        orbitCamera.pitch = cameraPitch;
-        orbitCamera.distance = cameraDistance;
-        orbitCamera.minPitch = 12f;
+        orbitCamera.yaw = Mathf.Approximately(cameraYaw, 0f) ? -14f : cameraYaw;
+        orbitCamera.pitch = Mathf.Approximately(cameraPitch, 18f) ? 24f : cameraPitch;
+        orbitCamera.distance = Mathf.Approximately(cameraDistance, 88f) ? 84f : cameraDistance;
+        orbitCamera.minPitch = 16f;
         orbitCamera.maxPitch = 64f;
-        orbitCamera.minDistance = 42f;
+        orbitCamera.minDistance = 46f;
         orbitCamera.maxDistance = 112f;
         orbitCamera.panXBounds = new Vector2(-10.5f, 10.5f);
         orbitCamera.panZBounds = new Vector2(-14f, 14f);
 
         cameraTarget = new GameObject("Camera Target").transform;
-        cameraTarget.position = new Vector3(1.0f, 1.45f, -5.8f);
+        cameraTarget.position = new Vector3(0.55f, 1.45f, -4.9f);
         orbitCamera.target = cameraTarget;
 
         var lightObject = new GameObject("Sun Light");
-        lightObject.transform.rotation = Quaternion.Euler(54f, -35f, 0f);
+        lightObject.transform.rotation = Quaternion.Euler(58f, -47f, 0f);
         var light = lightObject.AddComponent<Light>();
         light.type = LightType.Directional;
         light.color = new Color(1f, 0.95f, 0.88f, 1f);
-        light.intensity = 1.25f;
+        light.intensity = 1.35f;
         light.shadows = LightShadows.Soft;
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.44f, 0.51f, 0.61f, 1f);
+        RenderSettings.ambientLight = new Color(0.38f, 0.45f, 0.50f, 1f);
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = BackgroundColor;
-        RenderSettings.fogDensity = 0.012f;
+        RenderSettings.fogDensity = 0.010f;
 
         worldRoot = new GameObject("WorldRoot").transform;
         decorRoot = new GameObject("DecorRoot").transform;

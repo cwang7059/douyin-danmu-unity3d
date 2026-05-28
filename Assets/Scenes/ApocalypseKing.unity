@@ -172,9 +172,9 @@ MonoBehaviour:
   tankConfig: {fileID: 0}
   aircraftConfig: {fileID: 0}
   giantConfig: {fileID: 0}
-  cameraYaw: 0
-  cameraPitch: 18
-  cameraDistance: 88
+  cameraYaw: -14
+  cameraPitch: 24
+  cameraDistance: 84
 --- !u!114 &1983415495
 MonoBehaviour:
   m_ObjectHideFlags: 0
