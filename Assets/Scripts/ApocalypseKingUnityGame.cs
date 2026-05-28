@@ -974,7 +974,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             CreateMegaKitModule("Prop_Chimney", root.transform, new Vector3(localWidth * 0.23f, 3.45f, 0.25f), Quaternion.Euler(0f, 12f, 0f), Vector3.one * 0.92f);
         }
 
-        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, 2.2f, 10f);
+        AddBuildingObstacle(root, name, centerX, centerZ, width * 0.5f, depth * 0.5f, 2.2f, 10f, 170f);
     }
 
     private void CreateMegaKitTower(string name, float centerX, float centerZ, float width, float depth, float yaw, float scale)
@@ -1004,7 +1004,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         CreateMegaKitModule("Roof_Tower_RoundTiles", root.transform, new Vector3(0f, 6f, 0f), Quaternion.identity, Vector3.one);
         CreateMegaKitModule("Door_1_Round", root.transform, new Vector3(0f, 0.02f, -localSize * 0.5f - 0.08f), Quaternion.identity, Vector3.one);
         CreateMegaKitModule("Stairs_Exterior_Straight_Center", root.transform, new Vector3(0f, 0f, -localSize * 0.5f - 0.92f), Quaternion.identity, Vector3.one * 0.72f);
-        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, 3.8f, 12f);
+        AddBuildingObstacle(root, name, centerX, centerZ, width * 0.5f, depth * 0.5f, 3.8f, 12f, 260f);
     }
 
     private void CreateMegaKitMarketProps()
@@ -1109,7 +1109,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             window.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.95f, 0.73f, 0.34f, 1f));
         }
 
-        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.6f, 8f);
+        AddBuildingObstacle(root, name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.6f, 8f, 150f);
     }
 
     private void CreateVillageTower(string name, float centerX, float centerZ, float width, float depth, float bodyHeight, Color wallColor, Color roofColor, float yaw)
@@ -1134,20 +1134,27 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         roof.transform.localPosition = new Vector3(0f, bodyHeight + 0.36f, -depth * LogicalToWorld * 0.24f);
         roof.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(roofColor);
 
-        AddBuildingObstacle(name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.8f, 10f);
+        AddBuildingObstacle(root, name, centerX, centerZ, width * 0.5f, depth * 0.5f, bodyHeight + 0.8f, 10f, 240f);
     }
 
     private void CreateVillageWell(float centerX, float centerZ)
     {
-        var baseRing = CreatePrimitive(PrimitiveType.Cylinder, "VillageWell_StoneRing", decorRoot);
+        var root = new GameObject("VillageWell");
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = ToWorldPoint(centerX, centerZ, 0f);
+
+        var baseRing = CreatePrimitive(PrimitiveType.Cylinder, "VillageWell_StoneRing", root.transform);
         baseRing.transform.localScale = new Vector3(0.54f, 0.16f, 0.54f);
-        baseRing.transform.localPosition = ToWorldPoint(centerX, centerZ, 0.16f);
+        baseRing.transform.localPosition = new Vector3(0f, 0.16f, 0f);
         baseRing.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.38f, 0.36f, 0.31f, 1f));
 
-        var beam = CreateBattlefieldBlock("VillageWell_CrossBeam", ToWorldPoint(centerX, centerZ, 0.78f), new Vector3(1.12f, 0.10f, 0.12f), new Color(0.30f, 0.17f, 0.08f, 1f));
+        var beam = CreatePrimitive(PrimitiveType.Cube, "VillageWell_CrossBeam", root.transform);
+        beam.transform.localScale = new Vector3(1.12f, 0.10f, 0.12f);
+        beam.transform.localPosition = new Vector3(0f, 0.78f, 0f);
         beam.transform.localRotation = Quaternion.Euler(0f, -16f, 0f);
+        beam.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.30f, 0.17f, 0.08f, 1f));
 
-        AddBuildingObstacle("VillageWell", centerX, centerZ, 28f, 28f, 0.9f, 6f);
+        AddBuildingObstacle(root, "VillageWell", centerX, centerZ, 28f, 28f, 0.9f, 6f, 90f);
     }
 
     private void CreateMarketStalls()
@@ -1185,7 +1192,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private void AddBuildingObstacle(string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding)
     {
-        buildingObstacles.Add(new BuildingObstacle(name, centerX, centerZ, halfX, halfZ, height, padding));
+        AddBuildingObstacle(null, name, centerX, centerZ, halfX, halfZ, height, padding, 160f);
+    }
+
+    private void AddBuildingObstacle(GameObject root, string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding, float hp)
+    {
+        buildingObstacles.Add(new BuildingObstacle(root, name, centerX, centerZ, halfX, halfZ, height, padding, hp));
     }
 
     private void AddRoadCorridor(string name, float centerX, float centerZ, float halfX, float halfZ, float priority)
@@ -3130,6 +3142,10 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         {
             UpdateSoldierAiming(unit, target, dt);
         }
+        else if (unit.kind == UnitKind.Aircraft)
+        {
+            UpdateAircraftAiming(unit, target, dt);
+        }
 
         float dx = target.x - unit.x;
         float dz = target.z - unit.z;
@@ -3250,6 +3266,19 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.headingDegrees);
         float turnRate = unit.attackVisualTimer > 0f ? 13f : 8.5f;
         unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, Mathf.Clamp01(dt * turnRate));
+        unit.turretYawDegrees = unit.headingDegrees;
+        unit.facing = DirectionFromYaw(unit.headingDegrees).x >= 0f ? 1 : -1;
+    }
+
+    private void UpdateAircraftAiming(BattleUnit unit, BattleUnit target, float dt)
+    {
+        if (unit == null || target == null)
+        {
+            return;
+        }
+
+        float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.headingDegrees);
+        unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, Mathf.Clamp01(dt * 5.8f));
         unit.turretYawDegrees = unit.headingDegrees;
         unit.facing = DirectionFromYaw(unit.headingDegrees).x >= 0f ? 1 : -1;
     }
@@ -3569,6 +3598,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private static bool SegmentIntersectsBuilding(Vector2 from, Vector2 to, BuildingObstacle obstacle, float radius, out float t)
     {
+        if (obstacle == null || obstacle.Destroyed)
+        {
+            t = 0f;
+            return false;
+        }
+
         float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
         float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
         float minX = obstacle.CenterX - expandedHalfX;
@@ -3644,6 +3679,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < buildingObstacles.Count; i++)
         {
             var obstacle = buildingObstacles[i];
+            if (obstacle.Destroyed)
+            {
+                continue;
+            }
+
             float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
             float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
             float dx = unit.x - obstacle.CenterX;
@@ -3710,6 +3750,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < buildingObstacles.Count; i++)
         {
             var obstacle = buildingObstacles[i];
+            if (obstacle.Destroyed)
+            {
+                continue;
+            }
+
             float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
             float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
             if (Mathf.Abs(x - obstacle.CenterX) < expandedHalfX
@@ -3861,11 +3906,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        float bombX = unit.x + aim.x * 18f;
-        float bombZ = unit.z + aim.y * 18f;
+        float bombX = unit.x + aim.x * 22f;
+        float bombZ = unit.z + aim.y * 22f;
         PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.85f, RotationFromDirection(aim));
         PlayBattleEffect(BattleEffectId.BombDropTrail, bombX, bombZ, 2.3f, 0.75f, Quaternion.identity);
-        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x - aim.x * 12f, target.z - aim.y * 12f, 0.18f, unit.damage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
+        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x, target.z, 0.18f, unit.damage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
     }
 
     private void UpdateGiants(float dt)
@@ -4329,7 +4374,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            shot.progress += dt / Mathf.Max(0.04f, shot.duration);
+            float deltaProgress = dt / Mathf.Max(0.04f, shot.duration);
+            float previousT = Mathf.Clamp01(shot.progress);
+            shot.progress += deltaProgress;
             float t = Mathf.Clamp01(shot.progress);
             float arc = shot.kind == ProjectileKind.Bomb
                 ? Mathf.Sin(t * Mathf.PI) * 0.35f - t * t * 1.45f
@@ -4337,7 +4384,21 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
                     ? Mathf.Sin(t * Mathf.PI) * 1.45f
                     : 0f;
             shot.lastWorldPosition = shot.worldPosition;
-            shot.worldPosition = ToWorldPoint(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t), Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+            Vector2 previousLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, previousT), Mathf.Lerp(shot.fromZ, shot.toZ, previousT));
+            Vector2 currentLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t));
+            shot.worldPosition = ToWorldPoint(currentLogical.x, currentLogical.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+
+            bool impactedBuilding = false;
+            Vector2 buildingImpactPoint;
+            if (CanProjectileHitBuildingsInFlight(shot.kind)
+                && TryFindProjectileBuildingImpact(previousLogical, currentLogical, ProjectileBuildingImpactRadius(shot.kind), out _, out buildingImpactPoint))
+            {
+                impactedBuilding = true;
+                shot.toX = buildingImpactPoint.x;
+                shot.toZ = buildingImpactPoint.y;
+                shot.worldPosition = ToWorldPoint(buildingImpactPoint.x, buildingImpactPoint.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+            }
+
             if (shot.kind == ProjectileKind.Bomb)
             {
                 shot.trailTimer -= dt;
@@ -4349,7 +4410,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             }
             UpdateProjectileVisual(shot, t);
 
-            if (t >= 1f)
+            if (impactedBuilding || t >= 1f)
             {
                 ResolveProjectileImpact(shot);
             }
@@ -4384,6 +4445,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         shot.active = false;
         shot.root.SetActive(false);
 
+        if (CanProjectileDamageBuildings(shot.kind))
+        {
+            DamageBuildingsInArea(shot.toX, shot.toZ, ProjectileBuildingBlastRadius(shot), ProjectileBuildingDamage(shot));
+        }
+
         if (shot.target == ProjectileTarget.Giant)
         {
             if (shot.radius > 0f)
@@ -4416,6 +4482,146 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.12f);
         TriggerCameraShake(0.12f, 0.08f);
         ApplyAreaDamageToHumans(shot.toX, shot.toZ, shot.radius, shot.damage, false, 36f);
+    }
+
+    private bool TryFindProjectileBuildingImpact(Vector2 from, Vector2 to, float radius, out BuildingObstacle obstacle, out Vector2 impact)
+    {
+        obstacle = null;
+        impact = to;
+        float bestT = float.PositiveInfinity;
+
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            float t;
+            var candidate = buildingObstacles[i];
+            if (SegmentIntersectsBuilding(from, to, candidate, radius, out t) && t < bestT)
+            {
+                bestT = t;
+                obstacle = candidate;
+            }
+        }
+
+        if (obstacle == null)
+        {
+            return false;
+        }
+
+        impact = Vector2.Lerp(from, to, Mathf.Clamp01(bestT));
+        return true;
+    }
+
+    private void DamageBuildingsInArea(float x, float z, float radius, float damage)
+    {
+        if (buildingObstacles.Count == 0 || radius <= 0f || damage <= 0f)
+        {
+            return;
+        }
+
+        for (int i = 0; i < buildingObstacles.Count; i++)
+        {
+            var obstacle = buildingObstacles[i];
+            if (obstacle == null || obstacle.Destroyed)
+            {
+                continue;
+            }
+
+            float dx = Mathf.Max(0f, Mathf.Abs(x - obstacle.CenterX) - obstacle.HalfX);
+            float dz = Mathf.Max(0f, Mathf.Abs(z - obstacle.CenterZ) - obstacle.HalfZ);
+            float distanceSq = dx * dx + dz * dz;
+            if (distanceSq > radius * radius)
+            {
+                continue;
+            }
+
+            float distance = Mathf.Sqrt(distanceSq);
+            float falloff = 1f - Mathf.Clamp01(distance / Mathf.Max(1f, radius));
+            obstacle.Hp -= damage * Mathf.Lerp(0.45f, 1.15f, falloff);
+            if (obstacle.Hp <= 0f)
+            {
+                DestroyBuildingObstacle(obstacle);
+            }
+        }
+    }
+
+    private void DestroyBuildingObstacle(BuildingObstacle obstacle)
+    {
+        if (obstacle == null || obstacle.Destroyed)
+        {
+            return;
+        }
+
+        obstacle.Destroyed = true;
+        if (obstacle.Root != null)
+        {
+            obstacle.Root.SetActive(false);
+        }
+
+        float rubbleWidth = Mathf.Max(0.55f, obstacle.HalfX * 2f * LogicalToWorld * 0.58f);
+        float rubbleDepth = Mathf.Max(0.55f, obstacle.HalfZ * 2f * LogicalToWorld * 0.58f);
+        var rubble = CreatePrimitive(PrimitiveType.Cube, obstacle.Name + "_Rubble", decorRoot);
+        rubble.transform.localPosition = ToWorldPoint(obstacle.CenterX, obstacle.CenterZ, 0.05f);
+        rubble.transform.localScale = new Vector3(rubbleWidth, 0.10f, rubbleDepth);
+        rubble.transform.localRotation = Quaternion.Euler(0f, Noise(obstacle.CenterX * 0.17f + obstacle.CenterZ * 0.31f) * 180f - 90f, 0f);
+        rubble.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.20f, 0.18f, 0.15f, 1f));
+
+        float effectScale = Mathf.Clamp((obstacle.HalfX + obstacle.HalfZ) / 95f, 0.85f, 1.65f);
+        PlayBattleEffect(BattleEffectId.ShellExplosionLarge, obstacle.CenterX, obstacle.CenterZ, 0.28f, effectScale, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.TankWreckSmoke, obstacle.CenterX, obstacle.CenterZ, 0.22f, effectScale * 0.95f, Quaternion.identity);
+        PlayBattleAudio(BattleAudioCueId.ExplosionLarge, obstacle.CenterX, obstacle.CenterZ, 0.18f);
+        TriggerCameraShake(0.16f, 0.08f);
+    }
+
+    private static bool CanProjectileHitBuildingsInFlight(ProjectileKind kind)
+    {
+        return kind == ProjectileKind.Shell || kind == ProjectileKind.Rocket;
+    }
+
+    private static bool CanProjectileDamageBuildings(ProjectileKind kind)
+    {
+        return kind == ProjectileKind.Shell || kind == ProjectileKind.Rocket || kind == ProjectileKind.Bomb;
+    }
+
+    private static float ProjectileBuildingImpactRadius(ProjectileKind kind)
+    {
+        switch (kind)
+        {
+            case ProjectileKind.Rocket:
+                return 8f;
+            case ProjectileKind.Shell:
+                return 7f;
+            default:
+                return 0f;
+        }
+    }
+
+    private static float ProjectileBuildingBlastRadius(ProjectileView shot)
+    {
+        switch (shot.kind)
+        {
+            case ProjectileKind.Bomb:
+                return Mathf.Max(shot.radius, 104f);
+            case ProjectileKind.Rocket:
+                return Mathf.Max(shot.radius, 78f);
+            case ProjectileKind.Shell:
+                return Mathf.Max(shot.radius, 68f);
+            default:
+                return shot.radius;
+        }
+    }
+
+    private static float ProjectileBuildingDamage(ProjectileView shot)
+    {
+        switch (shot.kind)
+        {
+            case ProjectileKind.Bomb:
+                return Mathf.Max(shot.damage * 2.7f, 190f);
+            case ProjectileKind.Rocket:
+                return Mathf.Max(shot.damage * 2.5f, 170f);
+            case ProjectileKind.Shell:
+                return Mathf.Max(shot.damage * 2.2f, 155f);
+            default:
+                return shot.damage;
+        }
     }
 
     private static float ProjectileHeadScale(ProjectileKind kind)
@@ -5163,7 +5369,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private bool UsesDynamicHeading(UnitKind kind)
     {
-        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Giant;
+        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Aircraft || kind == UnitKind.Giant;
     }
 
     private float DefaultHeadingYaw(UnitKind kind)
@@ -5818,6 +6024,11 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < buildingObstacles.Count; i++)
         {
             var obstacle = buildingObstacles[i];
+            if (obstacle.Destroyed)
+            {
+                continue;
+            }
+
             float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius;
             float expandedHalfZ = obstacle.HalfZ + obstacle.Padding + radius;
             if (Mathf.Abs(unit.x - obstacle.CenterX) < expandedHalfX
@@ -6738,6 +6949,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
     private sealed class BuildingObstacle
     {
+        public readonly GameObject Root;
         public readonly string Name;
         public readonly float CenterX;
         public readonly float CenterZ;
@@ -6745,9 +6957,12 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         public readonly float HalfZ;
         public readonly float Height;
         public readonly float Padding;
+        public float Hp;
+        public bool Destroyed;
 
-        public BuildingObstacle(string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding)
+        public BuildingObstacle(GameObject root, string name, float centerX, float centerZ, float halfX, float halfZ, float height, float padding, float hp)
         {
+            Root = root;
             Name = name;
             CenterX = centerX;
             CenterZ = centerZ;
@@ -6755,6 +6970,8 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
             HalfZ = halfZ;
             Height = height;
             Padding = padding;
+            Hp = hp;
+            Destroyed = false;
         }
     }
 
