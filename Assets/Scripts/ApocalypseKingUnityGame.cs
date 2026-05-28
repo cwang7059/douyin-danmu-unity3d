@@ -99,7 +99,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     {
         { UnitKind.Soldier, new ModelPose(0.88f, 0f, 90f, 0f, 0f, true) },
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
-        { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 108f, 0f, 0.2f, true) },
+        { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, -90f, 108f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
