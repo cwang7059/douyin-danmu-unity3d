@@ -6,6 +6,7 @@
 - 作者：Inguz Media
 - 许可证：OpenGameArt 页面列出多种授权，其中包含 CC0。本项目按 CC0 使用，并保留来源记录。
 - 源素材路径：`Assets/DownloadedAssets/VFX/Online/OpenGameArtInguzImpact/impact08_0.png`
-- 运行时精选贴图：`Assets/Resources/VFX/Online/Selected/impact_inguz_monster_shell.png`
-- 用途：坦克炮弹/火箭命中怪物身体时的专用金蓝冲击爆炸特效。
-- 2026-05-28 更新：同一金蓝冲击贴图也替换了原先偏紫红的 `impact_sinestesia_hit.png`、`impact_sinestesia_slash.png` 运行时贴图，用于锤击、爪击和子弹命中闪光。
+- 运行时精选贴图：已停用。原 `Assets/Resources/VFX/Online/Selected/impact_inguz_monster_shell.png` 带有明显青蓝高光，叠加粒子透明和场景光后容易被看成紫色。
+- 当前替代：`Assets/Resources/VFX/Online/Selected/explosion_fireball.png`、`Assets/Resources/VFX/Online/Selected/flash_kenney.png`，用于炮弹命中怪物、子弹命中、锤击、爪击等暖色火光效果。
+- 用途：历史命中图集素材记录，当前不再进入运行时精选目录。
+- 2026-05-28 更新：该图集已从运行时命中链路移除，避免青蓝高光叠加后产生紫色观感；锤击、爪击、子弹命中改用暖色 Kenney 爆闪，炮弹命中怪物改用暖色火球爆炸图集。
