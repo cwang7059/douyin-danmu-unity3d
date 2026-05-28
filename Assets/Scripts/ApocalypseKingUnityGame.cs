@@ -5365,6 +5365,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         material = new Material(shader);
         material.color = color;
         material.renderQueue = 3000;
+        EnableMaterialInstancing(material);
         materialCache[key] = material;
         return material;
     }
@@ -5494,6 +5495,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
         material.DisableKeyword("_BUILTIN_AlphaClip");
         material.SetOverrideTag("RenderType", "Opaque");
         material.renderQueue = (int)RenderQueue.Geometry;
+        EnableMaterialInstancing(material);
     }
 
     private void ApplyTransparentDoubleSided(Material material)
@@ -5530,6 +5532,15 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
 
         material.SetOverrideTag("RenderType", "Transparent");
         material.renderQueue = (int)RenderQueue.Transparent;
+        EnableMaterialInstancing(material);
+    }
+
+    private static void EnableMaterialInstancing(Material material)
+    {
+        if (material != null)
+        {
+            material.enableInstancing = true;
+        }
     }
 
     private GameObject CreatePrimitive(PrimitiveType primitiveType, string name, Transform parent)
