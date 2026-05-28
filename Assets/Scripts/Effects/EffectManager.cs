@@ -3,9 +3,21 @@ using UnityEngine;
 
 public sealed class EffectManager : MonoBehaviour
 {
+    private const string VfxSelectedPath = "VFX/Online/Selected/";
+    private const string TextureSmokeBlack = VfxSelectedPath + "smoke_black";
+    private const string TextureSmokeWhite = VfxSelectedPath + "smoke_white";
+    private const string TextureFlashKenney = VfxSelectedPath + "flash_kenney";
+    private const string TextureMuzzleRifle = VfxSelectedPath + "muzzle_rifle";
+    private const string TextureMuzzleTank = VfxSelectedPath + "muzzle_tank";
+    private const string TextureExplosionKenney = VfxSelectedPath + "explosion_kenney";
+    private const string TextureExplosionFireball = VfxSelectedPath + "explosion_fireball";
+    private const string TextureExplosionBomb = VfxSelectedPath + "explosion_bomb";
+    private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
+
     [SerializeField] private EffectConfig[] configs;
     [SerializeField] private bool createFallbackEffects = true;
 
+    private static readonly Dictionary<string, Material> particleMaterialCache = new Dictionary<string, Material>();
     private readonly Dictionary<BattleEffectId, EffectConfig> configById = new Dictionary<BattleEffectId, EffectConfig>();
     private readonly Dictionary<BattleEffectId, Queue<PooledParticleEffect>> pools = new Dictionary<BattleEffectId, Queue<PooledParticleEffect>>();
     private readonly Dictionary<BattleEffectId, int> liveCounts = new Dictionary<BattleEffectId, int>();
@@ -190,33 +202,37 @@ public sealed class EffectManager : MonoBehaviour
         switch (id)
         {
             case BattleEffectId.MuzzleRifle:
-                AddBurst(root, "RifleFlash", 0.08f, 0.045f, 0.09f, 2.8f, 5.2f, 0.10f, 0.19f, 6, new Color(1f, 0.92f, 0.52f, 1f), new Color(1f, 0.35f, 0.08f, 0f), ParticleSystemShapeType.Cone, 0.035f, 13f, 0f, ParticleSystemRenderMode.Stretch);
-                AddBurst(root, "RifleSmoke", 0.35f, 0.18f, 0.36f, 0.35f, 0.95f, 0.06f, 0.16f, 7, new Color(0.62f, 0.64f, 0.62f, 0.65f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.055f, 11f, -0.05f);
+                AddBurst(root, "RifleFlash", 0.08f, 0.045f, 0.09f, 2.8f, 5.2f, 0.14f, 0.26f, 3, Color.white, new Color(1f, 0.35f, 0.08f, 0f), ParticleSystemShapeType.Cone, 0.035f, 13f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleRifle);
+                AddBurst(root, "RifleSmoke", 0.35f, 0.18f, 0.36f, 0.35f, 0.95f, 0.08f, 0.20f, 7, new Color(0.62f, 0.64f, 0.62f, 0.65f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.055f, 11f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 AddPointLight(root, "RifleFlashLight", new Color(1f, 0.78f, 0.38f, 1f), 1.5f, 3f);
                 break;
             case BattleEffectId.MuzzleTank:
-                AddBurst(root, "TankFlash", 0.16f, 0.06f, 0.13f, 4.5f, 7.8f, 0.34f, 0.62f, 18, new Color(1f, 0.88f, 0.42f, 1f), new Color(1f, 0.25f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.12f, 16f, 0f, ParticleSystemRenderMode.Stretch);
-                AddBurst(root, "TankSmoke", 0.75f, 0.42f, 0.95f, 1.0f, 2.3f, 0.22f, 0.58f, 24, new Color(0.58f, 0.56f, 0.50f, 0.78f), new Color(0.18f, 0.17f, 0.16f, 0f), ParticleSystemShapeType.Cone, 0.18f, 22f, -0.12f);
-                AddBurst(root, "TankSparks", 0.22f, 0.16f, 0.28f, 4.2f, 8.5f, 0.045f, 0.085f, 14, new Color(1f, 0.80f, 0.34f, 1f), new Color(1f, 0.20f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.08f, 26f, 0.1f, ParticleSystemRenderMode.Stretch);
+                AddBurst(root, "TankFlash", 0.16f, 0.06f, 0.13f, 4.5f, 7.8f, 0.48f, 0.86f, 4, Color.white, new Color(1f, 0.25f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.12f, 16f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleTank);
+                AddBurst(root, "TankSmoke", 0.75f, 0.42f, 0.95f, 1.0f, 2.3f, 0.28f, 0.68f, 24, new Color(0.58f, 0.56f, 0.50f, 0.78f), new Color(0.18f, 0.17f, 0.16f, 0f), ParticleSystemShapeType.Cone, 0.18f, 22f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+                AddBurst(root, "TankSparks", 0.22f, 0.16f, 0.28f, 4.2f, 8.5f, 0.08f, 0.16f, 10, new Color(1f, 0.80f, 0.34f, 1f), new Color(1f, 0.20f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.08f, 26f, 0.1f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 AddPointLight(root, "TankFlashLight", new Color(1f, 0.56f, 0.20f, 1f), 4f, 7f);
                 break;
+            case BattleEffectId.MuzzleAircraft:
+                AddBurst(root, "AircraftDropFlash", 0.12f, 0.06f, 0.16f, 1.2f, 2.8f, 0.18f, 0.34f, 5, Color.white, new Color(1f, 0.50f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.10f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "AircraftDropSmoke", 0.42f, 0.18f, 0.46f, 0.25f, 0.75f, 0.12f, 0.28f, 8, new Color(0.72f, 0.72f, 0.68f, 0.52f), new Color(0.28f, 0.28f, 0.25f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                break;
             case BattleEffectId.ShellLaunchSmoke:
-                AddBurst(root, "ShellTrailSmoke", 0.62f, 0.32f, 0.82f, 0.28f, 1.1f, 0.12f, 0.30f, 12, new Color(0.56f, 0.55f, 0.52f, 0.55f), new Color(0.22f, 0.22f, 0.20f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, -0.06f);
+                AddBurst(root, "ShellTrailSmoke", 0.62f, 0.32f, 0.82f, 0.28f, 1.1f, 0.16f, 0.38f, 12, new Color(0.56f, 0.55f, 0.52f, 0.55f), new Color(0.22f, 0.22f, 0.20f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 break;
             case BattleEffectId.BombDropTrail:
-                AddBurst(root, "BombTrailSmoke", 0.72f, 0.38f, 0.88f, 0.18f, 0.7f, 0.12f, 0.28f, 10, new Color(0.70f, 0.72f, 0.70f, 0.48f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.08f);
+                AddBurst(root, "BombTrailSmoke", 0.72f, 0.38f, 0.88f, 0.18f, 0.7f, 0.16f, 0.34f, 10, new Color(0.70f, 0.72f, 0.70f, 0.48f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitMetal:
-                AddBurst(root, "BulletSparks", 0.22f, 0.12f, 0.28f, 3.6f, 7.5f, 0.035f, 0.075f, 14, new Color(1f, 0.88f, 0.34f, 1f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.05f, ParticleSystemRenderMode.Stretch);
-                AddBurst(root, "BulletDust", 0.34f, 0.16f, 0.36f, 0.3f, 1.2f, 0.06f, 0.16f, 8, new Color(0.55f, 0.51f, 0.42f, 0.5f), new Color(0.24f, 0.22f, 0.18f, 0f), ParticleSystemShapeType.Sphere, 0.07f, 0f, -0.05f);
+                AddBurst(root, "BulletSparks", 0.22f, 0.12f, 0.28f, 3.6f, 7.5f, 0.055f, 0.12f, 12, new Color(1f, 0.88f, 0.34f, 1f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Hemisphere, 0.10f, 0f, 0.05f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "BulletDust", 0.34f, 0.16f, 0.36f, 0.3f, 1.2f, 0.08f, 0.18f, 8, new Color(0.55f, 0.51f, 0.42f, 0.5f), new Color(0.24f, 0.22f, 0.18f, 0f), ParticleSystemShapeType.Sphere, 0.07f, 0f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitDirt:
             case BattleEffectId.SoldierDeath:
-                AddBurst(root, "DirtPuff", 0.48f, 0.28f, 0.62f, 0.45f, 1.7f, 0.09f, 0.24f, id == BattleEffectId.SoldierDeath ? 18 : 10, new Color(0.62f, 0.52f, 0.38f, 0.65f), new Color(0.30f, 0.25f, 0.18f, 0f), ParticleSystemShapeType.Hemisphere, 0.15f, 0f, -0.12f);
+                AddBurst(root, "DirtPuff", 0.48f, 0.28f, 0.62f, 0.45f, 1.7f, 0.12f, 0.28f, id == BattleEffectId.SoldierDeath ? 18 : 10, new Color(0.62f, 0.52f, 0.38f, 0.65f), new Color(0.30f, 0.25f, 0.18f, 0f), ParticleSystemShapeType.Hemisphere, 0.15f, 0f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.ShellExplosionSmall:
             case BattleEffectId.ExplosionSmall:
-                AddExplosion(root, 0.72f, 28, 18, 1.0f);
+                AddExplosion(root, 0.72f, 16, 18, 1.0f, TextureExplosionKenney);
                 break;
             case BattleEffectId.ShellExplosionLarge:
             case BattleEffectId.BombExplosion:
@@ -224,32 +240,32 @@ public sealed class EffectManager : MonoBehaviour
             case BattleEffectId.AircraftDeathExplosion:
             case BattleEffectId.AirCrashExplosion:
             case BattleEffectId.ExplosionLarge:
-                AddExplosion(root, id == BattleEffectId.BombExplosion ? 1.15f : 0.98f, id == BattleEffectId.BombExplosion ? 58 : 48, id == BattleEffectId.BombExplosion ? 34 : 28, id == BattleEffectId.TankDeathExplosion ? 1.22f : 1.0f);
+                AddExplosion(root, id == BattleEffectId.BombExplosion ? 1.15f : 0.98f, id == BattleEffectId.BombExplosion ? 24 : 18, id == BattleEffectId.BombExplosion ? 34 : 28, id == BattleEffectId.TankDeathExplosion ? 1.22f : 1.0f, SelectExplosionTexture(id));
                 break;
             case BattleEffectId.TankWreckSmoke:
             case BattleEffectId.AircraftCrashSmoke:
-                AddBurst(root, "WreckSmoke", 2.2f, 1.2f, 2.4f, 0.35f, 1.2f, 0.42f, 0.92f, 38, new Color(0.20f, 0.19f, 0.17f, 0.78f), new Color(0.08f, 0.08f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.28f, 0f, -0.18f);
+                AddBurst(root, "WreckSmoke", 2.2f, 1.2f, 2.4f, 0.35f, 1.2f, 0.46f, 1.05f, 38, new Color(0.20f, 0.19f, 0.17f, 0.78f), new Color(0.08f, 0.08f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.28f, 0f, -0.18f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 break;
             case BattleEffectId.MonsterHammerImpact:
-                AddBurst(root, "HammerDebris", 0.72f, 0.34f, 0.82f, 2.0f, 5.0f, 0.10f, 0.26f, 28, new Color(0.68f, 0.58f, 0.42f, 0.9f), new Color(0.22f, 0.18f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.22f, 0f, -0.16f);
-                AddBurst(root, "HammerSparks", 0.28f, 0.12f, 0.24f, 3.0f, 7.2f, 0.04f, 0.10f, 18, new Color(1f, 0.74f, 0.26f, 1f), new Color(1f, 0.12f, 0.04f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.15f, ParticleSystemRenderMode.Stretch);
+                AddBurst(root, "HammerDebris", 0.72f, 0.34f, 0.82f, 2.0f, 5.0f, 0.12f, 0.30f, 28, new Color(0.68f, 0.58f, 0.42f, 0.9f), new Color(0.22f, 0.18f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.22f, 0f, -0.16f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                AddBurst(root, "HammerSparks", 0.28f, 0.12f, 0.24f, 3.0f, 7.2f, 0.075f, 0.16f, 15, new Color(1f, 0.74f, 0.26f, 1f), new Color(1f, 0.12f, 0.04f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.15f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 AddShockwave(root, 20, 1.1f, new Color(1f, 0.74f, 0.34f, 0.58f));
                 break;
             case BattleEffectId.MonsterStompDust:
-                AddBurst(root, "StompDust", 0.9f, 0.45f, 1.0f, 1.2f, 3.4f, 0.16f, 0.42f, 36, new Color(0.58f, 0.48f, 0.34f, 0.68f), new Color(0.26f, 0.22f, 0.16f, 0f), ParticleSystemShapeType.Hemisphere, 0.32f, 0f, -0.25f);
+                AddBurst(root, "StompDust", 0.9f, 0.45f, 1.0f, 1.2f, 3.4f, 0.22f, 0.50f, 36, new Color(0.58f, 0.48f, 0.34f, 0.68f), new Color(0.26f, 0.22f, 0.16f, 0f), ParticleSystemShapeType.Hemisphere, 0.32f, 0f, -0.25f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 AddShockwave(root, 24, 0.9f, new Color(0.75f, 0.62f, 0.40f, 0.45f));
                 break;
             case BattleEffectId.MonsterShockwave:
                 AddShockwave(root, 36, 1.35f, new Color(1f, 0.88f, 0.50f, 0.48f));
                 break;
             case BattleEffectId.ClawHit:
-                AddBurst(root, "ClawSlash", 0.36f, 0.12f, 0.28f, 1.5f, 4.5f, 0.08f, 0.18f, 18, new Color(1f, 0.24f, 0.12f, 0.92f), new Color(0.40f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.1f);
+                AddBurst(root, "ClawSlash", 0.36f, 0.12f, 0.28f, 1.5f, 4.5f, 0.12f, 0.24f, 14, new Color(1f, 0.24f, 0.12f, 0.92f), new Color(0.40f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, 0.1f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 break;
             case BattleEffectId.MonsterDeathExplosion:
-                AddExplosion(root, 1.25f, 66, 36, 1.45f);
+                AddExplosion(root, 1.25f, 26, 36, 1.45f, TextureExplosionFireball);
                 break;
             case BattleEffectId.MonsterDeathDust:
-                AddBurst(root, "MonsterDeathDust", 1.6f, 0.8f, 1.8f, 1.5f, 4.6f, 0.34f, 0.92f, 72, new Color(0.48f, 0.40f, 0.30f, 0.72f), new Color(0.18f, 0.15f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.48f, 0f, -0.28f);
+                AddBurst(root, "MonsterDeathDust", 1.6f, 0.8f, 1.8f, 1.5f, 4.6f, 0.44f, 1.08f, 72, new Color(0.48f, 0.40f, 0.30f, 0.72f), new Color(0.18f, 0.15f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.48f, 0f, -0.28f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 AddShockwave(root, 42, 1.6f, new Color(0.85f, 0.66f, 0.38f, 0.38f));
                 break;
             case BattleEffectId.HumanAirStrikeWarning:
@@ -265,16 +281,16 @@ public sealed class EffectManager : MonoBehaviour
         }
     }
 
-    private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale)
+    private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
     {
-        AddBurst(root, "ExplosionFire", duration, 0.18f, 0.36f, 2.8f * scale, 6.8f * scale, 0.32f * scale, 0.72f * scale, fireCount, new Color(1f, 0.64f, 0.18f, 1f), new Color(0.35f, 0.04f, 0.01f, 0f), ParticleSystemShapeType.Sphere, 0.26f * scale, 0f, 0f);
-        AddBurst(root, "ExplosionSmoke", duration + 1.2f, 0.8f, 1.85f, 0.8f * scale, 2.2f * scale, 0.36f * scale, 0.92f * scale, Mathf.Max(18, fireCount / 2), new Color(0.34f, 0.32f, 0.28f, 0.78f), new Color(0.10f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Hemisphere, 0.34f * scale, 0f, -0.12f);
+        AddBurst(root, "ExplosionFire", duration, 0.18f, 0.42f, 2.2f * scale, 5.4f * scale, 0.44f * scale, 0.96f * scale, fireCount, Color.white, new Color(1f, 0.30f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.26f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, fireTextureResourcePath);
+        AddBurst(root, "ExplosionSmoke", duration + 1.2f, 0.8f, 1.85f, 0.8f * scale, 2.2f * scale, 0.36f * scale, 0.92f * scale, Mathf.Max(18, fireCount), new Color(0.34f, 0.32f, 0.28f, 0.78f), new Color(0.10f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Hemisphere, 0.34f * scale, 0f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
         AddBurst(root, "ExplosionDebris", duration, 0.28f, 0.75f, 2.6f * scale, 7.0f * scale, 0.07f * scale, 0.18f * scale, debrisCount, new Color(0.58f, 0.46f, 0.32f, 0.95f), new Color(0.18f, 0.13f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.28f * scale, 0f, -0.30f, ParticleSystemRenderMode.Stretch);
         AddShockwave(root, Mathf.RoundToInt(24 * scale), 1.0f * scale, new Color(1f, 0.70f, 0.28f, 0.42f));
         AddPointLight(root, "ExplosionLight", new Color(1f, 0.52f, 0.18f, 1f), 5.5f * scale, 8f * scale);
     }
 
-    private static ParticleSystem AddBurst(Transform parent, string name, float duration, float lifetimeMin, float lifetimeMax, float speedMin, float speedMax, float sizeMin, float sizeMax, int count, Color start, Color end, ParticleSystemShapeType shapeType, float radius, float coneAngle = 0f, float gravity = 0f, ParticleSystemRenderMode renderMode = ParticleSystemRenderMode.Billboard)
+    private static ParticleSystem AddBurst(Transform parent, string name, float duration, float lifetimeMin, float lifetimeMax, float speedMin, float speedMax, float sizeMin, float sizeMax, int count, Color start, Color end, ParticleSystemShapeType shapeType, float radius, float coneAngle = 0f, float gravity = 0f, ParticleSystemRenderMode renderMode = ParticleSystemRenderMode.Billboard, string textureResourcePath = null)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -316,18 +332,164 @@ public sealed class EffectManager : MonoBehaviour
         renderer.renderMode = renderMode;
         renderer.lengthScale = renderMode == ParticleSystemRenderMode.Stretch ? 1.7f : 1f;
         renderer.velocityScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.35f : 0f;
+        Material material = GetParticleMaterial(textureResourcePath, renderMode);
+        if (material != null)
+        {
+            renderer.sharedMaterial = material;
+            ConfigureTextureSheet(system, textureResourcePath);
+        }
+
         return system;
     }
 
     private static void AddShockwave(Transform parent, int count, float scale, Color color)
     {
-        var system = AddBurst(parent, "ShockwaveRing", 0.42f, 0.28f, 0.42f, 2.2f * scale, 4.2f * scale, 0.10f * scale, 0.22f * scale, count, color, new Color(color.r, color.g, color.b, 0f), ParticleSystemShapeType.Circle, 0.08f * scale, 0f, 0f, ParticleSystemRenderMode.Stretch);
+        int ringCount = Mathf.Clamp(Mathf.CeilToInt(count / 12f), 1, 5);
+        var system = AddBurst(parent, "ShockwaveRing", 0.55f, 0.35f, 0.55f, 0.02f * scale, 0.08f * scale, 0.85f * scale, 1.28f * scale, ringCount, color, new Color(color.r, color.g, color.b, 0f), ParticleSystemShapeType.Circle, 0.02f * scale, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureShockwaveRing);
         var shape = system.shape;
         shape.rotation = new Vector3(90f, 0f, 0f);
+        var size = system.sizeOverLifetime;
+        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+            new Keyframe(0f, 0.20f),
+            new Keyframe(0.38f, 1.05f),
+            new Keyframe(1f, 1.65f)));
         var velocity = system.velocityOverLifetime;
         velocity.enabled = true;
         velocity.space = ParticleSystemSimulationSpace.Local;
         velocity.y = new ParticleSystem.MinMaxCurve(0.02f);
+    }
+
+    private static string SelectExplosionTexture(BattleEffectId id)
+    {
+        if (id == BattleEffectId.BombExplosion
+            || id == BattleEffectId.TankDeathExplosion
+            || id == BattleEffectId.AircraftDeathExplosion
+            || id == BattleEffectId.AirCrashExplosion)
+        {
+            return TextureExplosionBomb;
+        }
+
+        return TextureExplosionFireball;
+    }
+
+    private static Material GetParticleMaterial(string textureResourcePath, ParticleSystemRenderMode renderMode)
+    {
+        if (string.IsNullOrEmpty(textureResourcePath))
+        {
+            return null;
+        }
+
+        string cacheKey = textureResourcePath + "|" + renderMode;
+        Material material;
+        if (particleMaterialCache.TryGetValue(cacheKey, out material))
+        {
+            return material;
+        }
+
+        var texture = Resources.Load<Texture2D>(textureResourcePath);
+        if (texture == null)
+        {
+            Debug.LogWarning($"VFX texture not found in Resources: {textureResourcePath}");
+            return null;
+        }
+
+        Material baseMaterial = Resources.GetBuiltinResource<Material>("Default-Particle.mat");
+        if (baseMaterial != null)
+        {
+            material = new Material(baseMaterial);
+        }
+        else
+        {
+            Shader shader = Shader.Find("Particles/Standard Unlit")
+                ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended")
+                ?? Shader.Find("Sprites/Default")
+                ?? Shader.Find("Unlit/Transparent");
+            if (shader == null)
+            {
+                return null;
+            }
+
+            material = new Material(shader);
+        }
+
+        material.name = "VFX_" + texture.name;
+        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture("_MainTex", texture);
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", Color.white);
+        }
+
+        if (material.HasProperty("_TintColor"))
+        {
+            material.SetColor("_TintColor", Color.white);
+        }
+
+        if (material.HasProperty("_Mode"))
+        {
+            material.SetFloat("_Mode", 2f);
+        }
+
+        if (material.HasProperty("_SrcBlend"))
+        {
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        }
+
+        if (material.HasProperty("_DstBlend"))
+        {
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        }
+
+        if (material.HasProperty("_ZWrite"))
+        {
+            material.SetInt("_ZWrite", 0);
+        }
+
+        material.EnableKeyword("_ALPHABLEND_ON");
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        particleMaterialCache[cacheKey] = material;
+        return material;
+    }
+
+    private static void ConfigureTextureSheet(ParticleSystem system, string textureResourcePath)
+    {
+        int tilesX;
+        int tilesY;
+        if (!TryGetTextureSheetTiles(textureResourcePath, out tilesX, out tilesY))
+        {
+            return;
+        }
+
+        var sheet = system.textureSheetAnimation;
+        sheet.enabled = true;
+        sheet.mode = ParticleSystemAnimationMode.Grid;
+        sheet.numTilesX = tilesX;
+        sheet.numTilesY = tilesY;
+        sheet.animation = ParticleSystemAnimationType.WholeSheet;
+        sheet.frameOverTime = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0f, 1f, 1f));
+        sheet.cycleCount = 1;
+    }
+
+    private static bool TryGetTextureSheetTiles(string textureResourcePath, out int tilesX, out int tilesY)
+    {
+        if (textureResourcePath == TextureExplosionFireball
+            || textureResourcePath == TextureExplosionBomb
+            || textureResourcePath == TextureShockwaveRing)
+        {
+            tilesX = 4;
+            tilesY = 4;
+            return true;
+        }
+
+        tilesX = 1;
+        tilesY = 1;
+        return false;
     }
 
     private static void AddPointLight(Transform parent, string name, Color color, float intensity, float range)
