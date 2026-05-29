@@ -66,6 +66,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     [Header("Scene Prefabs")]
     [SerializeField] private GameObject battlefieldPrefab;
+    [SerializeField] private ApocalypseHudPrefab hudPrefab;
 
 
     private const float LogicalToWorld = 0.025f;
@@ -447,6 +448,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private void CreateHud()
     {
         uiFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (TryCreateHudFromPrefab())
+        {
+            return;
+        }
 
         staticHudCanvas = CreateHudCanvas("HUD_Static", 0, ShowResolutionDebugControls);
         dynamicHudCanvas = CreateHudCanvas("HUD_Dynamic", 1, true);
