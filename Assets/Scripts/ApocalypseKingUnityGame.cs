@@ -179,12 +179,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private ProjectileSystem projectileSystem;
     private VisualPoolSystem visualPoolSystem;
     private BattleStateSystem battleStateSystem;
+    private UIRuntimeSystem uiRuntimeSystem;
 
     private TargetingSystem Targeting => targetingSystem ?? (targetingSystem = new TargetingSystem(this));
     private DamageSystem DamageResolver => damageSystem ?? (damageSystem = new DamageSystem(this));
     private ProjectileSystem ProjectileResolver => projectileSystem ?? (projectileSystem = new ProjectileSystem(this));
     private VisualPoolSystem VisualPools => visualPoolSystem ?? (visualPoolSystem = new VisualPoolSystem(this));
     private BattleStateSystem BattleState => battleStateSystem ?? (battleStateSystem = new BattleStateSystem(this));
+    private UIRuntimeSystem UIRuntime => uiRuntimeSystem ?? (uiRuntimeSystem = new UIRuntimeSystem(this));
 
     private bool assetsReady;
     private bool paused;
@@ -5157,116 +5159,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return active <= 0 ? 0f : total / active;
     }
 
-    private void RefreshHud()
-    {
-        int soldierAlive = CountActive(soldiers);
-        int tankAlive = CountActive(tanks);
-        int airAlive = CountActive(aircraft);
-        int humanAlive = soldierAlive + tankAlive + airAlive;
-        int humanTotal = MaxSoldierCount + MaxTankCount + MaxAircraftCount;
-        int giantAlive = CountActive(giants);
-        float giantHp = Mathf.Ceil(GetGiantHpTotal());
-        float giantMax = GetGiantMaxHpTotal();
-        float hpPct = Mathf.Clamp01(giantHp / Mathf.Max(1f, giantMax));
-        float humanPct = Mathf.Clamp01(humanAlive / Mathf.Max(1f, (float)humanTotal));
-        int pool = 380000 + Mathf.FloorToInt(battleTime * 8200f) + humanLosses * 2600;
-        float remaining = Mathf.Max(0f, 180f - battleTime);
-        float skillCooldown = 9f - battleTime % 9f;
-
-        if (leftTeamLabel != null)
-        {
-            leftTeamLabel.text = $"BLUE FORCE {humanAlive}";
-        }
-
-        if (rightTeamLabel != null)
-        {
-            rightTeamLabel.text = giantAlive > 0 ? "MONSTER SIDE" : "MONSTER DOWN";
-        }
-
-        if (battlePhaseLabel != null)
-        {
-            battlePhaseLabel.text = ended ? "RESULT" : paused ? "PAUSED" : "LIVE BARRAGE WAR";
-        }
-
-        if (poolLabel != null)
-        {
-            poolLabel.text = $"POINT POOL {pool:N0}";
-        }
-
-        if (timerLabel != null)
-        {
-            timerLabel.text = FormatTime(remaining);
-        }
-
-        humanLabel.text = $"Force {humanAlive}/{humanTotal}  Tanks {tankAlive}";
-        giantLabel.text = $"Boss {giantAlive}/{MaxGiantCount} HP {giantHp:0}";
-
-        if (statusLabel != null)
-        {
-            statusLabel.text = paused ? "Paused" : ended ? "Battle over" : $"Battle {FormatTime(battleTime)}  Losses {humanLosses}";
-        }
-
-        if (bottomTickerLabel != null)
-        {
-            bottomTickerLabel.text = BuildTickerMessage(soldierAlive, tankAlive, airAlive, giantHp);
-        }
-
-        if (giftFeedLabel != null)
-        {
-            giftFeedLabel.text = $"Gift heat +{pool - 380000:N0}  Barrage combo x{1 + Mathf.FloorToInt(battleTime * 0.45f) % 9}";
-        }
-
-        if (skillCountdownLabel != null)
-        {
-            skillCountdownLabel.text = $"Barrage skill CD {Mathf.CeilToInt(skillCooldown)}s";
-        }
-
-        if (humanPowerFill != null)
-        {
-            humanPowerFill.fillAmount = humanPct;
-            humanPowerFill.color = humanPct > 0.28f ? HumanColor : new Color(1f, 0.63f, 0.26f, 1f);
-        }
-
-        if (monsterPowerFill != null)
-        {
-            monsterPowerFill.fillAmount = hpPct;
-            monsterPowerFill.color = hpPct > 0.35f ? GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
-        }
-
-        if (hpFill != null && hpFill != monsterPowerFill)
-        {
-            hpFill.fillAmount = hpPct;
-            hpFill.color = hpPct > 0.35f ? GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
-        }
-    }
-
-    private string BuildTickerMessage(int soldierAlive, int tankAlive, int airAlive, float giantHp)
-    {
-        int index = Mathf.Abs(Mathf.FloorToInt(battleTime * 0.7f)) % 5;
-        switch (index)
-        {
-            case 0:
-                return $"Barrage: blue force focus fire  soldiers {soldierAlive}/{MaxSoldierCount}";
-            case 1:
-                return $"Barrage: tank line spacing stable  {tankAlive}/{MaxTankCount} online";
-            case 2:
-                return $"Barrage: air support suppressing  helicopters {airAlive}/{MaxAircraftCount}";
-            case 3:
-                return $"Barrage: boss HP {giantHp:0}  breach contested";
-            default:
-                return $"Barrage: drag to inspect the battlefield  losses {humanLosses}";
-        }
-    }
-
-    private string FormatTime(float seconds)
-    {
-        seconds = Mathf.Max(0f, seconds);
-        int total = Mathf.FloorToInt(seconds);
-        int minutes = total / 60;
-        int secs = total % 60;
-        return $"{minutes:00}:{secs:00}";
-    }
-
     private int CountAnimatorUnits(List<BattleUnit> units)
     {
         int total = 0;
@@ -5346,55 +5238,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return string.Empty;
-    }
-
-    private void ShowLoading(bool visible)
-    {
-        if (loadingPanel != null)
-        {
-            loadingPanel.gameObject.SetActive(visible);
-        }
-    }
-
-    private void UpdateLoadingLabel()
-    {
-        if (loadingLabel == null || assetsReady)
-        {
-            return;
-        }
-
-        int dots = ((int)(loadingPulseTime * 3f) % 3) + 1;
-        loadingLabel.text = $"Loading Poly Pizza 3D models{new string('.', dots)}";
-    }
-
-    private void SetLoadingMessage(string text)
-    {
-        if (loadingLabel != null)
-        {
-            loadingLabel.text = text;
-        }
-    }
-
-    private void ShowBanner(string text, bool urgent, float duration)
-    {
-        if (bannerLabel == null)
-        {
-            return;
-        }
-
-        bannerLabel.gameObject.SetActive(true);
-        bannerLabel.text = text;
-        bannerLabel.color = urgent ? new Color(1f, 0.87f, 0.44f, 1f) : new Color(0.96f, 0.98f, 1f, 1f);
-        CancelInvoke(nameof(HideBanner));
-        Invoke(nameof(HideBanner), duration);
-    }
-
-    private void HideBanner()
-    {
-        if (bannerLabel != null)
-        {
-            bannerLabel.gameObject.SetActive(false);
-        }
     }
 
     private Material GetOpaqueMaterial(Color color)
