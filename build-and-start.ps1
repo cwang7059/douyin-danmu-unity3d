@@ -54,11 +54,36 @@ function Resolve-UnityExe {
     throw "Cannot find Unity.exe. Pass -UnityExe or set UNITY_EXE."
 }
 
+function Assert-UnityProjectIsNotOpen {
+    $lockFile = Join-Path $Root "Temp\UnityLockfile"
+    if (-not (Test-Path -LiteralPath $lockFile)) {
+        return
+    }
+
+    $unityProcesses = @(Get-Process -Name Unity -ErrorAction SilentlyContinue)
+    if ($unityProcesses.Count -le 0) {
+        return
+    }
+
+    Write-Host "[ERROR] This Unity project is already open in the Editor:" -ForegroundColor Red
+    Write-Host "        $Root"
+    Write-Host ""
+    Write-Host "Close the Unity Editor window for this project, then run build-and-start again."
+    Write-Host "Open Unity processes:"
+    $unityProcesses | ForEach-Object {
+        Write-Host ("  PID {0}: {1}" -f $_.Id, $_.Path)
+    }
+
+    throw "Unity project is already open. Close the Unity Editor before batch building."
+}
+
 $BuildLog = Join-Path ([IO.Path]::GetTempPath()) ("unity-build-danmu-" + [Guid]::NewGuid().ToString("N") + ".log")
 $RunLog = Join-Path ([IO.Path]::GetTempPath()) ("danmu-player-" + [Guid]::NewGuid().ToString("N") + ".log")
+$ExitCode = 0
 
 try {
     $ResolvedUnityExe = Resolve-UnityExe $UnityExe
+    Assert-UnityProjectIsNotOpen
     Write-Host "[BUILD] Unity: $ResolvedUnityExe"
 
     $unityArgs = @(
@@ -70,10 +95,19 @@ try {
     )
 
     $buildProcess = Start-Process -FilePath $ResolvedUnityExe -ArgumentList $unityArgs -Wait -PassThru -WindowStyle Hidden
-    $summary = Select-String -Path $BuildLog -Pattern "Build Finished|Build result|error CS|Exception" -ErrorAction SilentlyContinue
+    if (-not (Test-Path -LiteralPath $BuildLog)) {
+        throw "Unity exited without creating a build log."
+    }
+
+    $summary = Select-String -Path $BuildLog -Pattern "Build Finished|Build result|error CS|Exception|Fatal Error|already open" -ErrorAction SilentlyContinue
     $summary | ForEach-Object { Write-Host $_.Line }
 
     $buildSucceeded = Select-String -Path $BuildLog -Pattern "Build result:\s*Succeeded|Build Finished,\s*Result:\s*Success" -Quiet -ErrorAction SilentlyContinue
+    $projectAlreadyOpen = Select-String -Path $BuildLog -Pattern "another Unity instance is running|Multiple Unity instances cannot open the same project|already open" -Quiet -ErrorAction SilentlyContinue
+    if ($projectAlreadyOpen) {
+        throw "Unity project is already open. Close the Unity Editor before batch building."
+    }
+
     if ($buildProcess.ExitCode -ne 0 -or -not $buildSucceeded) {
         throw "Unity build failed."
     }
@@ -112,13 +146,18 @@ try {
         Write-Host "[LOG] Run log: $RunLog"
     }
 }
+catch {
+    $ExitCode = 1
+    Write-Host ("[ERROR] " + $_.Exception.Message) -ForegroundColor Red
+}
 finally {
     if (-not $KeepBuildLog -and (Test-Path -LiteralPath $BuildLog)) {
         Remove-Item -LiteralPath $BuildLog -Force -ErrorAction SilentlyContinue
     }
 
-    if ($KeepBuildLog) {
+    if ($KeepBuildLog -and (Test-Path -LiteralPath $BuildLog)) {
         Write-Host "[LOG] Build log: $BuildLog"
     }
 }
 
+exit $ExitCode
