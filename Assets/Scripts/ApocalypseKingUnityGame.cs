@@ -178,11 +178,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private DamageSystem damageSystem;
     private ProjectileSystem projectileSystem;
     private VisualPoolSystem visualPoolSystem;
+    private BattleStateSystem battleStateSystem;
 
     private TargetingSystem Targeting => targetingSystem ?? (targetingSystem = new TargetingSystem(this));
     private DamageSystem DamageResolver => damageSystem ?? (damageSystem = new DamageSystem(this));
     private ProjectileSystem ProjectileResolver => projectileSystem ?? (projectileSystem = new ProjectileSystem(this));
     private VisualPoolSystem VisualPools => visualPoolSystem ?? (visualPoolSystem = new VisualPoolSystem(this));
+    private BattleStateSystem BattleState => battleStateSystem ?? (battleStateSystem = new BattleStateSystem(this));
 
     private bool assetsReady;
     private bool paused;
@@ -5056,58 +5058,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private void CheckBattleEnd()
-    {
-        if (ended)
-        {
-            return;
-        }
-
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var unit = giants[i];
-            if (unit != null && unit.active && unit.x < Left + 46f)
-            {
-                ended = true;
-                ShowBanner("Human line broken", true, 4f);
-                return;
-            }
-        }
-
-        if (CountActive(giants) <= 0)
-        {
-            ended = true;
-            ShowBanner("Humans win", true, 4f);
-            return;
-        }
-
-        if (CountHumans() <= 0)
-        {
-            ended = true;
-            ShowBanner("All human forces lost", true, 4f);
-        }
-    }
-
-    private int CountHumans()
-    {
-        int alive = 0;
-        CountActive(soldiers, ref alive);
-        CountActive(tanks, ref alive);
-        CountActive(aircraft, ref alive);
-        return alive;
-    }
-
-    private void CountActive(List<BattleUnit> units, ref int alive)
-    {
-        for (int i = 0; i < units.Count; i++)
-        {
-            if (units[i].active)
-            {
-                alive++;
-            }
-        }
-    }
-
     private int CountTankOverlaps()
     {
         int overlaps = 0;
@@ -5205,58 +5155,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return active <= 0 ? 0f : total / active;
-    }
-
-    private Vector2 GetActiveGiantCenter()
-    {
-        float x = 0f;
-        float z = 0f;
-        int active = 0;
-
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var unit = giants[i];
-            if (unit == null || !unit.active)
-            {
-                continue;
-            }
-
-            x += unit.x;
-            z += unit.z;
-            active++;
-        }
-
-        return active > 0 ? new Vector2(x / active, z / active) : Vector2.zero;
-    }
-
-    private float GetGiantHpTotal()
-    {
-        float total = 0f;
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var unit = giants[i];
-            if (unit != null && unit.maxHp > 0f)
-            {
-                total += Mathf.Max(0f, unit.hp);
-            }
-        }
-
-        return total;
-    }
-
-    private float GetGiantMaxHpTotal()
-    {
-        float total = 0f;
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var unit = giants[i];
-            if (unit != null && unit.maxHp > 0f)
-            {
-                total += Mathf.Max(0f, unit.maxHp);
-            }
-        }
-
-        return total > 0f ? total : (giantConfig != null ? giantConfig.MaxHp : 2600f) * GiantCount;
     }
 
     private void RefreshHud()
@@ -5367,19 +5265,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int minutes = total / 60;
         int secs = total % 60;
         return $"{minutes:00}:{secs:00}";
-    }
-
-    private int CountActive(List<BattleUnit> units)
-    {
-        int total = 0;
-        for (int i = 0; i < units.Count; i++)
-        {
-            if (units[i].active)
-            {
-                total++;
-            }
-        }
-        return total;
     }
 
     private int CountAnimatorUnits(List<BattleUnit> units)
