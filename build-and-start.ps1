@@ -99,11 +99,17 @@ try {
         throw "Unity exited without creating a build log."
     }
 
-    $summary = Select-String -Path $BuildLog -Pattern "Build Finished|Build result|error CS|Exception|Fatal Error|already open" -ErrorAction SilentlyContinue
-    $summary | ForEach-Object { Write-Host $_.Line }
-
     $buildSucceeded = Select-String -Path $BuildLog -Pattern "Build result:\s*Succeeded|Build Finished,\s*Result:\s*Success" -Quiet -ErrorAction SilentlyContinue
     $projectAlreadyOpen = Select-String -Path $BuildLog -Pattern "another Unity instance is running|Multiple Unity instances cannot open the same project|already open" -Quiet -ErrorAction SilentlyContinue
+    $summaryPattern = if ($buildSucceeded) {
+        "Build Finished|Build result"
+    }
+    else {
+        "Build Finished|Build result|error CS|Exception|Fatal Error|already open"
+    }
+    $summary = Select-String -Path $BuildLog -Pattern $summaryPattern -ErrorAction SilentlyContinue
+    $summary | ForEach-Object { Write-Host $_.Line }
+
     if ($projectAlreadyOpen) {
         throw "Unity project is already open. Close the Unity Editor before batch building."
     }
