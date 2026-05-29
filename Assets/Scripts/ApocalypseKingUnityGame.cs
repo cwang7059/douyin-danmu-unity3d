@@ -174,6 +174,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly Dictionary<long, List<BattleUnit>> separationGrid = new Dictionary<long, List<BattleUnit>>();
     private readonly List<List<BattleUnit>> separationGridBuckets = new List<List<BattleUnit>>();
     private readonly List<List<BattleUnit>> separationGridBucketPool = new List<List<BattleUnit>>();
+    private TargetingSystem targetingSystem;
+
+    private TargetingSystem Targeting => targetingSystem ?? (targetingSystem = new TargetingSystem(this));
 
     private bool assetsReady;
     private bool paused;
@@ -3137,34 +3140,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return unit.baseZ + Mathf.Sin(battleTime * 1.7f + unit.seed * 6f) * 5f;
     }
 
-    private BattleUnit FindNearestGiant(BattleUnit origin)
-    {
-        if (origin == null)
-        {
-            return null;
-        }
-
-        BattleUnit best = null;
-        float bestScore = float.PositiveInfinity;
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var candidate = giants[i];
-            if (candidate == null || !candidate.active)
-            {
-                continue;
-            }
-
-            float score = DistanceSq(origin.x, origin.z, candidate.x, candidate.z);
-            if (score < bestScore)
-            {
-                best = candidate;
-                bestScore = score;
-            }
-        }
-
-        return best;
-    }
-
     private void UpdateTankAiming(BattleUnit unit, BattleUnit target, float dt)
     {
         if (unit == null || target == null)
@@ -4017,89 +3992,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return (lane - 2) * 42f + rank * 18f;
     }
 
-    private BattleUnit FindGiantContactTarget()
-    {
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var target = FindGiantContactTarget(giants[i]);
-            if (target != null)
-            {
-                return target;
-            }
-        }
-
-        return null;
-    }
-
-    private BattleUnit FindGiantContactTarget(BattleUnit giant)
-    {
-        BattleUnit best = null;
-        float bestScore = float.PositiveInfinity;
-        ConsiderGiantContact(giant, soldiers, true, ref best, ref bestScore);
-        ConsiderGiantContact(giant, tanks, true, ref best, ref bestScore);
-        ConsiderGiantContact(giant, aircraft, true, ref best, ref bestScore);
-        return best;
-    }
-
-    private BattleUnit FindGiantEngagementTarget()
-    {
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var target = FindGiantEngagementTarget(giants[i]);
-            if (target != null)
-            {
-                return target;
-            }
-        }
-
-        return null;
-    }
-
-    private BattleUnit FindGiantEngagementTarget(BattleUnit giant)
-    {
-        BattleUnit best = null;
-        float bestScore = float.PositiveInfinity;
-        ConsiderGiantContact(giant, soldiers, false, ref best, ref bestScore);
-        ConsiderGiantContact(giant, tanks, false, ref best, ref bestScore);
-        ConsiderGiantContact(giant, aircraft, false, ref best, ref bestScore);
-        return best;
-    }
-
-    private void ConsiderGiantContact(BattleUnit giant, List<BattleUnit> units, bool contactOnly, ref BattleUnit best, ref float bestScore)
-    {
-        if (giant == null || !giant.active)
-        {
-            return;
-        }
-
-        for (int i = 0; i < units.Count; i++)
-        {
-            var candidate = units[i];
-            if (!candidate.active || !IsTargetInGiantMeleeRange(giant, candidate, contactOnly))
-            {
-                continue;
-            }
-
-            float score = DistanceSq(giant.x, giant.z, candidate.x, candidate.z);
-            if (score < bestScore)
-            {
-                best = candidate;
-                bestScore = score;
-            }
-        }
-    }
-
-    private bool IsTargetInGiantMeleeRange(BattleUnit giant, BattleUnit target, bool contactOnly)
-    {
-        if (target == null || giant == null || !target.active || !giant.active)
-        {
-            return false;
-        }
-
-        float reach = GiantMeleeDistance(target.kind, contactOnly);
-        return DistanceSq(giant.x, giant.z, target.x, target.z) <= reach * reach;
-    }
-
     private float GiantMeleeOffset(UnitKind kind)
     {
         switch (kind)
@@ -4149,42 +4041,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 return contactOnly ? 212f : 252f;
             default:
                 return contactOnly ? 98f : 132f;
-        }
-    }
-
-    private BattleUnit FindNearestHuman(BattleUnit origin, bool includeAircraft)
-    {
-        BattleUnit best = null;
-        float bestScore = float.PositiveInfinity;
-
-        ConsiderNearest(soldiers, origin, includeAircraft, ref best, ref bestScore);
-        ConsiderNearest(tanks, origin, includeAircraft, ref best, ref bestScore);
-        ConsiderNearest(aircraft, origin, includeAircraft, ref best, ref bestScore);
-        return best;
-    }
-
-    private void ConsiderNearest(List<BattleUnit> units, BattleUnit origin, bool includeAircraft, ref BattleUnit best, ref float bestScore)
-    {
-        for (int i = 0; i < units.Count; i++)
-        {
-            var candidate = units[i];
-            if (!candidate.active)
-            {
-                continue;
-            }
-
-            if (!includeAircraft && candidate.kind == UnitKind.Aircraft)
-            {
-                continue;
-            }
-
-            float airPenalty = candidate.kind == UnitKind.Aircraft ? 1.35f : 1f;
-            float score = DistanceSq(origin.x, origin.z, candidate.x, candidate.z) * airPenalty;
-            if (score < bestScore)
-            {
-                best = candidate;
-                bestScore = score;
-            }
         }
     }
 
@@ -4805,30 +4661,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 DefeatGiant(giant);
             }
         }
-    }
-
-    private BattleUnit FindNearestActiveGiant(float x, float z)
-    {
-        BattleUnit best = null;
-        float bestScore = float.PositiveInfinity;
-
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var candidate = giants[i];
-            if (candidate == null || !candidate.active)
-            {
-                continue;
-            }
-
-            float score = DistanceSq(x, z, candidate.x, candidate.z);
-            if (score < bestScore)
-            {
-                best = candidate;
-                bestScore = score;
-            }
-        }
-
-        return best;
     }
 
     private void DefeatGiant(BattleUnit giant)
