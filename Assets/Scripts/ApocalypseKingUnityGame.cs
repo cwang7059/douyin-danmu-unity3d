@@ -71,6 +71,7 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private const float Top = 640f;
     private const float Bottom = -640f;
     private const float GiantGroundY = -228f;
+    private const float SeparationGridCellSize = 256f;
 
     private static readonly float[] SoldierLanes = { -300f, -252f, -204f, -156f, -108f, -60f, -12f, 36f, 84f, 132f };
     private static readonly float[] TankLanes = { -572f, -486f, -400f };
@@ -170,6 +171,9 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<DeathVisual> deathVisuals = new List<DeathVisual>(MaxDeathVisuals);
     private readonly Dictionary<string, Material> materialCache = new Dictionary<string, Material>();
     private readonly Dictionary<string, GameObject> medievalVillagePrefabs = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<long, List<BattleUnit>> separationGrid = new Dictionary<long, List<BattleUnit>>();
+    private readonly List<List<BattleUnit>> separationGridBuckets = new List<List<BattleUnit>>();
+    private readonly List<List<BattleUnit>> separationGridBucketPool = new List<List<BattleUnit>>();
 
     private bool assetsReady;
     private bool paused;
@@ -3398,11 +3402,39 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private bool ResolveWithinGroup(List<BattleUnit> units, float padding)
     {
         bool changed = false;
+        BuildSeparationGrid(units);
+
         for (int i = 0; i < units.Count; i++)
         {
-            for (int j = i + 1; j < units.Count; j++)
+            var unit = units[i];
+            if (!CanResolveSeparation(unit))
             {
-                changed |= ResolvePair(units[i], units[j], padding);
+                continue;
+            }
+
+            int cellX = SeparationCell(unit.x);
+            int cellZ = SeparationCell(unit.z);
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    List<BattleUnit> bucket;
+                    if (!separationGrid.TryGetValue(SeparationCellKey(cellX + dx, cellZ + dz), out bucket))
+                    {
+                        continue;
+                    }
+
+                    for (int b = 0; b < bucket.Count; b++)
+                    {
+                        var other = bucket[b];
+                        if (other.id <= unit.id)
+                        {
+                            continue;
+                        }
+
+                        changed |= ResolvePair(unit, other, padding);
+                    }
+                }
             }
         }
 
@@ -3412,15 +3444,106 @@ public sealed class ApocalypseKingUnityGame : MonoBehaviour
     private bool ResolveBetweenGroups(List<BattleUnit> first, List<BattleUnit> second, float padding)
     {
         bool changed = false;
+        BuildSeparationGrid(second);
+
         for (int i = 0; i < first.Count; i++)
         {
-            for (int j = 0; j < second.Count; j++)
+            var unit = first[i];
+            if (!CanResolveSeparation(unit))
             {
-                changed |= ResolvePair(first[i], second[j], padding);
+                continue;
+            }
+
+            int cellX = SeparationCell(unit.x);
+            int cellZ = SeparationCell(unit.z);
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    List<BattleUnit> bucket;
+                    if (!separationGrid.TryGetValue(SeparationCellKey(cellX + dx, cellZ + dz), out bucket))
+                    {
+                        continue;
+                    }
+
+                    for (int b = 0; b < bucket.Count; b++)
+                    {
+                        changed |= ResolvePair(unit, bucket[b], padding);
+                    }
+                }
             }
         }
 
         return changed;
+    }
+
+    private void BuildSeparationGrid(List<BattleUnit> units)
+    {
+        ClearSeparationGrid();
+        for (int i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            if (!CanResolveSeparation(unit))
+            {
+                continue;
+            }
+
+            long key = SeparationCellKey(SeparationCell(unit.x), SeparationCell(unit.z));
+            List<BattleUnit> bucket;
+            if (!separationGrid.TryGetValue(key, out bucket))
+            {
+                bucket = GetSeparationGridBucket();
+                separationGrid[key] = bucket;
+            }
+
+            bucket.Add(unit);
+        }
+    }
+
+    private void ClearSeparationGrid()
+    {
+        for (int i = 0; i < separationGridBuckets.Count; i++)
+        {
+            var bucket = separationGridBuckets[i];
+            bucket.Clear();
+            separationGridBucketPool.Add(bucket);
+        }
+
+        separationGridBuckets.Clear();
+        separationGrid.Clear();
+    }
+
+    private List<BattleUnit> GetSeparationGridBucket()
+    {
+        int last = separationGridBucketPool.Count - 1;
+        List<BattleUnit> bucket;
+        if (last >= 0)
+        {
+            bucket = separationGridBucketPool[last];
+            separationGridBucketPool.RemoveAt(last);
+        }
+        else
+        {
+            bucket = new List<BattleUnit>(8);
+        }
+
+        separationGridBuckets.Add(bucket);
+        return bucket;
+    }
+
+    private static bool CanResolveSeparation(BattleUnit unit)
+    {
+        return unit != null && unit.active && unit.kind != UnitKind.Aircraft;
+    }
+
+    private static int SeparationCell(float value)
+    {
+        return Mathf.FloorToInt(value / SeparationGridCellSize);
+    }
+
+    private static long SeparationCellKey(int cellX, int cellZ)
+    {
+        return ((long)cellX << 32) ^ (uint)cellZ;
     }
 
     private bool ResolveAwayFromGiant(List<BattleUnit> units, float padding)
