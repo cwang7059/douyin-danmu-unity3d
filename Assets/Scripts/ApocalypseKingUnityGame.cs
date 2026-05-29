@@ -175,8 +175,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<List<BattleUnit>> separationGridBuckets = new List<List<BattleUnit>>();
     private readonly List<List<BattleUnit>> separationGridBucketPool = new List<List<BattleUnit>>();
     private TargetingSystem targetingSystem;
+    private DamageSystem damageSystem;
 
     private TargetingSystem Targeting => targetingSystem ?? (targetingSystem = new TargetingSystem(this));
+    private DamageSystem DamageResolver => damageSystem ?? (damageSystem = new DamageSystem(this));
 
     private bool assetsReady;
     private bool paused;
@@ -4106,40 +4108,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ShowBanner(target.kind == UnitKind.Aircraft ? "Giant swat" : target.kind == UnitKind.Tank ? "Giant hammer" : "Giant stomp", true, 0.85f);
     }
 
-    private void ApplyGiantContactDamage(BattleUnit giant)
-    {
-        DamageGiantContactGroup(giant, soldiers);
-        DamageGiantContactGroup(giant, tanks);
-        DamageGiantContactGroup(giant, aircraft);
-    }
-
-    private void DamageGiantContactGroup(BattleUnit giant, List<BattleUnit> units)
-    {
-        if (giant == null || !giant.active)
-        {
-            return;
-        }
-
-        for (int i = 0; i < units.Count; i++)
-        {
-            var unit = units[i];
-            if (!unit.active || !IsTargetInGiantMeleeRange(giant, unit, true))
-            {
-                continue;
-            }
-
-            float reach = Mathf.Max(1f, GiantMeleeDistance(unit.kind, true));
-            float pct = 1f - Mathf.Clamp01(Distance(giant.x, giant.z, unit.x, unit.z) / reach);
-            float damage = unit.kind == UnitKind.Aircraft ? giant.damage * 0.88f : giant.damage;
-            unit.hp -= damage * (0.76f + pct * 0.45f);
-
-            if (unit.hp <= 0f)
-            {
-                DeactivateHumanUnit(unit);
-            }
-        }
-    }
-
     private void ThrowGiantRock(BattleUnit giant, BattleUnit target)
     {
         if (giant == null || target == null)
@@ -4546,46 +4514,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private void ApplyAreaDamageToHumans(float x, float z, float radius, float damage, bool groundOnly, float knockback)
-    {
-        float radiusSq = radius * radius;
-        DamageHumanGroup(soldiers, x, z, radius, radiusSq, damage, groundOnly, knockback);
-        DamageHumanGroup(tanks, x, z, radius, radiusSq, damage, groundOnly, knockback);
-        DamageHumanGroup(aircraft, x, z, radius, radiusSq, damage, groundOnly, knockback);
-    }
-
-    private void DamageHumanGroup(List<BattleUnit> units, float x, float z, float radius, float radiusSq, float damage, bool groundOnly, float knockback)
-    {
-        for (int i = 0; i < units.Count; i++)
-        {
-            var unit = units[i];
-            if (!unit.active)
-            {
-                continue;
-            }
-
-            if (groundOnly && unit.kind == UnitKind.Aircraft)
-            {
-                continue;
-            }
-
-            float dSq = DistanceSq(unit.x, unit.z, x, z);
-            if (dSq > radiusSq)
-            {
-                continue;
-            }
-
-            float pct = 1f - Mathf.Sqrt(dSq) / Mathf.Max(1f, radius);
-            unit.hp -= damage * (0.62f + pct * 0.55f);
-            unit.x -= knockback * (0.35f + pct);
-
-            if (unit.hp <= 0f)
-            {
-                DeactivateHumanUnit(unit);
-            }
-        }
-    }
-
     private void DeactivateHumanUnit(BattleUnit unit)
     {
         if (!unit.active)
@@ -4617,49 +4545,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 SpawnDeathVisual(unit);
                 PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.75f, Quaternion.identity);
                 break;
-        }
-    }
-
-    private void DamageGiantAt(float x, float z, float amount)
-    {
-        var giant = FindNearestActiveGiant(x, z);
-        if (giant == null)
-        {
-            return;
-        }
-
-        giant.hp = Mathf.Max(0f, giant.hp - amount);
-        giant.hitFlashTimer = 0.055f;
-        if (giant.hp <= 0f)
-        {
-            DefeatGiant(giant);
-        }
-    }
-
-    private void DamageGiantsInArea(float x, float z, float radius, float amount)
-    {
-        float radiusSq = radius * radius;
-        for (int i = 0; i < giants.Count; i++)
-        {
-            var giant = giants[i];
-            if (giant == null || !giant.active)
-            {
-                continue;
-            }
-
-            float distanceSq = DistanceSq(x, z, giant.x, giant.z);
-            if (distanceSq > radiusSq)
-            {
-                continue;
-            }
-
-            float pct = 1f - Mathf.Clamp01(Mathf.Sqrt(distanceSq) / Mathf.Max(1f, radius));
-            giant.hp = Mathf.Max(0f, giant.hp - amount * (0.55f + pct * 0.65f));
-            giant.hitFlashTimer = 0.09f;
-            if (giant.hp <= 0f)
-            {
-                DefeatGiant(giant);
-            }
         }
     }
 
