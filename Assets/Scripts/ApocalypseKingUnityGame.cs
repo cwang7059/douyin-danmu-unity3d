@@ -177,10 +177,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private TargetingSystem targetingSystem;
     private DamageSystem damageSystem;
     private ProjectileSystem projectileSystem;
+    private VisualPoolSystem visualPoolSystem;
 
     private TargetingSystem Targeting => targetingSystem ?? (targetingSystem = new TargetingSystem(this));
     private DamageSystem DamageResolver => damageSystem ?? (damageSystem = new DamageSystem(this));
     private ProjectileSystem ProjectileResolver => projectileSystem ?? (projectileSystem = new ProjectileSystem(this));
+    private VisualPoolSystem VisualPools => visualPoolSystem ?? (visualPoolSystem = new VisualPoolSystem(this));
 
     private bool assetsReady;
     private bool paused;
@@ -2910,23 +2912,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, new Color(0.42f, 0.50f, 0.48f, 1f));
         PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
 
-        for (int i = 0; i < PrewarmFallbackEffects && effects.Count < MaxEffects; i++)
-        {
-            effects.Add(CreateEffectView());
-        }
+        PrewarmFallbackEffectViews(PrewarmFallbackEffects);
 
         PrewarmDeathVisuals(UnitKind.Soldier, 24);
         PrewarmDeathVisuals(UnitKind.Tank, 8);
         PrewarmDeathVisuals(UnitKind.Aircraft, 4);
         PrewarmDeathVisuals(UnitKind.Giant, 8);
-    }
-
-    private void PrewarmDeathVisuals(UnitKind kind, int count)
-    {
-        for (int i = 0; i < count && deathVisuals.Count < MaxDeathVisuals; i++)
-        {
-            deathVisuals.Add(CreateDeathVisual(kind));
-        }
     }
 
     private bool HealHumanForces(float amount)
