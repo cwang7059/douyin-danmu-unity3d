@@ -64,6 +64,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     [SerializeField] private UnitConfig aircraftConfig;
     [SerializeField] private UnitConfig giantConfig;
 
+    [Header("Scene Prefabs")]
+    [SerializeField] private GameObject battlefieldPrefab;
+
 
     private const float LogicalToWorld = 0.025f;
     private const float Left = -360f;
@@ -555,6 +558,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         buildingObstacles.Clear();
         roadCorridors.Clear();
+        if (TryCreateBattlefieldFromPrefab())
+        {
+            return;
+        }
+
         CreateGround();
         CreateTerrainDepth();
         CreateVillagePaths();
