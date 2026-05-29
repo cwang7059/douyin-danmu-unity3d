@@ -75,24 +75,7 @@ public sealed partial class ApocalypseKingUnityGame
     {
         if (command.team == BattleTeam.Human)
         {
-            string key = NormalizeDanmuKey(command.key);
-            bool spawned;
-            if (key == "tank")
-            {
-                spawned = ReviveTankFromDanmu(command);
-            }
-            else if (key == "aircraft" || key == "plane" || key == "helicopter")
-            {
-                spawned = ReviveAircraftFromDanmu(command);
-            }
-            else if (key == "medic")
-            {
-                spawned = HealHumanForces(22f);
-            }
-            else
-            {
-                spawned = ReviveSoldierFromDanmu(command);
-            }
+            bool spawned = ApplyHumanDanmuSpawnAction(ResolveHumanDanmuSpawnAction(command.key), command);
 
             if (!spawned)
             {
@@ -113,9 +96,30 @@ public sealed partial class ApocalypseKingUnityGame
         ShowBanner("Danmu monster reinforce", true, 0.85f);
     }
 
-    private static string NormalizeDanmuKey(string key)
+    private DanmuHumanSpawnAction ResolveHumanDanmuSpawnAction(string key)
     {
-        return string.IsNullOrWhiteSpace(key) ? string.Empty : key.Trim().ToLowerInvariant();
+        DanmuHumanSpawnAction action;
+        if (danmuSpawnMappingConfig != null && danmuSpawnMappingConfig.TryResolveHumanAction(key, out action))
+        {
+            return action;
+        }
+
+        return DanmuSpawnMappingConfig.ResolveDefaultHumanAction(key);
+    }
+
+    private bool ApplyHumanDanmuSpawnAction(DanmuHumanSpawnAction action, DanmuCommand command)
+    {
+        switch (action)
+        {
+            case DanmuHumanSpawnAction.Tank:
+                return ReviveTankFromDanmu(command);
+            case DanmuHumanSpawnAction.Aircraft:
+                return ReviveAircraftFromDanmu(command);
+            case DanmuHumanSpawnAction.Heal:
+                return HealHumanForces(22f);
+            default:
+                return ReviveSoldierFromDanmu(command);
+        }
     }
 
     private void ApplyDanmuSkill(DanmuCommand command)

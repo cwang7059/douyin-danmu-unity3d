@@ -63,6 +63,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     [SerializeField] private UnitConfig tankConfig;
     [SerializeField] private UnitConfig aircraftConfig;
     [SerializeField] private UnitConfig giantConfig;
+    [SerializeField] private DanmuSpawnMappingConfig danmuSpawnMappingConfig;
 
     [Header("Scene Prefabs")]
     [SerializeField] private GameObject battlefieldPrefab;
