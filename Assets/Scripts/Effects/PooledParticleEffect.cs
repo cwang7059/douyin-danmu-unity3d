@@ -23,7 +23,7 @@ public sealed class PooledParticleEffect : MonoBehaviour
             returnRoutine = null;
         }
 
-        transform.SetParent(playback.parent, false);
+        transform.SetParent(playback.parent, true);
         transform.position = playback.position;
         transform.rotation = playback.rotation;
         transform.localScale = Vector3.one * playback.scale;
@@ -86,4 +86,3 @@ public sealed class PooledParticleEffect : MonoBehaviour
         owner.ReturnToPool(id, this);
     }
 }
-

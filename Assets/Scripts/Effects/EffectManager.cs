@@ -57,6 +57,11 @@ public sealed class EffectManager : MonoBehaviour
         }
 
         EffectConfig config = GetConfig(playback.id);
+        if (playback.parent != null && (config == null || !config.attachToParent))
+        {
+            playback.parent = null;
+        }
+
         int currentLive = GetLiveCount(playback.id);
         int maxCount = config != null ? Mathf.Max(1, config.maxCount) : 64;
         if (currentLive >= maxCount)
@@ -216,6 +221,7 @@ public sealed class EffectManager : MonoBehaviour
         }
 
         pooled.Initialize(this, id);
+        ConfigureParticleCollision(instance, config);
         instance.SetActive(false);
         return pooled;
     }
@@ -231,6 +237,37 @@ public sealed class EffectManager : MonoBehaviour
     {
         int count;
         return liveCounts.TryGetValue(id, out count) ? count : 0;
+    }
+
+    private static void ConfigureParticleCollision(GameObject instance, EffectConfig config)
+    {
+        if (instance == null || config == null || !config.allowParticleCollision)
+        {
+            return;
+        }
+
+        var particleSystems = instance.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < particleSystems.Length; i++)
+        {
+            var system = particleSystems[i];
+            if (system == null)
+            {
+                continue;
+            }
+
+            var collision = system.collision;
+            collision.enabled = true;
+            collision.type = ParticleSystemCollisionType.World;
+            collision.mode = ParticleSystemCollisionMode.Collision3D;
+
+            var relay = system.GetComponent<ParticleCollisionRelay>();
+            if (relay == null)
+            {
+                relay = system.gameObject.AddComponent<ParticleCollisionRelay>();
+            }
+
+            relay.Configure(config.collisionEffect);
+        }
     }
 
     private void PlayAttachedSound(EffectConfig config, Vector3 position)

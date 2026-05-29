@@ -10,6 +10,7 @@ public sealed class EffectConfig : ScriptableObject
     public int maxCount = 64;
     public bool attachToParent;
     public bool allowParticleCollision;
+    public BattleEffectId collisionEffect = BattleEffectId.BulletHitMetal;
     public AudioClip[] sounds;
 }
 
@@ -34,4 +35,3 @@ public struct EffectPlayback
         };
     }
 }
-

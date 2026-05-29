@@ -10,6 +10,15 @@ public sealed class ParticleCollisionRelay : MonoBehaviour
     private readonly List<ParticleCollisionEvent> collisionEvents = new List<ParticleCollisionEvent>();
     private ParticleSystem particleSystemCache;
 
+    public void Configure(BattleEffectId effectId, int eventsPerFrame = -1)
+    {
+        collisionEffect = effectId == BattleEffectId.None ? BattleEffectId.BulletHitMetal : effectId;
+        if (eventsPerFrame > 0)
+        {
+            maxEventsPerFrame = eventsPerFrame;
+        }
+    }
+
     private void Awake()
     {
         particleSystemCache = GetComponent<ParticleSystem>();
@@ -30,4 +39,3 @@ public sealed class ParticleCollisionRelay : MonoBehaviour
         }
     }
 }
-
