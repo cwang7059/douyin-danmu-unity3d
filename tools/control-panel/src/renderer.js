@@ -44,7 +44,7 @@ async function checkHealth() {
 
 async function sendCommandFromButton(button) {
   const quantity = state.quantity;
-  const payload = {
+  const createPayload = () => ({
     eventType: 'command',
     userId: nextUserId(),
     userName: 'Mobile Panel',
@@ -52,24 +52,24 @@ async function sendCommandFromButton(button) {
     commandType: button.dataset.type,
     key: button.dataset.key,
     value: Number(button.dataset.value || 1)
-  };
+  });
 
-  await repeatSend(quantity, () => request('/command', 'POST', payload), button.innerText.replace(/\s+/g, ' '));
+  await repeatSend(quantity, () => request('/command', 'POST', createPayload()), button.innerText.replace(/\s+/g, ' '));
 }
 
 async function sendGift(team) {
   const giftValue = clampNumber(Number(giftValueInput.value || 1), 1, 9999);
   giftValueInput.value = giftValue;
 
-  const payload = {
+  const createPayload = () => ({
     eventType: 'gift',
     userId: nextUserId(),
     userName: 'Mobile Gift',
     giftName: `${team} mobile panel gift`,
     giftValue
-  };
+  });
 
-  await repeatSend(state.quantity, () => request('/gift', 'POST', payload), team === 'human' ? '人族礼物' : '怪物礼物');
+  await repeatSend(state.quantity, () => request('/gift', 'POST', createPayload()), team === 'human' ? '人族礼物' : '怪物礼物');
 }
 
 async function repeatSend(quantity, sender, label) {

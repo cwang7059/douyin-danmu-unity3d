@@ -22,6 +22,7 @@ public sealed class DanmuHttpGateway : MonoBehaviour
     private DanmuCommandQueue commandQueue;
     private volatile bool running;
     private string lastBackgroundError;
+    private string lastDropReason;
 
     public bool IsRunning => running;
     public int Port => port;
@@ -148,7 +149,13 @@ public sealed class DanmuHttpGateway : MonoBehaviour
         string path = context.Request.Url.AbsolutePath.Trim('/').ToLowerInvariant();
         if (context.Request.HttpMethod == "GET" && path == "health")
         {
-            WriteResponse(context, 200, "{\"ok\":true,\"service\":\"danmu-http-gateway\"}");
+            WriteResponse(context, 200, BuildStatusJson());
+            return;
+        }
+
+        if (context.Request.HttpMethod == "GET" && path == "stats")
+        {
+            WriteResponse(context, 200, BuildStatusJson());
             return;
         }
 
@@ -164,8 +171,14 @@ public sealed class DanmuHttpGateway : MonoBehaviour
             body = reader.ReadToEnd();
         }
 
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            WriteResponse(context, 400, "{\"ok\":false,\"queued\":false,\"error\":\"empty_body\"}");
+            return;
+        }
+
         bool queued = QueueHttpMessage(path, body);
-        WriteResponse(context, queued ? 202 : 429, queued ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"queue_full\"}");
+        WriteResponse(context, queued ? 202 : 429, queued ? BuildQueuedJson() : "{\"ok\":false,\"queued\":false,\"error\":\"queue_full\"}");
     }
 
     private bool QueueHttpMessage(string path, string body)
@@ -219,19 +232,22 @@ public sealed class DanmuHttpGateway : MonoBehaviour
                 pending = pendingMessages.Dequeue();
             }
 
-            if (ApplyHttpMessage(pending))
+            string dropReason;
+            if (ApplyHttpMessage(pending, out dropReason))
             {
                 AcceptedMessageCount++;
             }
             else
             {
                 DroppedMessageCount++;
+                lastDropReason = string.IsNullOrEmpty(dropReason) ? "command_rejected" : dropReason;
             }
         }
     }
 
-    private bool ApplyHttpMessage(PendingHttpMessage pending)
+    private bool ApplyHttpMessage(PendingHttpMessage pending, out string dropReason)
     {
+        dropReason = string.Empty;
         DanmuHttpPayload payload;
         try
         {
@@ -239,18 +255,22 @@ public sealed class DanmuHttpGateway : MonoBehaviour
         }
         catch (Exception)
         {
+            dropReason = "invalid_json";
             return false;
         }
 
         if (payload == null)
         {
+            dropReason = "invalid_payload";
             return false;
         }
 
         string eventType = string.IsNullOrWhiteSpace(payload.eventType) ? pending.path : payload.eventType.Trim().ToLowerInvariant();
         if (eventType == "gift")
         {
-            return commandQueue.EnqueueGift(payload.userId, payload.userName, payload.giftName, payload.giftValue);
+            bool accepted = commandQueue.EnqueueGift(payload.userId, payload.userName, payload.giftName, payload.giftValue);
+            dropReason = accepted ? string.Empty : CommandQueueDropReason();
+            return accepted;
         }
 
         if (!string.IsNullOrWhiteSpace(payload.team) || !string.IsNullOrWhiteSpace(payload.commandType) || !string.IsNullOrWhiteSpace(payload.key))
@@ -260,11 +280,15 @@ public sealed class DanmuHttpGateway : MonoBehaviour
             string key = string.IsNullOrWhiteSpace(payload.key) ? payload.text : payload.key;
             if (team != BattleTeam.Neutral && type != DanmuCommandType.None)
             {
-                return commandQueue.Enqueue(DanmuCommand.Create(payload.userId, payload.userName, team, type, key, payload.value));
+                bool accepted = commandQueue.Enqueue(DanmuCommand.Create(payload.userId, payload.userName, team, type, key, payload.value));
+                dropReason = accepted ? string.Empty : CommandQueueDropReason();
+                return accepted;
             }
         }
 
-        return commandQueue.EnqueueRawMessage(payload.userId, payload.userName, payload.text);
+        bool rawAccepted = commandQueue.EnqueueRawMessage(payload.userId, payload.userName, payload.text);
+        dropReason = rawAccepted ? string.Empty : CommandQueueDropReason();
+        return rawAccepted;
     }
 
     private void ApplyCommandLineOverrides()
@@ -292,6 +316,50 @@ public sealed class DanmuHttpGateway : MonoBehaviour
         string error = lastBackgroundError;
         lastBackgroundError = null;
         Debug.LogWarning($"[DanmuHttpGateway] Request failed: {error}");
+    }
+
+    private string CommandQueueDropReason()
+    {
+        if (commandQueue == null || string.IsNullOrEmpty(commandQueue.LastDropReason))
+        {
+            return "command_rejected";
+        }
+
+        return commandQueue.LastDropReason;
+    }
+
+    private string BuildQueuedJson()
+    {
+        return "{\"ok\":true,\"queued\":true,\"pendingHttpMessages\":" + PendingHttpMessageCount + "}";
+    }
+
+    private string BuildStatusJson()
+    {
+        return "{"
+            + "\"ok\":true,"
+            + "\"service\":\"danmu-http-gateway\","
+            + "\"running\":" + (running ? "true" : "false") + ","
+            + "\"port\":" + port + ","
+            + "\"pendingHttpMessages\":" + PendingHttpMessageCount + ","
+            + "\"receivedHttpMessages\":" + ReceivedMessageCount + ","
+            + "\"acceptedHttpMessages\":" + AcceptedMessageCount + ","
+            + "\"droppedHttpMessages\":" + DroppedMessageCount + ","
+            + "\"pendingCommands\":" + (commandQueue != null ? commandQueue.PendingCount : 0) + ","
+            + "\"acceptedCommands\":" + (commandQueue != null ? commandQueue.AcceptedCommandCount : 0) + ","
+            + "\"droppedCommands\":" + (commandQueue != null ? commandQueue.DroppedCommandCount : 0) + ","
+            + "\"lastAcceptedCommand\":\"" + JsonEscape(commandQueue != null ? commandQueue.LastAcceptedCommand : string.Empty) + "\","
+            + "\"lastDropReason\":\"" + JsonEscape(lastDropReason) + "\""
+            + "}";
+    }
+
+    private static string JsonEscape(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     private static void WriteResponse(HttpListenerContext context, int statusCode, string json)

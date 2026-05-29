@@ -9,27 +9,53 @@ public sealed class DanmuCommandQueue : MonoBehaviour
 
     private readonly Queue<DanmuCommand> pendingCommands = new Queue<DanmuCommand>();
     private readonly Dictionary<string, float> lastCommandTimes = new Dictionary<string, float>();
+    private readonly object pendingLock = new object();
 
-    public int PendingCount => pendingCommands.Count;
+    public int PendingCount
+    {
+        get
+        {
+            lock (pendingLock)
+            {
+                return pendingCommands.Count;
+            }
+        }
+    }
     public int MaxCommandsPerFrame => maxCommandsPerFrame;
     public int DroppedCommandCount { get; private set; }
     public int AcceptedCommandCount { get; private set; }
+    public string LastDropReason { get; private set; }
+    public string LastAcceptedCommand { get; private set; }
 
     public bool Enqueue(DanmuCommand command)
     {
-        if (!command.IsValid || IsCoolingDown(command))
-        {
-            return false;
-        }
-
-        if (pendingCommands.Count >= maxPendingCommands)
+        if (!command.IsValid)
         {
             DroppedCommandCount++;
+            LastDropReason = "invalid_command";
             return false;
         }
 
-        pendingCommands.Enqueue(command);
-        AcceptedCommandCount++;
+        if (IsCoolingDown(command))
+        {
+            DroppedCommandCount++;
+            LastDropReason = "user_cooldown";
+            return false;
+        }
+
+        lock (pendingLock)
+        {
+            if (pendingCommands.Count >= maxPendingCommands)
+            {
+                DroppedCommandCount++;
+                LastDropReason = "queue_full";
+                return false;
+            }
+
+            pendingCommands.Enqueue(command);
+            AcceptedCommandCount++;
+            LastAcceptedCommand = $"{command.team}:{command.type}:{command.key}";
+        }
         RememberCooldown(command);
         return true;
     }
@@ -48,22 +74,30 @@ public sealed class DanmuCommandQueue : MonoBehaviour
 
     public bool TryDequeue(out DanmuCommand command)
     {
-        if (pendingCommands.Count <= 0)
+        lock (pendingLock)
         {
-            command = default;
-            return false;
-        }
+            if (pendingCommands.Count <= 0)
+            {
+                command = default;
+                return false;
+            }
 
-        command = pendingCommands.Dequeue();
-        return true;
+            command = pendingCommands.Dequeue();
+            return true;
+        }
     }
 
     public void Clear()
     {
-        pendingCommands.Clear();
-        lastCommandTimes.Clear();
-        DroppedCommandCount = 0;
-        AcceptedCommandCount = 0;
+        lock (pendingLock)
+        {
+            pendingCommands.Clear();
+            lastCommandTimes.Clear();
+            DroppedCommandCount = 0;
+            AcceptedCommandCount = 0;
+            LastDropReason = string.Empty;
+            LastAcceptedCommand = string.Empty;
+        }
     }
 
     private bool IsCoolingDown(DanmuCommand command)
@@ -88,4 +122,3 @@ public sealed class DanmuCommandQueue : MonoBehaviour
         return $"{command.userId}:{command.team}:{command.type}:{command.key}";
     }
 }
-
