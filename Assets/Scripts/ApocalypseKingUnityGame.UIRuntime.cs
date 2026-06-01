@@ -119,21 +119,20 @@ public sealed partial class ApocalypseKingUnityGame
                 game.bottomTickerLabel.text = BuildTickerMessage(soldierAlive, tankAlive, airAlive, giantHp);
             }
 
-            if (game.giftFeedLabel != null)
-            {
-                float basePool = game.matchSettings != null ? game.matchSettings.PointPoolBase : 380000f;
-                game.giftFeedLabel.text = $"Gift heat +{pool - basePool:N0}  Barrage combo x{1 + Mathf.FloorToInt(game.battleTime * 0.45f) % 9}";
-            }
-
-            if (game.skillCountdownLabel != null)
-            {
-                game.skillCountdownLabel.text = $"Barrage skill CD {Mathf.CeilToInt(skillCooldown)}s";
-            }
+            float basePool = game.matchSettings != null ? game.matchSettings.PointPoolBase : 380000f;
 
             if (game.humanPowerFill != null)
             {
                 game.humanPowerFill.fillAmount = blueBasePct;
                 game.humanPowerFill.color = blueBasePct > 0.28f ? ApocalypseKingUnityGame.HumanColor : new Color(1f, 0.63f, 0.26f, 1f);
+            }
+
+            if (game.greenPowerFill != null)
+            {
+                game.greenPowerFill.fillAmount = greenBasePct;
+                game.greenPowerFill.color = greenBasePct > 0.28f
+                    ? new Color(0.35f, 0.95f, 0.45f, 1f)
+                    : new Color(1f, 0.63f, 0.26f, 1f);
             }
 
             if (game.monsterPowerFill != null)
@@ -144,9 +143,27 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.hpFill != null && game.hpFill != game.monsterPowerFill)
             {
-                game.hpFill.fillAmount = hpPct;
-                game.hpFill.color = hpPct > 0.35f ? ApocalypseKingUnityGame.GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
+                game.hpFill.fillAmount = zombieBasePct;
+                game.hpFill.color = zombieBasePct > 0.35f ? ApocalypseKingUnityGame.GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
             }
+
+            if (game.giftFeedLabel != null)
+            {
+                game.giftFeedLabel.text = game.giftFeedDisplayTimer > 0f && !string.IsNullOrEmpty(game.lastGiftFeedMessage)
+                    ? game.lastGiftFeedMessage
+                    : $"Gift heat +{pool - basePool:N0}  Barrage combo x{1 + Mathf.FloorToInt(game.battleTime * 0.45f) % 9}";
+            }
+
+            if (game.skillCountdownLabel != null && game.matchPhase == MatchPhase.Battle)
+            {
+                float nuclear = game.GetNuclearTimer();
+                float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 90f;
+                float pct = maxNuclear > 0f ? nuclear / maxNuclear : 0f;
+                int filled = Mathf.Clamp(Mathf.CeilToInt(pct * 8f), 0, 8);
+                game.skillCountdownLabel.text = $"核武 {nuclear:0}s\n{new string('█', filled)}{new string('░', 8 - filled)}";
+            }
+
+            game.RefreshModeSelectUi();
         }
 
         public void ShowLoading(bool visible)

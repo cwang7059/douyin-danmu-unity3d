@@ -28,6 +28,9 @@ public sealed partial class ApocalypseKingUnityGame
         ApplySafeArea();
         RegisterResolutionButtons();
         RefreshResolutionControls();
+        EnsureModeSelectUi();
+        EnsureTripleBaseHpBars();
+        RefreshModeSelectUi();
         return true;
     }
 

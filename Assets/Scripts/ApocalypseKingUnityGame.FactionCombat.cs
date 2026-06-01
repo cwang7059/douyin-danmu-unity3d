@@ -67,7 +67,7 @@ public sealed partial class ApocalypseKingUnityGame
         return aRebel != bRebel;
     }
 
-    internal bool IsHostileUnit(BattleUnit a, BattleUnit b)
+    private bool IsHostileUnit(BattleUnit a, BattleUnit b)
     {
         if (a == null || b == null || !a.active || !b.active)
         {
@@ -123,7 +123,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
     }
 
-    internal float ScaleOutgoingDamage(BattleUnit attacker, BattleUnit defender, float amount)
+    private float ScaleOutgoingDamage(BattleUnit attacker, BattleUnit defender, float amount)
     {
         if (attacker == null || defender == null || amount <= 0f)
         {
@@ -160,7 +160,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
     }
 
-    internal void TryApplyInfection(BattleUnit giant, BattleUnit victim)
+    private void TryApplyInfection(BattleUnit giant, BattleUnit victim)
     {
         if (giant == null || victim == null || !victim.active)
         {

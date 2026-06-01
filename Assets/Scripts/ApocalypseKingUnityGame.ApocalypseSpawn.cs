@@ -15,6 +15,7 @@ public sealed partial class ApocalypseKingUnityGame
         {
             case DanmuCommandType.JoinFaction:
                 RegisterViewerFaction(command.userId, faction);
+                PushGiftFeedMessage($"{command.userName} 加入{FactionLabel(faction)}");
                 ShowBanner($"加入{FactionLabel(faction)}", faction == FactionId.Zombie, 1.2f);
                 SpawnApocalypseLike(faction, 5);
                 break;
@@ -22,6 +23,7 @@ public sealed partial class ApocalypseKingUnityGame
                 int likeCount = matchSettings != null && matchSettings.RageLikeEnabled
                     ? 10 * Mathf.Max(1, matchSettings.RageLikeMultiplier)
                     : 10;
+                PushGiftFeedMessage(ApocalypseGiftLabels.FormatSpawnToast(faction, "like", likeCount));
                 SpawnApocalypseLike(faction, likeCount);
                 break;
             case DanmuCommandType.SpawnUnit:
@@ -47,7 +49,8 @@ public sealed partial class ApocalypseKingUnityGame
                 SpawnRoleBatch(faction, batches[i].Role, batches[i].Count * mult);
             }
 
-            ShowBanner($"{FactionLabel(faction)} — {command.key}", faction == FactionId.Zombie, 0.9f);
+            PushGiftFeedMessage(ApocalypseGiftLabels.FormatSpawnToast(faction, command.key, mult));
+            ShowBanner($"{FactionLabel(faction)} — {ApocalypseGiftLabels.GetDisplayName(command.key)}", faction == FactionId.Zombie, 0.9f);
             return;
         }
 

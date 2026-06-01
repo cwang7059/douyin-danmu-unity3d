@@ -256,6 +256,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         Application.targetFrameRate = 60;
         QualitySettings.vSyncCount = 0;
         ApplyDefaultMobilePresentation();
+        ApplyPortraitLiveDefaults();
         CreateCoreScene();
         CreateHud();
         CreateBattlefield();
@@ -324,6 +325,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (matchPhase == MatchPhase.ModeSelect)
         {
+            TickGiftFeedDisplay(Time.deltaTime);
             RefreshHud();
             return;
         }
@@ -336,6 +338,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float dt = Mathf.Min(Time.deltaTime, 0.045f);
         battleTime += dt;
+        TickGiftFeedDisplay(dt);
         UpdateApocalypseMatch(dt);
         DrainPendingSpawns();
         UpdateHumans(dt);
@@ -585,6 +588,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         CreateResolutionControls();
         RefreshResolutionControls();
+        EnsureModeSelectUi();
+        EnsureTripleBaseHpBars();
+        RefreshModeSelectUi();
     }
 
     private void CreateBattlefield()

@@ -74,8 +74,11 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void HandleMatchPhaseInput()
     {
+        HandleModeSelectSettingsInput();
+
         if (Input.GetKeyDown(KeyCode.Return) && matchPhase == MatchPhase.ModeSelect)
         {
+            ApplyModeSettingsToMatch();
             BeginApocalypseBattle();
             return;
         }
