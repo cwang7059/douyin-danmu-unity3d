@@ -314,9 +314,8 @@ public sealed class EffectManager : MonoBehaviour
         switch (id)
         {
             case BattleEffectId.MuzzleRifle:
-                AddBurst(root, "RifleFlashCore", 0.10f, 0.045f, 0.10f, 3.2f, 6.4f, 0.24f, 0.42f, 2, Color.white, new Color(1f, 0.42f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.035f, 9f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleRifle);
-                AddBurst(root, "RifleFlashSparks", 0.18f, 0.055f, 0.18f, 5.6f, 9.2f, 0.035f, 0.075f, 7, new Color(1f, 0.82f, 0.24f, 1f), new Color(1f, 0.20f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.04f, 17f, 0.03f, ParticleSystemRenderMode.Stretch);
-                AddBurst(root, "RifleSmoke", 0.35f, 0.18f, 0.36f, 0.35f, 0.95f, 0.08f, 0.20f, 7, new Color(0.62f, 0.64f, 0.62f, 0.65f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.055f, 11f, -0.05f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                AddBurst(root, "RifleFlash", 0.07f, 0.02f, 0.05f, 1.2f, 2.8f, 0.10f, 0.18f, 2, Color.white, new Color(1f, 0.55f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.02f, 8f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "RifleSmoke", 0.22f, 0.10f, 0.16f, 0.4f, 1.1f, 0.06f, 0.14f, 4, new Color(0.62f, 0.64f, 0.62f, 0.45f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.03f, 10f, -0.04f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.MuzzleTank:
                 AddBurst(root, "TankFlash", 0.16f, 0.06f, 0.13f, 4.5f, 7.8f, 0.48f, 0.86f, 4, Color.white, new Color(1f, 0.25f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.12f, 16f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleTank);
@@ -468,8 +467,8 @@ public sealed class EffectManager : MonoBehaviour
 
         var renderer = system.GetComponent<ParticleSystemRenderer>();
         renderer.renderMode = renderMode;
-        renderer.lengthScale = renderMode == ParticleSystemRenderMode.Stretch ? 1.7f : 1f;
-        renderer.velocityScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.35f : 0f;
+        renderer.lengthScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.85f : 1f;
+        renderer.velocityScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.12f : 0f;
         Material material = GetParticleMaterial(textureResourcePath, renderMode);
         if (material != null)
         {

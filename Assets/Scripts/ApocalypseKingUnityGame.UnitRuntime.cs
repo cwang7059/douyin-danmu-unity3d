@@ -169,7 +169,7 @@ public sealed partial class ApocalypseKingUnityGame
         {
             Vector2 muzzleAim = DirectionFromYaw(unit.turretYawDegrees);
             Vector2 muzzle = SoldierMuzzlePoint(unit, muzzleAim);
-            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 0.72f, RotationFromDirection(muzzleAim));
+            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 0.55f, RotationFromDirection(muzzleAim));
             PlayBattleAudio(BattleAudioCueId.RifleShot, muzzle.x, muzzle.y, 1.02f);
             SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzle.x, muzzle.y, 1.05f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
             return;

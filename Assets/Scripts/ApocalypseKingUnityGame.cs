@@ -109,7 +109,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static readonly Dictionary<UnitKind, ModelPose> Poses = new Dictionary<UnitKind, ModelPose>
     {
-        { UnitKind.Soldier, new ModelPose(0.88f, 0f, 90f, 0f, 0f, true) },
+        { UnitKind.Soldier, new ModelPose(1.05f, 0f, 90f, 0f, 0f, true) },
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
         { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, -90f, 108f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
@@ -2092,10 +2092,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        // Danmu reinforcements must only reactivate pooled units. Re-importing GLTF models
-        // on the main thread during battle will freeze the game for several seconds.
+        // During battle only instantiate from cached prototypes (no GLTF reload).
         if (battleTime > 0f)
         {
+            if (unit.modelInstance == null)
+            {
+                TryAttachCachedUnitModel(unit);
+            }
+
             return;
         }
 
@@ -2141,14 +2145,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 unit.tankAimRoot.gameObject.SetActive(usingFallbackPrototype);
             }
 
-            unit.modelInstance = model;
-            unit.animations = model.GetComponentsInChildren<Animation>(true);
-            unit.baseModelScale = model.transform.localScale;
-            unit.baseModelLocalPosition = model.transform.localPosition;
-            unit.currentAnimation = string.Empty;
-            ConfigureAnimatorPlayback(unit, model);
-            ConfigureProceduralMotionRig(unit);
-            PlayUnitAnimation(unit);
+            FinalizeAttachedUnitModel(unit, model, usingFallbackPrototype);
         }
         finally
         {
@@ -2156,6 +2153,82 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             {
                 unit.root.SetActive(false);
             }
+        }
+    }
+
+    private bool TryAttachCachedUnitModel(BattleUnit unit)
+    {
+        if (unit == null || unit.modelInstance != null)
+        {
+            return unit.modelInstance != null;
+        }
+
+        GameObject prototype = ResolvePrototypeForUnit(unit);
+        if (prototype == null || unit.body == null)
+        {
+            return false;
+        }
+
+        bool rootWasActive = unit.root.activeSelf;
+        if (!rootWasActive)
+        {
+            unit.root.SetActive(true);
+        }
+
+        try
+        {
+            bool usingFallbackPrototype = prototype.name.IndexOf("Fallback", StringComparison.OrdinalIgnoreCase) >= 0;
+            var model = Instantiate(prototype, unit.body, false);
+            model.name = unit.kind.ToString();
+            model.SetActive(true);
+            ConfigureRuntimeModel(model, unit.kind);
+            if (unit.kind == UnitKind.Tank && unit.tankAimRoot != null)
+            {
+                unit.tankAimRoot.gameObject.SetActive(usingFallbackPrototype);
+            }
+
+            FinalizeAttachedUnitModel(unit, model, usingFallbackPrototype);
+            return true;
+        }
+        finally
+        {
+            if (!rootWasActive)
+            {
+                unit.root.SetActive(false);
+            }
+        }
+    }
+
+    private void FinalizeAttachedUnitModel(BattleUnit unit, GameObject model, bool usingFallbackPrototype)
+    {
+        unit.modelInstance = model;
+        unit.animations = model.GetComponentsInChildren<Animation>(true);
+        unit.baseModelScale = model.transform.localScale;
+        unit.baseModelLocalPosition = model.transform.localPosition;
+        unit.currentAnimation = string.Empty;
+        ConfigureAnimatorPlayback(unit, model);
+        ConfigureProceduralMotionRig(unit);
+        SetUnitPlaceholderVisible(unit, usingFallbackPrototype);
+        PlayUnitAnimation(unit);
+    }
+
+    private static void SetUnitPlaceholderVisible(BattleUnit unit, bool visible)
+    {
+        if (unit == null || unit.body == null)
+        {
+            return;
+        }
+
+        var renderers = unit.body.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null || unit.modelInstance != null && renderer.transform.IsChildOf(unit.modelInstance.transform))
+            {
+                continue;
+            }
+
+            renderer.enabled = visible;
         }
     }
 
@@ -2853,6 +2926,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.wheelSpinDegrees = Noise(unit.id + rank * 5.3f) * 360f;
         unit.trackScroll = 0f;
         unit.animationPresentationKey = -1;
+        if (unit.modelInstance == null)
+        {
+            TryAttachCachedUnitModel(unit);
+        }
+
         UpdateUnitTransform(unit, 0f);
         PlayUnitAnimation(unit);
     }
@@ -2882,7 +2960,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveSoldierFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(soldiers);
-        if (unit == null || unit.modelInstance == null)
+        if (unit == null)
+        {
+            return false;
+        }
+
+        if (unit.modelInstance == null && !TryAttachCachedUnitModel(unit))
         {
             return false;
         }
@@ -2899,7 +2982,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveTankFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(tanks);
-        if (unit == null || unit.modelInstance == null)
+        if (unit == null)
+        {
+            return false;
+        }
+
+        if (unit.modelInstance == null && !TryAttachCachedUnitModel(unit))
         {
             return false;
         }
@@ -3477,9 +3565,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             UpdateProceduralMotionRig(unit, dt, moveFactor);
             PlayUnitAnimation(unit);
         }
-        else if (dt <= 0f && battleTime <= 0f)
+        else if (unit.modelInstance == null)
         {
-            AttachUnitModel(unit);
+            if (battleTime > 0f)
+            {
+                TryAttachCachedUnitModel(unit);
+            }
+            else
+            {
+                AttachUnitModel(unit);
+            }
         }
     }
 

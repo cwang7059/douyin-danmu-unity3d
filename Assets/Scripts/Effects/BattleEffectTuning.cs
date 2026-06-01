@@ -22,8 +22,8 @@ public static class BattleEffectTuning
         switch (id)
         {
             case BattleEffectId.MuzzleRifle:
-                min = 0.45f;
-                max = 0.82f;
+                min = 0.35f;
+                max = 0.58f;
                 return;
             case BattleEffectId.MuzzleTank:
                 min = 0.55f;

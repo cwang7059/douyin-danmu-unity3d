@@ -145,8 +145,8 @@ public sealed partial class ApocalypseKingUnityGame
             line.positionCount = 2;
             line.numCapVertices = 2;
             line.numCornerVertices = 2;
-            line.startWidth = kind == ProjectileKind.Bullet ? 0.03f : 0.08f;
-            line.endWidth = kind == ProjectileKind.Bullet ? 0.03f : 0.06f;
+        line.startWidth = kind == ProjectileKind.Bullet ? 0.015f : 0.08f;
+        line.endWidth = kind == ProjectileKind.Bullet ? 0.01f : 0.06f;
             line.material = game.GetOpaqueMaterial(color);
             line.startColor = color;
             line.endColor = color;
@@ -174,8 +174,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (projectile.line != null)
             {
-                float startWidth = kind == ProjectileKind.Bullet ? 0.03f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
-                float endWidth = kind == ProjectileKind.Bullet ? 0.03f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
+                float startWidth = kind == ProjectileKind.Bullet ? 0.015f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
+                float endWidth = kind == ProjectileKind.Bullet ? 0.01f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
                 projectile.line.startWidth = startWidth;
                 projectile.line.endWidth = endWidth;
                 projectile.line.material = game.GetOpaqueMaterial(color);
