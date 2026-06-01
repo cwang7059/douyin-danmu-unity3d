@@ -52,7 +52,18 @@ public static class ApocalypseKingVfxTextureBake
             }
 
             string path = OutputFolder + "/" + name + ".png";
-            File.WriteAllBytes(path, texture.EncodeToPNG());
+            if (File.Exists(path) && new FileInfo(path).Length > 512)
+            {
+                continue;
+            }
+
+            byte[] png = EncodeToPngSafe(texture);
+            if (png == null || png.Length == 0)
+            {
+                continue;
+            }
+
+            File.WriteAllBytes(path, png);
             written++;
 
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -68,6 +79,39 @@ public static class ApocalypseKingVfxTextureBake
         }
 
         return written;
+    }
+
+    private static byte[] EncodeToPngSafe(Texture2D texture)
+    {
+        if (texture == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return texture.EncodeToPNG();
+        }
+        catch (System.ArgumentException)
+        {
+            return EncodeViaBlit(texture);
+        }
+    }
+
+    private static byte[] EncodeViaBlit(Texture2D texture)
+    {
+        var previous = RenderTexture.active;
+        var rt = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(texture, rt);
+        RenderTexture.active = rt;
+        var readable = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+        readable.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+        readable.Apply();
+        RenderTexture.active = previous;
+        RenderTexture.ReleaseTemporary(rt);
+        byte[] png = readable.EncodeToPNG();
+        Object.DestroyImmediate(readable);
+        return png;
     }
 
     private static void CreateFolderRecursive(string path)
