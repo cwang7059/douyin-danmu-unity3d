@@ -11,6 +11,37 @@ Write-Host "[Apocalypse] Importing VFX (Kenney particles)..."
 $ThirdParty = Join-Path $Root "Assets\ThirdParty\Kenney"
 New-Item -ItemType Directory -Force -Path $ThirdParty | Out-Null
 
+$CastleZip = Join-Path $ThirdParty "kenney_castle-kit.zip"
+$CastleExtract = Join-Path $ThirdParty "CastleKit"
+$CastleResources = Join-Path $Root "Assets\Resources\Kenney\CastleKit"
+if (-not (Test-Path $CastleZip)) {
+    try {
+        Invoke-WebRequest -Uri "https://opengameart.org/sites/default/files/kenney_castle-kit.zip" -OutFile $CastleZip -UseBasicParsing
+        Write-Host "[Apocalypse] Downloaded Kenney Castle Kit (CC0)."
+    }
+    catch {
+        Write-Host "[Apocalypse] Castle kit download skipped (manual: https://kenney.nl/assets/castle-kit)"
+    }
+}
+
+if (Test-Path $CastleZip) {
+    New-Item -ItemType Directory -Force -Path $CastleExtract | Out-Null
+    Expand-Archive -Path $CastleZip -DestinationPath $CastleExtract -Force
+    $glbSrc = Join-Path $CastleExtract "Models\GLB format"
+    if (Test-Path $glbSrc) {
+        New-Item -ItemType Directory -Force -Path $CastleResources | Out-Null
+        @(
+            "gate", "metal-gate", "wall", "wall-corner", "wall-pillar", "wall-doorway",
+            "tower-square-base-border", "tower-square-mid-door", "tower-square-top-roof-high",
+            "stairs-stone", "bridge-straight-pillar", "flag", "flag-pennant"
+        ) | ForEach-Object {
+            $file = Join-Path $glbSrc "$_.glb"
+            if (Test-Path $file) { Copy-Item $file (Join-Path $CastleResources "$_.glb") -Force }
+        }
+        Write-Host "[Apocalypse] Castle GLB copied to Assets/Resources/Kenney/CastleKit"
+    }
+}
+
 $Readme = @"
 # Apocalypse King — Third-Party Unit Assets
 
