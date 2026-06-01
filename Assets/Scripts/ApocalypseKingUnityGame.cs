@@ -3065,6 +3065,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (EffectManager.Instance != null)
         {
             EffectManager.Instance.Play(EffectPlayback.Create(effectId, ToWorldPoint(x, z, 0.12f), Quaternion.identity, null, scale));
+            return;
         }
 
         SpawnEffect(x, z + 18f, scale, EffectKind.Smoke, 0.32f);

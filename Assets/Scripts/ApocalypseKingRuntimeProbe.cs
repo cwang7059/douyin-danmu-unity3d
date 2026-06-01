@@ -202,6 +202,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
     private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float giantBoneMotionAngle, float giantBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
     {
         var gateway = game != null ? game.GetComponent<DanmuHttpGateway>() : null;
+        var wsGateway = game != null ? game.GetComponent<DanmuWebSocketGateway>() : null;
         var renderers = FindObjectsOfType<Renderer>(true);
         int activeRenderers = 0;
         int transparentMaterials = 0;
@@ -253,6 +254,9 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"httpReceived={(gateway != null ? gateway.ReceivedMessageCount : 0)} " +
             $"httpAccepted={(gateway != null ? gateway.AcceptedMessageCount : 0)} " +
             $"httpDropped={(gateway != null ? gateway.DroppedMessageCount : 0)} " +
+            $"wsGateway={(wsGateway != null && wsGateway.IsRunning)} " +
+            $"wsReceived={(wsGateway != null ? wsGateway.ReceivedMessageCount : 0)} " +
+            $"wsAccepted={(wsGateway != null ? wsGateway.AcceptedMessageCount : 0)} " +
             $"fallback={(game != null && game.DiagnosticsUsingFallback)} " +
             $"battleTime={(game != null ? game.DiagnosticsBattleTime : 0f):0.0} " +
             $"giantX={(game != null ? game.DiagnosticsGiantX : 0f):0.0} " +

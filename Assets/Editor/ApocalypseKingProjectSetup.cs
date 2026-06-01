@@ -46,6 +46,7 @@ public static class ApocalypseKingProjectSetup
         DanmuSpawnMappingConfig mapping = AssetDatabase.LoadAssetAtPath<DanmuSpawnMappingConfig>(DanmuMappingPath);
         ApocalypseHudPrefab hudPrefab = AssetDatabase.LoadAssetAtPath<ApocalypseHudPrefab>(HudPrefabPath);
         AssignSceneReferences(mapping, hudPrefab);
+        ApocalypseKingBattleContentSetup.AssignBattleContentToOpenScene();
         UnitConfigSetup.SetupConfigs();
         EditorSceneManager.SaveOpenScenes();
         AssetDatabase.SaveAssets();
@@ -59,6 +60,7 @@ public static class ApocalypseKingProjectSetup
         DanmuSpawnMappingConfig mapping = AssetDatabase.LoadAssetAtPath<DanmuSpawnMappingConfig>(DanmuMappingPath);
         ApocalypseHudPrefab hudPrefab = AssetDatabase.LoadAssetAtPath<ApocalypseHudPrefab>(HudPrefabPath);
         AssignSceneReferences(mapping, hudPrefab);
+        ApocalypseKingBattleContentSetup.AssignBattleContentToOpenScene();
         UnitConfigSetup.SetupConfigs();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -75,9 +77,10 @@ public static class ApocalypseKingProjectSetup
         DanmuSpawnMappingConfig resourcesMapping = GetOrCreateDanmuMapping(DanmuMappingResourcesPath);
         CopyDanmuMapping(mapping, resourcesMapping);
         GetOrCreateHudPrefab();
+        ApocalypseKingBattleContentSetup.CreateOrUpdateBattleContentAssets();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log("[ApocalypseKing] Created/updated DanmuSpawnMappingConfig and HUD prefab under Settings and Resources/Apocalypse.");
+        Debug.Log("[ApocalypseKing] Created/updated DanmuSpawnMappingConfig, HUD prefab, and battle effect/audio assets.");
     }
 
     private static DanmuSpawnMappingConfig GetOrCreateDanmuMapping(string path)
@@ -227,6 +230,11 @@ public static class ApocalypseKingProjectSetup
         so.FindProperty("danmuSpawnMappingConfig").objectReferenceValue = mapping;
         so.FindProperty("hudPrefab").objectReferenceValue = hudPrefab;
         so.ApplyModifiedProperties();
+        if (game.GetComponent<DanmuWebSocketGateway>() == null)
+        {
+            Undo.AddComponent<DanmuWebSocketGateway>(game.gameObject);
+        }
+
         EditorUtility.SetDirty(game);
         EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
     }

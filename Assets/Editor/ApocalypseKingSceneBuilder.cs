@@ -24,6 +24,7 @@ public static class ApocalypseKingSceneBuilder
         var gameObject = new GameObject("ApocalypseKingGame");
         gameObject.AddComponent<DanmuCommandQueue>();
         gameObject.AddComponent<DanmuHttpGateway>();
+        gameObject.AddComponent<DanmuWebSocketGateway>();
         gameObject.AddComponent<EffectManager>();
         gameObject.AddComponent<BattleAudioManager>();
         gameObject.AddComponent<ApocalypseKingUnityGame>();

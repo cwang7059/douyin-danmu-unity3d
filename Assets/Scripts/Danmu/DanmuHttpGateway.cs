@@ -247,48 +247,8 @@ public sealed class DanmuHttpGateway : MonoBehaviour
 
     private bool ApplyHttpMessage(PendingHttpMessage pending, out string dropReason)
     {
-        dropReason = string.Empty;
-        DanmuHttpPayload payload;
-        try
-        {
-            payload = JsonUtility.FromJson<DanmuHttpPayload>(pending.body);
-        }
-        catch (Exception)
-        {
-            dropReason = "invalid_json";
-            return false;
-        }
-
-        if (payload == null)
-        {
-            dropReason = "invalid_payload";
-            return false;
-        }
-
-        string eventType = string.IsNullOrWhiteSpace(payload.eventType) ? pending.path : payload.eventType.Trim().ToLowerInvariant();
-        if (eventType == "gift")
-        {
-            bool accepted = commandQueue.EnqueueGift(payload.userId, payload.userName, payload.giftName, payload.giftValue);
-            dropReason = accepted ? string.Empty : CommandQueueDropReason();
-            return accepted;
-        }
-
-        if (!string.IsNullOrWhiteSpace(payload.team) || !string.IsNullOrWhiteSpace(payload.commandType) || !string.IsNullOrWhiteSpace(payload.key))
-        {
-            BattleTeam team = ParseTeam(payload.team);
-            DanmuCommandType type = ParseCommandType(payload.commandType);
-            string key = string.IsNullOrWhiteSpace(payload.key) ? payload.text : payload.key;
-            if (team != BattleTeam.Neutral && type != DanmuCommandType.None)
-            {
-                bool accepted = commandQueue.Enqueue(DanmuCommand.Create(payload.userId, payload.userName, team, type, key, payload.value));
-                dropReason = accepted ? string.Empty : CommandQueueDropReason();
-                return accepted;
-            }
-        }
-
-        bool rawAccepted = commandQueue.EnqueueRawMessage(payload.userId, payload.userName, payload.text);
-        dropReason = rawAccepted ? string.Empty : CommandQueueDropReason();
-        return rawAccepted;
+        string eventType = string.IsNullOrWhiteSpace(pending.path) ? "danmu" : pending.path.Trim().ToLowerInvariant();
+        return DanmuLiveIngress.TryApplyJson(pending.body, eventType, commandQueue, out dropReason);
     }
 
     private void ApplyCommandLineOverrides()
@@ -316,16 +276,6 @@ public sealed class DanmuHttpGateway : MonoBehaviour
         string error = lastBackgroundError;
         lastBackgroundError = null;
         Debug.LogWarning($"[DanmuHttpGateway] Request failed: {error}");
-    }
-
-    private string CommandQueueDropReason()
-    {
-        if (commandQueue == null || string.IsNullOrEmpty(commandQueue.LastDropReason))
-        {
-            return "command_rejected";
-        }
-
-        return commandQueue.LastDropReason;
     }
 
     private string BuildQueuedJson()
@@ -372,59 +322,6 @@ public sealed class DanmuHttpGateway : MonoBehaviour
         context.Response.OutputStream.Close();
     }
 
-    private static BattleTeam ParseTeam(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return BattleTeam.Neutral;
-        }
-
-        value = value.Trim().ToLowerInvariant();
-        if (value == "1" || value == "human" || value == "humans" || value == "blue")
-        {
-            return BattleTeam.Human;
-        }
-
-        if (value == "2" || value == "orc" || value == "orcs" || value == "monster" || value == "monsters" || value == "red")
-        {
-            return BattleTeam.Orc;
-        }
-
-        return BattleTeam.Neutral;
-    }
-
-    private static DanmuCommandType ParseCommandType(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return DanmuCommandType.None;
-        }
-
-        value = value.Trim().ToLowerInvariant();
-        switch (value)
-        {
-            case "spawn":
-            case "spawnunit":
-            case "spawn_unit":
-                return DanmuCommandType.SpawnUnit;
-            case "skill":
-            case "cast":
-            case "castskill":
-            case "cast_skill":
-                return DanmuCommandType.CastSkill;
-            case "energy":
-            case "addenergy":
-            case "add_energy":
-                return DanmuCommandType.AddEnergy;
-            case "heal":
-                return DanmuCommandType.Heal;
-            case "buff":
-                return DanmuCommandType.Buff;
-            default:
-                return DanmuCommandType.None;
-        }
-    }
-
     private static bool HasArgument(string name)
     {
         var args = Environment.GetCommandLineArgs();
@@ -457,20 +354,5 @@ public sealed class DanmuHttpGateway : MonoBehaviour
     {
         public string path;
         public string body;
-    }
-
-    [Serializable]
-    private sealed class DanmuHttpPayload
-    {
-        public string eventType;
-        public string userId;
-        public string userName;
-        public string text;
-        public string team;
-        public string commandType;
-        public string key;
-        public int value;
-        public string giftName;
-        public int giftValue;
     }
 }

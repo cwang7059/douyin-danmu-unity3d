@@ -8,7 +8,11 @@ public sealed class BattleAudioManager : MonoBehaviour
     private const int FallbackSampleRate = 22050;
 
     [SerializeField] private AudioCueConfig[] cues;
+    [SerializeField] private BattleAudioCatalog audioCatalog;
+    [SerializeField] private bool loadCuesFromResources = true;
     [SerializeField] private bool createFallbackAudio = true;
+
+    private const string ResourcesAudioPath = "Battle/Audio";
     [SerializeField] private int prewarmSources = 24;
     [SerializeField] private int maxSources = 48;
     [SerializeField] private AudioMixerGroup masterGroup;
@@ -43,6 +47,16 @@ public sealed class BattleAudioManager : MonoBehaviour
         sourceRoot = new GameObject("AudioPool").transform;
         sourceRoot.SetParent(transform, false);
         IndexCues();
+        if (audioCatalog != null)
+        {
+            MergeCues(audioCatalog.cues);
+        }
+
+        if (loadCuesFromResources)
+        {
+            MergeCues(Resources.LoadAll<AudioCueConfig>(ResourcesAudioPath));
+        }
+
         Prewarm();
     }
 
@@ -97,14 +111,19 @@ public sealed class BattleAudioManager : MonoBehaviour
     private void IndexCues()
     {
         cueById.Clear();
-        if (cues == null)
+        MergeCues(cues);
+    }
+
+    private void MergeCues(AudioCueConfig[] extra)
+    {
+        if (extra == null)
         {
             return;
         }
 
-        for (int i = 0; i < cues.Length; i++)
+        for (int i = 0; i < extra.Length; i++)
         {
-            var cue = cues[i];
+            var cue = extra[i];
             if (cue != null && cue.id != BattleAudioCueId.None)
             {
                 cueById[cue.id] = cue;

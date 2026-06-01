@@ -19,7 +19,11 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
 
     [SerializeField] private EffectConfig[] configs;
+    [SerializeField] private BattleEffectsCatalog effectsCatalog;
+    [SerializeField] private bool loadConfigsFromResources = true;
     [SerializeField] private bool createFallbackEffects = true;
+
+    private const string ResourcesEffectsPath = "Battle/Effects";
 
     private static readonly Dictionary<string, Material> particleMaterialCache = new Dictionary<string, Material>();
     private readonly Dictionary<BattleEffectId, EffectConfig> configById = new Dictionary<BattleEffectId, EffectConfig>();
@@ -41,6 +45,16 @@ public sealed class EffectManager : MonoBehaviour
         poolRoot = new GameObject("EffectPool").transform;
         poolRoot.SetParent(transform, false);
         IndexConfigs();
+        if (effectsCatalog != null)
+        {
+            MergeConfigs(effectsCatalog.configs);
+        }
+
+        if (loadConfigsFromResources)
+        {
+            MergeConfigs(Resources.LoadAll<EffectConfig>(ResourcesEffectsPath));
+        }
+
         Prewarm();
     }
 
@@ -107,14 +121,19 @@ public sealed class EffectManager : MonoBehaviour
     private void IndexConfigs()
     {
         configById.Clear();
-        if (configs == null)
+        MergeConfigs(configs);
+    }
+
+    private void MergeConfigs(EffectConfig[] extra)
+    {
+        if (extra == null)
         {
             return;
         }
 
-        for (int i = 0; i < configs.Length; i++)
+        for (int i = 0; i < extra.Length; i++)
         {
-            var config = configs[i];
+            var config = extra[i];
             if (config != null && config.id != BattleEffectId.None)
             {
                 configById[config.id] = config;
