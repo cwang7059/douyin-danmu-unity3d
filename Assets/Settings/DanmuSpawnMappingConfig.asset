@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 128ee0db55534036ba441d5481bb5956, type: 3}
+  m_Name: DanmuSpawnMappingConfig
+  m_EditorClassIdentifier: 
+  HumanSpawnMappings:
+  - DisplayName: Soldier
+    Keys:
+    - soldier
+    - infantry
+    - "\u6B65\u5175"
+    - "\u5175"
+    Action: 0
+  - DisplayName: Tank
+    Keys:
+    - tank
+    - "\u5766\u514B"
+    Action: 1
+  - DisplayName: Aircraft
+    Keys:
+    - aircraft
+    - plane
+    - helicopter
+    - heli
+    - "\u98DE\u673A"
+    - "\u76F4\u5347\u673A"
+    Action: 2
+  - DisplayName: Medic
+    Keys:
+    - medic
+    - heal
+    - "\u6CBB\u7597"
+    - "\u533B\u7597"
+    - "\u56DE\u8840"
+    Action: 3
+  DefaultHumanAction: 0
+  UseDefaultActionForUnknownKeys: 1

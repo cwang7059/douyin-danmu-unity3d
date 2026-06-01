@@ -122,7 +122,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &1983415492
+--- !u!1 &1075837007
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -130,13 +130,13 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1983415499}
-  - component: {fileID: 1983415498}
-  - component: {fileID: 1983415497}
-  - component: {fileID: 1983415496}
-  - component: {fileID: 1983415495}
-  - component: {fileID: 1983415494}
-  - component: {fileID: 1983415493}
+  - component: {fileID: 1075837014}
+  - component: {fileID: 1075837013}
+  - component: {fileID: 1075837012}
+  - component: {fileID: 1075837011}
+  - component: {fileID: 1075837010}
+  - component: {fileID: 1075837009}
+  - component: {fileID: 1075837008}
   m_Layer: 0
   m_Name: ApocalypseKingGame
   m_TagString: Untagged
@@ -144,50 +144,54 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1983415493
+--- !u!114 &1075837008
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 92b5a0b181937d14395b4b07249453ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1983415494
+--- !u!114 &1075837009
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ff41736975d3a842892258a97ece7dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  soldierConfig: {fileID: 0}
-  tankConfig: {fileID: 0}
-  aircraftConfig: {fileID: 0}
-  giantConfig: {fileID: 0}
+  soldierConfig: {fileID: 11400000, guid: 6ebd7eb24252ef247868eb6c1ac607ad, type: 2}
+  tankConfig: {fileID: 11400000, guid: 7316070c34007964a9393099d98ba8ac, type: 2}
+  aircraftConfig: {fileID: 11400000, guid: 7f9afee3b1e44eb41981f3173704ac8b, type: 2}
+  giantConfig: {fileID: 11400000, guid: 1110655be33d96c4da9aa0e9cd047268, type: 2}
+  danmuSpawnMappingConfig: {fileID: 11400000, guid: a01eb7f9011caae46b79b4c00897b4d4, type: 2}
+  battlefieldPrefab: {fileID: 0}
+  hudPrefab: {fileID: 8740871146439280946, guid: 6cddde24ff79c45409c6bd5afff7d641, type: 3}
   cameraYaw: -14
   cameraPitch: 24
   cameraDistance: 84
---- !u!114 &1983415495
+--- !u!114 &1075837010
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 13e14e814d4aa004eb01d526de83b7ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   cues: []
+  createFallbackAudio: 1
   prewarmSources: 24
   maxSources: 48
   masterGroup: {fileID: 0}
@@ -200,13 +204,13 @@ MonoBehaviour:
   uiGroup: {fileID: 0}
   voiceGroup: {fileID: 0}
   ambienceGroup: {fileID: 0}
---- !u!114 &1983415496
+--- !u!114 &1075837011
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6175ac856a469274c9477e326140946b, type: 3}
@@ -214,13 +218,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   configs: []
   createFallbackEffects: 1
---- !u!114 &1983415497
+--- !u!114 &1075837012
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ab1fa431c030e84cbf16768c7c2111f, type: 3}
@@ -231,13 +235,13 @@ MonoBehaviour:
   port: 8765
   maxPendingHttpMessages: 1024
   maxMessagesPerFrame: 64
---- !u!114 &1983415498
+--- !u!114 &1075837013
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 22cd6ef09b0551641976cd1aa9420a7d, type: 3}
@@ -246,13 +250,13 @@ MonoBehaviour:
   maxPendingCommands: 512
   maxCommandsPerFrame: 24
   defaultUserCooldown: 1.25
---- !u!4 &1983415499
+--- !u!4 &1075837014
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1983415492}
+  m_GameObject: {fileID: 1075837007}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -265,4 +269,4 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1983415499}
+  - {fileID: 1075837014}

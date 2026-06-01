@@ -37,13 +37,14 @@ public static class ApocalypseKingSceneBuilder
         };
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"[ApocalypseSceneBuilder] Created scene at {ScenePath}");
+        ApocalypseKingProjectSetup.RunFullSetup();
+        Debug.Log($"[ApocalypseSceneBuilder] Created scene at {ScenePath} and wired project assets.");
     }
 
     [MenuItem("Apocalypse King/Build Windows Player")]
     public static void BuildWindowsPlayer()
     {
-        CreateMainScene();
+        ApocalypseKingProjectSetup.SetupProjectAssetsForBatchMode();
         ConfigureMobilePlayerSettings();
         Directory.CreateDirectory(BuildDirectory);
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public sealed partial class ApocalypseKingUnityGame
@@ -85,6 +86,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         RecordUnitMovement(unit, previousX, previousZ, dt);
+        RefreshRuntimeStateFromMovement(unit);
         UpdateUnitTransform(unit, dt);
     }
 
@@ -157,6 +159,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void FireHumanWeapon(BattleUnit unit, BattleUnit target)
     {
+        unit.runtimeState = UnitRuntimeState.Attacking;
         unit.attackCooldown = unit.attackInterval * (0.9f + Noise(battleTime * 31f + unit.id) * 0.22f);
         unit.attackVisualTimer = unit.kind == UnitKind.Soldier ? 0.18f : 0.42f;
 
@@ -241,6 +244,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
+        RefreshRuntimeStateFromMovement(giant);
         UpdateUnitTransform(giant, dt);
     }
 
@@ -315,6 +319,7 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        giant.runtimeState = UnitRuntimeState.Attacking;
         giant.attackCooldown = giant.attackInterval * (giant.hp / giant.maxHp < 0.45f ? 0.78f : 1f);
         giant.attackVisualTimer = 0.58f;
 
@@ -333,6 +338,7 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        giant.runtimeState = UnitRuntimeState.Attacking;
         giant.attackCooldown = giant.attackInterval * (giant.hp / giant.maxHp < 0.45f ? 0.72f : 0.92f);
         giant.attackVisualTimer = 0.66f;
 
@@ -377,6 +383,7 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        giant.runtimeState = UnitRuntimeState.Attacking;
         giant.attackCooldown = giant.attackInterval * 1.15f;
         giant.attackVisualTimer = 0.45f;
         SpawnProjectile(ProjectileKind.Rock, ProjectileTarget.Human, giant.x - 70f, giant.z + 128f, 4.6f, target.x, target.z + 8f, 0.75f, 116f, 76f, 470f, new Color(0.72f, 1f, 0.52f, 1f));
@@ -451,6 +458,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         unit.active = false;
+        unit.runtimeState = UnitRuntimeState.Dead;
         unit.root.SetActive(false);
         humanLosses++;
 
@@ -485,6 +493,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         giant.active = false;
+        giant.runtimeState = UnitRuntimeState.Dead;
         giant.root.SetActive(false);
         SpawnDeathVisual(giant);
         PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 38f, giant.z + 80f, 0.8f, 1.5f, Quaternion.identity);
@@ -500,4 +509,54 @@ public sealed partial class ApocalypseKingUnityGame
 
         RefreshHud();
     }
+
+    private int CountUnitsInRuntimeState(UnitRuntimeState state)
+    {
+        return CountRuntimeStateInList(soldiers, state)
+            + CountRuntimeStateInList(tanks, state)
+            + CountRuntimeStateInList(aircraft, state)
+            + CountRuntimeStateInList(giants, state);
+    }
+
+    private static int CountRuntimeStateInList(List<BattleUnit> units, UnitRuntimeState state)
+    {
+        if (units == null)
+        {
+            return 0;
+        }
+
+        int total = 0;
+        for (int i = 0; i < units.Count; i++)
+        {
+            BattleUnit unit = units[i];
+            if (unit != null && unit.active && unit.runtimeState == state)
+            {
+                total++;
+            }
+        }
+
+        return total;
+    }
+
+    private static bool ShouldPresentUnitAsAttacking(BattleUnit unit)
+    {
+        return unit != null && unit.active && unit.runtimeState == UnitRuntimeState.Attacking;
+    }
+
+    private static void RefreshRuntimeStateFromMovement(BattleUnit unit)
+    {
+        if (unit == null || !unit.active || unit.runtimeState == UnitRuntimeState.Dead)
+        {
+            return;
+        }
+
+        if (unit.attackVisualTimer > 0f)
+        {
+            unit.runtimeState = UnitRuntimeState.Attacking;
+            return;
+        }
+
+        unit.runtimeState = unit.moveSpeed > 0.5f ? UnitRuntimeState.Moving : UnitRuntimeState.Idle;
+    }
 }
+

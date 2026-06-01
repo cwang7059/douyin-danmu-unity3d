@@ -27,6 +27,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             if (queue != null)
             {
                 queue.EnqueueRawMessage("probe-human", "Probe Human", "human soldier");
+                queue.EnqueueRawMessage("probe-tank", "Probe Tank", "human tank");
                 queue.EnqueueRawMessage("probe-orc", "Probe Orc", "orc helldog");
                 queue.EnqueueRawMessage("probe-skill", "Probe Skill", "human air strike");
                 queue.EnqueueRawMessage("probe-rage", "Probe Rage", "orc rage");
@@ -242,6 +243,11 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"danmuPending={(game != null ? game.DiagnosticsDanmuPending : 0)} " +
             $"danmuAccepted={(game != null ? game.DiagnosticsDanmuAccepted : 0)} " +
             $"danmuDropped={(game != null ? game.DiagnosticsDanmuDropped : 0)} " +
+            $"danmuProcessed={(game != null ? game.DiagnosticsProcessedDanmuCommands : 0)} " +
+            $"hudPrefab={(game != null && game.DiagnosticsHudUsesPrefab)} " +
+            $"danmuMapping={(game != null && game.DiagnosticsDanmuMappingConfigured)} " +
+            $"unitsAttacking={(game != null ? game.DiagnosticsUnitsAttacking : 0)} " +
+            $"unitsMoving={(game != null ? game.DiagnosticsUnitsMoving : 0)} " +
             $"httpGateway={(gateway != null && gateway.IsRunning)} " +
             $"httpPort={(gateway != null ? gateway.Port : 0)} " +
             $"httpReceived={(gateway != null ? gateway.ReceivedMessageCount : 0)} " +

@@ -49,6 +49,28 @@ Send test danmu commands:
 .\tools\send-danmu-test.ps1 -HostUrl http://127.0.0.1:8788
 ```
 
+Full mapping regression (soldier, tank, aircraft, medic, unknown key fallback):
+
+```powershell
+.\tools\send-danmu-test.ps1 -HostUrl http://127.0.0.1:8788 -Full
+```
+
+## Unity Editor Setup (first time or after pulling)
+
+Generate HUD prefab, danmu mapping assets, unit configs, and scene references:
+
+```powershell
+.\tools\setup-unity-assets.ps1
+```
+
+Or inside Unity: **Apocalypse King → Setup Project Assets**
+
+Validate danmu key mapping without entering Play Mode:
+
+**Apocalypse King → Validate Danmu Spawn Mapping**
+
+`build-and-start.ps1` runs asset setup automatically before each Windows build.
+
 ## Documentation
 
 - [文档目录](doc/文档目录.md)
@@ -57,6 +79,7 @@ Send test danmu commands:
 - [单位运动与动画规范](doc/单位运动与动画规范.md)
 - [本地 HTTP 弹幕网关](doc/本地弹幕网关.md)
 - [实现进度记录](doc/实现进度记录.md)
+- [维护重构收敛计划](doc/RefactoringPlan_UnitMovement_UI_State.md)
 
 ## Notes
 

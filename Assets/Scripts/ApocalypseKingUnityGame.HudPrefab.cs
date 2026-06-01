@@ -3,15 +3,18 @@ using UnityEngine.UI;
 
 public sealed partial class ApocalypseKingUnityGame
 {
+    private const string HudPrefabResourcesPath = "Apocalypse/ApocalypseHudPrefab";
+
     private bool TryCreateHudFromPrefab()
     {
-        if (hudPrefab == null)
+        ApocalypseHudPrefab template = ResolveHudPrefabTemplate();
+        if (template == null)
         {
             return false;
         }
 
-        var view = Instantiate(hudPrefab, transform, false);
-        view.name = hudPrefab.name;
+        var view = Instantiate(template, transform, false);
+        view.name = template.name;
         BindHudPrefab(view);
 
         if (canvas == null)
@@ -21,10 +24,21 @@ public sealed partial class ApocalypseKingUnityGame
             return false;
         }
 
+        DiagnosticsHudUsesPrefab = true;
         ApplySafeArea();
         RegisterResolutionButtons();
         RefreshResolutionControls();
         return true;
+    }
+
+    private ApocalypseHudPrefab ResolveHudPrefabTemplate()
+    {
+        if (hudPrefab != null)
+        {
+            return hudPrefab;
+        }
+
+        return Resources.Load<ApocalypseHudPrefab>(HudPrefabResourcesPath);
     }
 
     private void BindHudPrefab(ApocalypseHudPrefab view)

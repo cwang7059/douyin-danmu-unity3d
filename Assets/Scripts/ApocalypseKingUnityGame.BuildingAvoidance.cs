@@ -27,6 +27,9 @@ public sealed partial class ApocalypseKingUnityGame
         return BuildingAvoidanceSystem.SegmentIntersectsBuilding(from, to, obstacle, radius, out t);
     }
 
+    // Keep the public surface of building avoidance in this partial file. Unit runtime,
+    // separation, and projectile code call the small proxies above so the movement system
+    // can evolve without pushing pathing details into those modules.
     private sealed class BuildingAvoidanceSystem
     {
         private readonly ApocalypseKingUnityGame game;
@@ -56,6 +59,9 @@ public sealed partial class ApocalypseKingUnityGame
             int steps = Mathf.Clamp(Mathf.CeilToInt(distance / 28f), 1, 8);
             float stepX = dx / steps;
             float stepZ = dz / steps;
+
+            // Long moves are split into short axis probes so a unit can slide along an
+            // obstacle edge instead of tunneling through or stopping at the first hit.
             for (int i = 0; i < steps; i++)
             {
                 float nextX = unit.x + stepX;
@@ -91,7 +97,7 @@ public sealed partial class ApocalypseKingUnityGame
             for (int i = 0; i < game.buildingObstacles.Count; i++)
             {
                 var obstacle = game.buildingObstacles[i];
-                if (obstacle.Destroyed)
+                if (obstacle == null || obstacle.Destroyed)
                 {
                     continue;
                 }
@@ -212,6 +218,8 @@ public sealed partial class ApocalypseKingUnityGame
                 return target;
             }
 
+            // Prefer authored road corridors when they provide a clear bypass. If the road
+            // target is also blocked, fall back to a local edge-hugging target around the hit.
             Vector2 roadTarget;
             if (TryGetRoadBypassTarget(unit, from, best, target, radius, out roadTarget))
             {
@@ -241,6 +249,8 @@ public sealed partial class ApocalypseKingUnityGame
 
         private Vector2 BuildBuildingBypassTarget(BattleUnit unit, Vector2 from, BuildingObstacle obstacle, Vector2 target, float radius)
         {
+            // Local bypass chooses a stable Z side first, then nudges X only when the unit is
+            // already inside the expanded obstacle band. This preserves formation lanes.
             float extraClearance = unit.kind == UnitKind.Giant ? 34f : unit.kind == UnitKind.Tank ? 24f : 18f;
             float sideZ = BuildingBypassSide(unit, obstacle, target);
             float expandedHalfX = obstacle.HalfX + obstacle.Padding + radius + extraClearance * 0.35f;
@@ -370,7 +380,7 @@ public sealed partial class ApocalypseKingUnityGame
             for (int i = 0; i < game.buildingObstacles.Count; i++)
             {
                 var obstacle = game.buildingObstacles[i];
-                if (obstacle.Destroyed)
+                if (obstacle == null || obstacle.Destroyed)
                 {
                     continue;
                 }

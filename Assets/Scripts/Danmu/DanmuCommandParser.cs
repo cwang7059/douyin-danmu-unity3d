@@ -2,6 +2,20 @@ using System;
 
 public static class DanmuCommandParser
 {
+    private static DanmuSpawnMapping[] humanSpawnMappings;
+
+    public static void ConfigureHumanSpawnMappings(DanmuSpawnMapping[] mappings)
+    {
+        humanSpawnMappings = mappings != null && mappings.Length > 0
+            ? mappings
+            : DanmuSpawnMapping.CreateDefaultHumanMappings();
+    }
+
+    private static DanmuSpawnMapping[] ActiveHumanSpawnMappings()
+    {
+        return humanSpawnMappings ?? DanmuSpawnMapping.CreateDefaultHumanMappings();
+    }
+
     public static bool TryParse(string userId, string userName, string rawText, out DanmuCommand command)
     {
         command = default;
@@ -112,19 +126,14 @@ public static class DanmuCommandParser
             return team == BattleTeam.Human ? "air_strike" : "rage";
         }
 
-        if (ContainsAny(text, "坦克", "tank"))
+        if (team == BattleTeam.Human && (type == DanmuCommandType.SpawnUnit || type == DanmuCommandType.Heal))
         {
-            return "tank";
-        }
+            if (DanmuSpawnMapping.TryResolveHumanSpawnKeyFromText(text, ActiveHumanSpawnMappings(), out string humanKey))
+            {
+                return humanKey;
+            }
 
-        if (ContainsAny(text, "aircraft", "plane", "helicopter", "heli"))
-        {
-            return "aircraft";
-        }
-
-        if (ContainsAny(text, "治疗", "heal", "医疗"))
-        {
-            return "medic";
+            return type == DanmuCommandType.Heal ? "medic" : "soldier";
         }
 
         if (ContainsAny(text, "地狱犬", "dog", "狼"))

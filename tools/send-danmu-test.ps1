@@ -1,6 +1,7 @@
 param(
     [string]$HostUrl = "http://127.0.0.1:8765",
-    [switch]$Gift
+    [switch]$Gift,
+    [switch]$Full
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,6 +28,44 @@ Send-Danmu -Path "danmu" -Payload @{
 }
 
 Start-Sleep -Milliseconds 300
+
+if ($Full) {
+    Send-Danmu -Path "danmu" -Payload @{
+        eventType = "danmu"
+        userId = "tester-tank"
+        userName = "Tester Tank"
+        text = "人族坦克"
+    }
+
+    Start-Sleep -Milliseconds 300
+
+    Send-Danmu -Path "danmu" -Payload @{
+        eventType = "danmu"
+        userId = "tester-air"
+        userName = "Tester Air"
+        text = "human helicopter"
+    }
+
+    Start-Sleep -Milliseconds 300
+
+    Send-Danmu -Path "danmu" -Payload @{
+        eventType = "danmu"
+        userId = "tester-medic"
+        userName = "Tester Medic"
+        text = "人族 medic heal"
+    }
+
+    Start-Sleep -Milliseconds 300
+
+    Send-Danmu -Path "danmu" -Payload @{
+        eventType = "danmu"
+        userId = "tester-unknown"
+        userName = "Tester Unknown"
+        text = "human mystery_unit"
+    }
+
+    Start-Sleep -Milliseconds 300
+}
 
 Send-Danmu -Path "danmu" -Payload @{
     eventType = "danmu"
@@ -59,3 +98,6 @@ if ($Gift) {
     }
 }
 
+if ($Full) {
+    Write-Host "[OK] Full danmu mapping test sequence sent."
+}

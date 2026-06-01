@@ -54,6 +54,15 @@ public sealed partial class ApocalypseKingUnityGame
         Smoke,
     }
 
+    private enum UnitRuntimeState
+    {
+        Inactive,
+        Idle,
+        Moving,
+        Attacking,
+        Dead,
+    }
+
     private sealed class ModelPose
     {
         public readonly float TargetHeight;
@@ -91,7 +100,9 @@ public sealed partial class ApocalypseKingUnityGame
         public AnimationPlayableOutput animationOutput;
         public string currentAnimation;
         public string currentAnimatorClip;
+        public int animationPresentationKey;
         public bool active;
+        public UnitRuntimeState runtimeState;
         public Transform tankAimRoot;
         public Transform tankTurretVisual;
         public Transform tankBarrelVisual;

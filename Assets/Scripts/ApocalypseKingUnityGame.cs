@@ -69,6 +69,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     [SerializeField] private GameObject battlefieldPrefab;
     [SerializeField] private ApocalypseHudPrefab hudPrefab;
 
+    private const string DanmuSpawnMappingResourcesPath = "Apocalypse/DanmuSpawnMappingConfig";
+
 
     private const float LogicalToWorld = 0.025f;
     private const float Left = -360f;
@@ -238,10 +240,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     public int DiagnosticsDanmuPending => danmuQueue != null ? danmuQueue.PendingCount : 0;
     public int DiagnosticsDanmuAccepted => danmuQueue != null ? danmuQueue.AcceptedCommandCount : 0;
     public int DiagnosticsDanmuDropped => danmuQueue != null ? danmuQueue.DroppedCommandCount : 0;
+    public int DiagnosticsProcessedDanmuCommands => processedDanmuCommandCount;
+    public bool DiagnosticsHudUsesPrefab { get; private set; }
+    public bool DiagnosticsDanmuMappingConfigured => danmuSpawnMappingConfig != null;
+    public int DiagnosticsUnitsAttacking => CountUnitsInRuntimeState(UnitRuntimeState.Attacking);
+    public int DiagnosticsUnitsMoving => CountUnitsInRuntimeState(UnitRuntimeState.Moving);
 
     private void Awake()
     {
         danmuQueue = GetComponent<DanmuCommandQueue>();
+        EnsureDanmuSpawnMappingConfig();
         Application.targetFrameRate = 60;
         QualitySettings.vSyncCount = 0;
         ApplyDefaultMobilePresentation();
@@ -448,7 +456,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void CreateHud()
     {
-        uiFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        uiFont = ApocalypseUiFonts.GetBuiltinUiFont();
         if (TryCreateHudFromPrefab())
         {
             return;
@@ -1303,6 +1311,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private void EnsureDanmuSpawnMappingConfig()
+    {
+        if (danmuSpawnMappingConfig == null)
+        {
+            danmuSpawnMappingConfig = Resources.Load<DanmuSpawnMappingConfig>(DanmuSpawnMappingResourcesPath);
+        }
+
+        DanmuCommandParser.ConfigureHumanSpawnMappings(
+            danmuSpawnMappingConfig != null
+                ? danmuSpawnMappingConfig.HumanSpawnMappings
+                : DanmuSpawnMapping.CreateDefaultHumanMappings());
+    }
+
     private BattleUnit CreateUnitShell(UnitKind kind, TankModelVariant tankModel = TankModelVariant.None)
     {
         var root = new GameObject($"Unit_{kind}_{nextId}");
@@ -2066,6 +2087,18 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void AttachUnitModel(BattleUnit unit)
     {
+        if (unit == null)
+        {
+            return;
+        }
+
+        // Danmu reinforcements must only reactivate pooled units. Re-importing GLTF models
+        // on the main thread during battle will freeze the game for several seconds.
+        if (battleTime > 0f)
+        {
+            return;
+        }
+
         bool rootWasActive = unit.root.activeSelf;
         if (!rootWasActive)
         {
@@ -2115,7 +2148,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.currentAnimation = string.Empty;
             ConfigureAnimatorPlayback(unit, model);
             ConfigureProceduralMotionRig(unit);
-            PlayUnitAnimation(unit, true);
+            PlayUnitAnimation(unit);
         }
         finally
         {
@@ -2793,6 +2826,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private void ActivateUnit(BattleUnit unit, float x, float z, float hp, float damage, float speed, float radius, float range, float interval, int rank, int facing, float altitude)
     {
         unit.active = true;
+        unit.runtimeState = UnitRuntimeState.Idle;
         unit.root.SetActive(true);
         unit.x = x;
         unit.z = z;
@@ -2818,8 +2852,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.rotorSpinDegrees = Noise(unit.id + rank * 7.1f) * 360f;
         unit.wheelSpinDegrees = Noise(unit.id + rank * 5.3f) * 360f;
         unit.trackScroll = 0f;
+        unit.animationPresentationKey = -1;
         UpdateUnitTransform(unit, 0f);
-        PlayUnitAnimation(unit, false);
+        PlayUnitAnimation(unit);
     }
 
     private void DeactivatePooledUnit(BattleUnit unit)
@@ -2830,12 +2865,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         unit.active = false;
+        unit.runtimeState = UnitRuntimeState.Inactive;
         unit.hp = 0f;
         unit.maxHp = 0f;
         unit.attackVisualTimer = 0f;
         unit.hitFlashTimer = 0f;
         unit.attackCooldown = 0f;
         unit.moveSpeed = 0f;
+        unit.animationPresentationKey = -1;
         if (unit.root != null)
         {
             unit.root.SetActive(false);
@@ -2845,7 +2882,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveSoldierFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(soldiers);
-        if (unit == null)
+        if (unit == null || unit.modelInstance == null)
         {
             return false;
         }
@@ -2862,7 +2899,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveTankFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(tanks);
-        if (unit == null)
+        if (unit == null || unit.modelInstance == null)
         {
             return false;
         }
@@ -2878,7 +2915,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveAircraftFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(aircraft);
-        if (unit == null)
+        if (unit == null || unit.modelInstance == null)
         {
             return false;
         }
@@ -2895,7 +2932,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveGiantFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(giants);
-        if (unit == null)
+        if (unit == null || unit.modelInstance == null)
         {
             return false;
         }
@@ -3437,9 +3474,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.modelInstance.transform.localPosition = modelLocalPosition;
             unit.modelInstance.transform.localRotation = modelRotation;
             UpdateProceduralMotionRig(unit, dt, moveFactor);
-            PlayUnitAnimation(unit, unit.attackVisualTimer > 0f);
+            PlayUnitAnimation(unit);
         }
-        else if (dt <= 0f)
+        else if (dt <= 0f && battleTime <= 0f)
         {
             AttachUnitModel(unit);
         }
@@ -3595,9 +3632,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return kind == UnitKind.Giant ? -90f : 90f;
     }
 
-    private void PlayUnitAnimation(BattleUnit unit, bool attacking)
+    private void PlayUnitAnimation(BattleUnit unit)
     {
-        if (TryPlayAnimatorAnimation(unit, attacking))
+        if (unit == null || !unit.active)
+        {
+            return;
+        }
+
+        bool attacking = ShouldPresentUnitAsAttacking(unit);
+        bool moving = unit.runtimeState == UnitRuntimeState.Moving;
+        int presentationKey = ((int)unit.runtimeState << 4) | (int)unit.kind;
+        if (unit.animationPresentationKey == presentationKey)
+        {
+            return;
+        }
+
+        unit.animationPresentationKey = presentationKey;
+
+        if (TryPlayAnimatorAnimation(unit, attacking, moving))
         {
             return;
         }
@@ -3607,7 +3659,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        string desired = GetAnimationName(unit.kind, attacking);
+        string desired = GetAnimationName(unit.kind, attacking, moving);
         if (desired == unit.currentAnimation)
         {
             return;
@@ -3655,14 +3707,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private bool TryPlayAnimatorAnimation(BattleUnit unit, bool attacking)
+    private bool TryPlayAnimatorAnimation(BattleUnit unit, bool attacking, bool moving)
     {
         if (!UsesAnimatorPlayback(unit))
         {
             return false;
         }
 
-        AnimationClip clip = SelectAnimatorClip(unit, attacking);
+        AnimationClip clip = SelectAnimatorClip(unit, attacking, moving);
         if (clip == null)
         {
             return false;
@@ -3698,16 +3750,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return true;
     }
 
-    private AnimationClip SelectAnimatorClip(BattleUnit unit, bool attacking)
+    private AnimationClip SelectAnimatorClip(BattleUnit unit, bool attacking, bool moving)
     {
         if (unit.kind == UnitKind.Tank)
         {
-            return SelectTankAnimatorClip(unit);
+            return SelectTankAnimatorClip(unit, moving);
         }
 
         if (unit.kind == UnitKind.Giant)
         {
-            return SelectGiantAnimatorClip(unit, attacking);
+            return SelectGiantAnimatorClip(unit, attacking, moving);
         }
 
         if (attacking)
@@ -3715,7 +3767,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return FindAnimatorClip(unit, "Idle_Gun", "Attack", "Shoot", "Fire", "Punch", "Idle");
         }
 
-        bool moving = unit.moveSpeed > 1f;
         if (!moving)
         {
             return FindAnimatorClip(unit, "Idle_Gun", "Idle", "Walk_Gun", "Walk");
@@ -3727,9 +3778,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             : FindAnimatorClip(unit, "Walk_Gun", "Walk", "Run_Gun", "Run");
     }
 
-    private AnimationClip SelectTankAnimatorClip(BattleUnit unit)
+    private AnimationClip SelectTankAnimatorClip(BattleUnit unit, bool moving)
     {
-        bool moving = unit.moveSpeed > 1f;
         if (!moving)
         {
             return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight");
@@ -3738,23 +3788,22 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight", "Tank_TurningLeft", "TurningLeft");
     }
 
-    private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking)
+    private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking, bool moving)
     {
-        bool moving = unit.moveSpeed > 1f;
-        if (moving)
-        {
-            bool running = unit.moveSpeed > unit.speed * 1.02f;
-            return running
-                ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
-                : FindAnimatorClip(unit, "Walk", "Run", "Idle");
-        }
-
         if (attacking)
         {
             return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "Idle");
         }
 
-        return FindAnimatorClip(unit, "Idle", "Walk", "Run");
+        if (!moving)
+        {
+            return FindAnimatorClip(unit, "Idle", "Walk", "Run");
+        }
+
+        bool running = unit.moveSpeed > unit.speed * 1.12f;
+        return running
+            ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
+            : FindAnimatorClip(unit, "Walk", "Run", "Idle");
     }
 
     private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
@@ -3851,16 +3900,26 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.currentAnimatorClip = string.Empty;
     }
 
-    private string GetAnimationName(UnitKind kind, bool attacking)
+    private string GetAnimationName(UnitKind kind, bool attacking, bool moving)
     {
         switch (kind)
         {
             case UnitKind.Soldier:
-                return attacking ? "CharacterArmature|Idle_Shoot" : "CharacterArmature|Run_Gun";
+                if (attacking)
+                {
+                    return "CharacterArmature|Idle_Shoot";
+                }
+
+                return moving ? "CharacterArmature|Run_Gun" : "CharacterArmature|Idle_Gun";
             case UnitKind.Tank:
-                return attacking ? "TankArmature|Tank_TurningRight" : "TankArmature|Tank_Forward";
+                return attacking ? "TankArmature|Tank_TurningRight" : moving ? "TankArmature|Tank_Forward" : "TankArmature|Tank_Idle";
             case UnitKind.Giant:
-                return attacking ? "EnemyArmature|EnemyArmature|EnemyArmature|Attack" : "EnemyArmature|EnemyArmature|EnemyArmature|Walk";
+                if (attacking)
+                {
+                    return "EnemyArmature|EnemyArmature|EnemyArmature|Attack";
+                }
+
+                return moving ? "EnemyArmature|EnemyArmature|EnemyArmature|Walk" : "EnemyArmature|EnemyArmature|EnemyArmature|Idle";
             default:
                 return string.Empty;
         }

@@ -91,6 +91,8 @@ public sealed partial class ApocalypseKingUnityGame
         {
             HealGiants(90f);
             HastenGiants(0.2f);
+            ShowBanner(CountActive(giants) >= GiantCount ? "Monster roster full" : "Danmu monster reinforce", true, 0.85f);
+            return;
         }
 
         ShowBanner("Danmu monster reinforce", true, 0.85f);
@@ -98,10 +100,14 @@ public sealed partial class ApocalypseKingUnityGame
 
     private DanmuHumanSpawnAction ResolveHumanDanmuSpawnAction(string key)
     {
-        DanmuHumanSpawnAction action;
-        if (danmuSpawnMappingConfig != null && danmuSpawnMappingConfig.TryResolveHumanAction(key, out action))
+        if (danmuSpawnMappingConfig != null)
         {
-            return action;
+            if (danmuSpawnMappingConfig.TryResolveHumanAction(key, out DanmuHumanSpawnAction action))
+            {
+                return action;
+            }
+
+            return danmuSpawnMappingConfig.DefaultHumanAction;
         }
 
         return DanmuSpawnMappingConfig.ResolveDefaultHumanAction(key);
