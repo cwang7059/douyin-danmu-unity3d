@@ -1,0 +1,162 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d5f7b9c1e3a5b7d9f1c3e5a7b9d1f3e, type: 3}
+  m_Name: ApocalypseGiftCatalog
+  m_EditorClassIdentifier: 
+  Entries:
+  - GiftKey: like
+    Aliases:
+    - "\u70B9\u8D5E"
+    - like
+    CoinValue: 0
+    BlueSpawns:
+    - Role: 0
+      Count: 10
+    GreenSpawns:
+    - Role: 0
+      Count: 10
+    ZombieSpawns:
+    - Role: 8
+      Count: 10
+    HumanOnlySkill: 0
+  - GiftKey: 666
+    Aliases:
+    - 666
+    CoinValue: 0
+    BlueSpawns:
+    - Role: 0
+      Count: 100
+    GreenSpawns:
+    - Role: 0
+      Count: 100
+    ZombieSpawns:
+    - Role: 8
+      Count: 100
+    HumanOnlySkill: 0
+  - GiftKey: xiannvbang
+    Aliases:
+    - "\u4ED9\u5973\u68D2"
+    - "\u4ED9\u5973"
+    CoinValue: 1
+    BlueSpawns:
+    - Role: 1
+      Count: 80
+    GreenSpawns:
+    - Role: 1
+      Count: 80
+    ZombieSpawns:
+    - Role: 9
+      Count: 80
+    HumanOnlySkill: 0
+  - GiftKey: pill
+    Aliases:
+    - "\u80FD\u529B\u836F\u4E38"
+    - "\u836F\u4E38"
+    CoinValue: 10
+    BlueSpawns:
+    - Role: 2
+      Count: 80
+    GreenSpawns:
+    - Role: 2
+      Count: 80
+    ZombieSpawns:
+    - Role: 2
+      Count: 80
+    HumanOnlySkill: 0
+  - GiftKey: mirror
+    Aliases:
+    - "\u9B54\u6CD5\u955C"
+    - "\u9B54\u955C"
+    CoinValue: 19
+    BlueSpawns:
+    - Role: 3
+      Count: 20
+    GreenSpawns:
+    - Role: 3
+      Count: 20
+    ZombieSpawns:
+    - Role: 3
+      Count: 20
+    HumanOnlySkill: 0
+  - GiftKey: donut
+    Aliases:
+    - "\u751C\u751C\u5708"
+    CoinValue: 52
+    BlueSpawns:
+    - Role: 4
+      Count: 20
+    GreenSpawns:
+    - Role: 4
+      Count: 20
+    ZombieSpawns:
+    - Role: 4
+      Count: 20
+    HumanOnlySkill: 0
+  - GiftKey: battery
+    Aliases:
+    - "\u80FD\u91CF\u7535\u6C60"
+    - "\u7535\u6C60"
+    CoinValue: 99
+    BlueSpawns:
+    - Role: 5
+      Count: 12
+    GreenSpawns:
+    - Role: 5
+      Count: 12
+    ZombieSpawns:
+    - Role: 5
+      Count: 12
+    HumanOnlySkill: 0
+  - GiftKey: bomb
+    Aliases:
+    - "\u7231\u7684\u70B8\u5F39"
+    - "\u7231\u7684\u7206\u70B8"
+    - "\u70B8\u5F39"
+    CoinValue: 199
+    BlueSpawns:
+    - Role: 6
+      Count: 4
+    GreenSpawns:
+    - Role: 6
+      Count: 4
+    ZombieSpawns:
+    - Role: 6
+      Count: 4
+    HumanOnlySkill: 0
+  - GiftKey: airdrop
+    Aliases:
+    - "\u795E\u79D8\u7A7A\u6295"
+    - "\u7A7A\u6295"
+    CoinValue: 520
+    BlueSpawns:
+    - Role: 7
+      Count: 3
+    GreenSpawns:
+    - Role: 7
+      Count: 3
+    ZombieSpawns:
+    - Role: 7
+      Count: 3
+    HumanOnlySkill: 0
+  - GiftKey: superjet
+    Aliases:
+    - "\u8D85\u80FD\u55B7\u5C04"
+    - "\u55B7\u5C04"
+    CoinValue: 1200
+    BlueSpawns:
+    - Role: 0
+      Count: 0
+    GreenSpawns:
+    - Role: 0
+      Count: 0
+    ZombieSpawns: []
+    HumanOnlySkill: 1
