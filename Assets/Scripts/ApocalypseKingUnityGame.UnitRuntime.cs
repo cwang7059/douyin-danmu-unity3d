@@ -58,23 +58,34 @@ public sealed partial class ApocalypseKingUnityGame
             FireHumanWeapon(unit, target);
         }
 
-        float desiredX = HumanHoldX(unit, target);
+        bool tankAnchored = unit.kind == UnitKind.Tank && canFire;
         float nextX = unit.x;
-        if (unit.x < desiredX)
+        if (!tankAnchored)
         {
-            nextX = Mathf.Min(desiredX, unit.x + unit.speed * dt);
+            float desiredX = HumanHoldX(unit, target);
+            float holdDeltaX = desiredX - unit.x;
+            if (Mathf.Abs(holdDeltaX) > 0.5f)
+            {
+                float stepX = unit.speed * dt;
+                nextX = unit.x + Mathf.Sign(holdDeltaX) * Mathf.Min(stepX, Mathf.Abs(holdDeltaX));
+            }
         }
 
-        float desiredZ = HumanHoldZ(unit);
-        float nextZ = unit.z + (desiredZ - unit.z) * dt * 0.45f;
-
+        float nextZ = unit.z;
         if (unit.kind == UnitKind.Aircraft)
         {
+            float desiredZ = HumanHoldZ(unit);
             nextZ = desiredZ + Mathf.Sin(battleTime * 2.1f + unit.seed * 9f) * 13f;
         }
+        else if (!tankAnchored)
+        {
+            float desiredZ = HumanHoldZ(unit);
+            nextZ = unit.z + (desiredZ - unit.z) * dt * 0.45f;
+        }
 
-        MoveUnitToAvoidingBuildings(unit, nextX, nextZ);
-        unit.x = Mathf.Clamp(unit.x, Left - 190f, Right - 48f);
+        float maxMoveStep = unit.speed * dt * 1.35f;
+        MoveUnitToAvoidingBuildings(unit, nextX, nextZ, maxMoveStep);
+        unit.x = Mathf.Clamp(unit.x, HumanCastleMinUnitX - 40f, BeastCastleMaxUnitX + 40f);
         if (unit.kind == UnitKind.Tank)
         {
             float moveX = unit.x - previousX;
@@ -93,7 +104,17 @@ public sealed partial class ApocalypseKingUnityGame
     private float HumanHoldX(BattleUnit unit, BattleUnit target)
     {
         float gap = HumanEngagementGap(unit.kind);
-        return Mathf.Clamp(target.x - gap, Left + 58f, Right - 48f);
+        float stagger = (Noise(unit.id * 0.37f + unit.rank * 1.9f) - 0.5f) * 40f;
+        float holdX = (unit.facing >= 0 ? target.x - gap : target.x + gap) + stagger;
+        float minX = Left + 58f;
+        float maxX = Right - 48f;
+        if (unit.kind == UnitKind.Tank)
+        {
+            minX = Left - 76f;
+            maxX = Right - 160f;
+        }
+
+        return Mathf.Clamp(holdX, minX, maxX);
     }
 
     private float HumanEngagementGap(UnitKind kind)

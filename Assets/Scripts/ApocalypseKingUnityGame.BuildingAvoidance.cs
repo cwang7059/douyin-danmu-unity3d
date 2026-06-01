@@ -2,9 +2,9 @@ using UnityEngine;
 
 public sealed partial class ApocalypseKingUnityGame
 {
-    private void MoveUnitToAvoidingBuildings(BattleUnit unit, float targetX, float targetZ)
+    private void MoveUnitToAvoidingBuildings(BattleUnit unit, float targetX, float targetZ, float maxStep = -1f)
     {
-        BuildingAvoidance.MoveUnitToAvoidingBuildings(unit, targetX, targetZ);
+        BuildingAvoidance.MoveUnitToAvoidingBuildings(unit, targetX, targetZ, maxStep);
     }
 
     private bool ResolveBuildingCollision(BattleUnit unit)
@@ -39,7 +39,7 @@ public sealed partial class ApocalypseKingUnityGame
             this.game = game;
         }
 
-        public void MoveUnitToAvoidingBuildings(BattleUnit unit, float targetX, float targetZ)
+        public void MoveUnitToAvoidingBuildings(BattleUnit unit, float targetX, float targetZ, float maxStep = -1f)
         {
             if (unit == null)
             {
@@ -56,7 +56,17 @@ public sealed partial class ApocalypseKingUnityGame
                 return;
             }
 
-            int steps = Mathf.Clamp(Mathf.CeilToInt(distance / 28f), 1, 8);
+            if (maxStep > 0f && distance > maxStep)
+            {
+                float scale = maxStep / distance;
+                steered = new Vector2(unit.x + dx * scale, unit.z + dz * scale);
+                dx *= scale;
+                dz *= scale;
+                distance = maxStep;
+            }
+
+            int maxSteps = unit.kind == UnitKind.Tank ? 4 : 8;
+            int steps = Mathf.Clamp(Mathf.CeilToInt(distance / 28f), 1, maxSteps);
             float stepX = dx / steps;
             float stepZ = dz / steps;
 
@@ -117,13 +127,16 @@ public sealed partial class ApocalypseKingUnityGame
                 float signZ = absZ > 0.001f ? Mathf.Sign(dz) : BuildingBypassSide(unit, obstacle, new Vector2(unit.x, unit.z));
                 float penetrationX = expandedHalfX - absX;
                 float penetrationZ = expandedHalfZ - absZ;
+                float maxPush = unit.kind == UnitKind.Tank ? 52f : unit.kind == UnitKind.Giant ? 64f : 40f;
                 if (penetrationX < penetrationZ)
                 {
-                    unit.x = obstacle.CenterX + signX * expandedHalfX;
+                    float resolvedX = obstacle.CenterX + signX * expandedHalfX;
+                    unit.x = PushAxisToward(unit.x, resolvedX, maxPush);
                 }
                 else
                 {
-                    unit.z = obstacle.CenterZ + signZ * expandedHalfZ;
+                    float resolvedZ = obstacle.CenterZ + signZ * expandedHalfZ;
+                    unit.z = PushAxisToward(unit.z, resolvedZ, maxPush);
                 }
 
                 changed = true;
@@ -242,8 +255,9 @@ public sealed partial class ApocalypseKingUnityGame
                 return false;
             }
 
-            unit.x = candidateX;
-            unit.z = candidateZ;
+            float maxSnap = unit.kind == UnitKind.Tank ? 34f : 26f;
+            unit.x = PushAxisToward(unit.x, candidateX, maxSnap);
+            unit.z = PushAxisToward(unit.z, candidateZ, maxSnap);
             return true;
         }
 
@@ -401,6 +415,11 @@ public sealed partial class ApocalypseKingUnityGame
         {
             float innerHalf = Mathf.Max(4f, half - radius * 0.25f);
             return Mathf.Clamp(value, center - innerHalf, center + innerHalf);
+        }
+
+        private static float PushAxisToward(float current, float resolved, float maxPush)
+        {
+            return Mathf.MoveTowards(current, resolved, maxPush);
         }
 
         private static bool IntersectSegmentAxis(float from, float to, float min, float max, ref float tMin, ref float tMax)

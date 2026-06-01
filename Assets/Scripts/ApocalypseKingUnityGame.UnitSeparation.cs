@@ -35,7 +35,6 @@ public sealed partial class ApocalypseKingUnityGame
                 changed |= ResolveWithinGroup(game.giants, 1.05f);
                 changed |= ResolveWithinGroup(game.tanks, 1.18f);
                 changed |= ResolveBetweenGroups(game.tanks, game.soldiers, 1.10f);
-                changed |= ResolveAwayFromGiant(game.tanks, 1.12f);
                 changed |= ResolveAwayFromGiant(game.soldiers, 1.02f);
                 changed |= ResolveAwayFromBuildings(game.soldiers);
                 changed |= ResolveAwayFromBuildings(game.tanks);
@@ -76,8 +75,16 @@ public sealed partial class ApocalypseKingUnityGame
                 return;
             }
 
-            float minX = unit.kind == UnitKind.Tank ? ApocalypseKingUnityGame.Left - 76f : unit.kind == UnitKind.Giant ? ApocalypseKingUnityGame.Left - 180f : ApocalypseKingUnityGame.Left - 150f;
-            float maxX = unit.kind == UnitKind.Tank ? ApocalypseKingUnityGame.Right - 160f : unit.kind == UnitKind.Giant ? ApocalypseKingUnityGame.Right + 260f : ApocalypseKingUnityGame.Right - 48f;
+            float minX = unit.kind == UnitKind.Tank
+                ? Mathf.Min(ApocalypseKingUnityGame.HumanCastleMinUnitX, ApocalypseKingUnityGame.Left - 76f)
+                : unit.kind == UnitKind.Giant
+                    ? ApocalypseKingUnityGame.Left - 180f
+                    : Mathf.Min(ApocalypseKingUnityGame.HumanCastleMinUnitX, ApocalypseKingUnityGame.Left - 150f);
+            float maxX = unit.kind == UnitKind.Tank
+                ? Mathf.Max(ApocalypseKingUnityGame.BeastCastleMaxUnitX, ApocalypseKingUnityGame.Right - 160f)
+                : unit.kind == UnitKind.Giant
+                    ? Mathf.Max(ApocalypseKingUnityGame.BeastCastleMaxUnitX, ApocalypseKingUnityGame.Right + 260f)
+                    : Mathf.Max(ApocalypseKingUnityGame.BeastCastleMaxUnitX, ApocalypseKingUnityGame.Right - 48f);
             unit.x = Mathf.Clamp(unit.x, minX, maxX);
             unit.z = Mathf.Clamp(unit.z, ApocalypseKingUnityGame.Bottom + 44f, ApocalypseKingUnityGame.Top - 70f);
             game.ResolveBuildingCollision(unit);
@@ -244,10 +251,24 @@ public sealed partial class ApocalypseKingUnityGame
 
                     float stopX = game.HumanHoldX(unit, giant);
                     float guard = 4f + padding * 2f;
-                    if (unit.x > stopX + guard)
+                    const float maxGiantGuardPush = 56f;
+                    if (unit.facing >= 0)
                     {
-                        unit.x = stopX + guard;
-                        changed = true;
+                        float limitX = stopX + guard;
+                        if (unit.x > limitX)
+                        {
+                            unit.x = Mathf.MoveTowards(unit.x, limitX, maxGiantGuardPush);
+                            changed = true;
+                        }
+                    }
+                    else
+                    {
+                        float limitX = stopX - guard;
+                        if (unit.x < limitX)
+                        {
+                            unit.x = Mathf.MoveTowards(unit.x, limitX, maxGiantGuardPush);
+                            changed = true;
+                        }
                     }
                 }
             }
@@ -309,6 +330,15 @@ public sealed partial class ApocalypseKingUnityGame
 
             float firstPush = push * (firstWeight / totalWeight);
             float secondPush = push * (secondWeight / totalWeight);
+            if (first.kind == UnitKind.Tank)
+            {
+                firstPush = Mathf.Min(firstPush, 20f);
+            }
+
+            if (second.kind == UnitKind.Tank)
+            {
+                secondPush = Mathf.Min(secondPush, 20f);
+            }
 
             first.x += nx * firstPush;
             first.z += nz * firstPush;
