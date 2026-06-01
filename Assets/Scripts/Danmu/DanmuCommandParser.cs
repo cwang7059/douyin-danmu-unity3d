@@ -25,17 +25,33 @@ public static class DanmuCommandParser
             return false;
         }
 
-        BattleTeam team = ParseTeam(text);
-        DanmuCommandType type = ParseType(text);
-        string key = ParseKey(text, team, type);
+        if (TryParseJoinOnly(text, userId, userName, out command))
+        {
+            return true;
+        }
 
-        if (team == BattleTeam.Neutral || type == DanmuCommandType.None)
+        if (TryParseLike(text, userId, userName, out command))
+        {
+            return true;
+        }
+
+        FactionId faction = ParseFaction(text);
+        BattleTeam team = DanmuCommand.TeamFromFaction(faction);
+        DanmuCommandType type = ParseType(text);
+        string key = ParseKey(text, faction, team, type);
+
+        if (faction == FactionId.Neutral && team == BattleTeam.Neutral)
         {
             return false;
         }
 
-        int value = type == DanmuCommandType.CastSkill ? 1 : 10;
-        command = DanmuCommand.Create(userId, userName, team, type, key, value);
+        if (type == DanmuCommandType.None)
+        {
+            return false;
+        }
+
+        int value = ResolveValue(text, type, key);
+        command = DanmuCommand.Create(userId, userName, team, faction, type, key, value);
         return true;
     }
 
@@ -43,18 +59,92 @@ public static class DanmuCommandParser
     {
         command = default;
         string text = Normalize(giftName);
-        BattleTeam team = ParseTeam(text);
-        if (team == BattleTeam.Neutral)
+        FactionId faction = ParseFaction(text);
+        if (faction == FactionId.Neutral)
         {
-            team = giftValue % 2 == 0 ? BattleTeam.Orc : BattleTeam.Human;
+            faction = (FactionId)(Math.Abs(giftValue) % 3 + 1);
         }
 
-        DanmuCommandType type = giftValue >= 100 ? DanmuCommandType.CastSkill : DanmuCommandType.AddEnergy;
-        string key = type == DanmuCommandType.CastSkill
-            ? team == BattleTeam.Human ? "air_strike" : "rage"
-            : "gift_energy";
-        command = DanmuCommand.Create(userId, userName, team, type, key, Math.Max(1, giftValue));
+        if (ApocalypseGiftCatalog.TryResolveGiftKey(text, out string giftKey)
+            && string.Equals(giftKey, "superjet", StringComparison.OrdinalIgnoreCase))
+        {
+            command = DanmuCommand.Create(userId, userName, BattleTeam.Human, FactionId.Blue, DanmuCommandType.CastSkill, giftKey, Math.Max(1, giftValue));
+            return true;
+        }
+
+        BattleTeam team = DanmuCommand.TeamFromFaction(faction);
+        command = DanmuCommand.Create(userId, userName, team, faction, DanmuCommandType.SpawnUnit, ResolveGiftKey(text), Math.Max(1, giftValue));
         return true;
+    }
+
+    private static string ResolveGiftKey(string text)
+    {
+        return ApocalypseGiftCatalog.TryResolveGiftKey(text, out string key) ? key : text;
+    }
+
+    private static bool TryParseJoinOnly(string text, string userId, string userName, out DanmuCommand command)
+    {
+        command = default;
+        FactionId faction = FactionId.Neutral;
+
+        if (text == "1" || text == "加入蓝军" || text == "蓝军")
+        {
+            faction = FactionId.Blue;
+        }
+        else if (text == "2" || text == "加入绿军" || text == "绿军")
+        {
+            faction = FactionId.Green;
+        }
+        else if (text == "3" || text == "加入丧尸" || text == "丧尸" || text == "丧尸大军")
+        {
+            faction = FactionId.Zombie;
+        }
+
+        if (faction == FactionId.Neutral)
+        {
+            return false;
+        }
+
+        command = DanmuCommand.Create(userId, userName, DanmuCommand.TeamFromFaction(faction), faction, DanmuCommandType.JoinFaction, "join", 1);
+        return true;
+    }
+
+    private static bool TryParseLike(string text, string userId, string userName, out DanmuCommand command)
+    {
+        command = default;
+        if (!ContainsAny(text, "点赞", "like", "赞"))
+        {
+            return false;
+        }
+
+        FactionId faction = ParseFaction(text);
+        if (faction == FactionId.Neutral)
+        {
+            faction = FactionId.Blue;
+        }
+
+        command = DanmuCommand.Create(userId, userName, DanmuCommand.TeamFromFaction(faction), faction, DanmuCommandType.Like, "like", 1);
+        return true;
+    }
+
+    private static int ResolveValue(string text, DanmuCommandType type, string key)
+    {
+        if (text.IndexOf("666", StringComparison.Ordinal) >= 0)
+        {
+            return 100;
+        }
+
+        if (type == DanmuCommandType.Like)
+        {
+            return 10;
+        }
+
+        if (type == DanmuCommandType.CastSkill)
+        {
+            return 1;
+        }
+
+        return 10;
     }
 
     private static string Normalize(string rawText)
@@ -64,24 +154,39 @@ public static class DanmuCommandParser
             : rawText.Trim().ToLowerInvariant();
     }
 
-    private static BattleTeam ParseTeam(string text)
+    private static FactionId ParseFaction(string text)
     {
-        if (ContainsAny(text, "人族", "人", "蓝", "blue", "human", "humans", "1"))
+        if (text == "1" || ContainsAny(text, "蓝军", "蓝", "blue", "人族", "human"))
         {
-            return BattleTeam.Human;
+            return FactionId.Blue;
         }
 
-        if (ContainsAny(text, "兽族", "兽", "红", "orc", "orcs", "monster", "monsters", "2"))
+        if (text == "2" || ContainsAny(text, "绿军", "绿", "green"))
         {
-            return BattleTeam.Orc;
+            return FactionId.Green;
         }
 
-        return BattleTeam.Neutral;
+        if (text == "3" || ContainsAny(text, "丧尸", "尸", "zombie", "兽族", "兽", "orc", "monster"))
+        {
+            return FactionId.Zombie;
+        }
+
+        return FactionId.Neutral;
     }
 
     private static DanmuCommandType ParseType(string text)
     {
-        if (ContainsAny(text, "空袭", "狂暴", "技能", "skill", "strike", "rage", "裂地"))
+        if (text.IndexOf("666", StringComparison.Ordinal) >= 0)
+        {
+            return DanmuCommandType.SpawnUnit;
+        }
+
+        if (ContainsAny(text, "点赞", "like", "赞"))
+        {
+            return DanmuCommandType.Like;
+        }
+
+        if (ContainsAny(text, "空袭", "狂暴", "技能", "skill", "strike", "rage", "裂地", "超能喷射", "喷射", "空中支援"))
         {
             return DanmuCommandType.CastSkill;
         }
@@ -101,7 +206,12 @@ public static class DanmuCommandParser
             return DanmuCommandType.AddEnergy;
         }
 
-        if (ContainsAny(text, "兵", "坦克", "tank", "狼", "地狱犬", "dog", "spawn", "召唤", "人族", "兽族", "human", "orc", "1", "2"))
+        if (ApocalypseGiftCatalog.TryResolveGiftKey(text, out _))
+        {
+            return DanmuCommandType.SpawnUnit;
+        }
+
+        if (ContainsAny(text, "兵", "坦克", "tank", "狼", "地狱犬", "dog", "spawn", "召唤", "人族", "兽族", "human", "orc"))
         {
             return DanmuCommandType.SpawnUnit;
         }
@@ -109,10 +219,30 @@ public static class DanmuCommandParser
         return DanmuCommandType.None;
     }
 
-    private static string ParseKey(string text, BattleTeam team, DanmuCommandType type)
+    private static string ParseKey(string text, FactionId faction, BattleTeam team, DanmuCommandType type)
     {
+        if (text.IndexOf("666", StringComparison.Ordinal) >= 0)
+        {
+            return "666";
+        }
+
+        if (type == DanmuCommandType.Like)
+        {
+            return "like";
+        }
+
+        if (ApocalypseGiftCatalog.TryResolveGiftKey(text, out string giftKey))
+        {
+            return giftKey;
+        }
+
         if (type == DanmuCommandType.CastSkill)
         {
+            if (ContainsAny(text, "超能喷射", "喷射", "空中支援"))
+            {
+                return "superjet";
+            }
+
             if (ContainsAny(text, "空袭", "strike"))
             {
                 return "air_strike";
@@ -123,10 +253,11 @@ public static class DanmuCommandParser
                 return "earth_split";
             }
 
-            return team == BattleTeam.Human ? "air_strike" : "rage";
+            return faction == FactionId.Zombie ? "rage" : "air_strike";
         }
 
-        if (team == BattleTeam.Human && (type == DanmuCommandType.SpawnUnit || type == DanmuCommandType.Heal))
+        if ((faction == FactionId.Blue || faction == FactionId.Green)
+            && (type == DanmuCommandType.SpawnUnit || type == DanmuCommandType.Heal))
         {
             if (DanmuSpawnMapping.TryResolveHumanSpawnKeyFromText(text, ActiveHumanSpawnMappings(), out string humanKey))
             {
@@ -141,7 +272,7 @@ public static class DanmuCommandParser
             return "helldog";
         }
 
-        return team == BattleTeam.Human ? "soldier" : "orc_grunt";
+        return faction == FactionId.Zombie ? "orc_grunt" : "soldier";
     }
 
     private static bool ContainsAny(string text, params string[] tokens)
@@ -151,6 +282,50 @@ public static class DanmuCommandParser
             if (text.IndexOf(tokens[i], StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+public static class ApocalypseGiftCatalogExtensions
+{
+    public static bool TryResolveGiftKey(string text, out string giftKey)
+    {
+        giftKey = string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var defaults = ApocalypseGiftCatalog.CreateDefaultEntries();
+        string normalized = text.Trim().ToLowerInvariant();
+        for (int i = 0; i < defaults.Length; i++)
+        {
+            var e = defaults[i];
+            if (e == null)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(e.GiftKey) && normalized.IndexOf(e.GiftKey, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                giftKey = e.GiftKey;
+                return true;
+            }
+
+            if (e.Aliases != null)
+            {
+                for (int a = 0; a < e.Aliases.Length; a++)
+                {
+                    string alias = e.Aliases[a];
+                    if (!string.IsNullOrWhiteSpace(alias) && normalized.IndexOf(alias.Trim(), StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        giftKey = e.GiftKey;
+                        return true;
+                    }
+                }
             }
         }
 

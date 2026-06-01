@@ -11,22 +11,36 @@ public sealed partial class ApocalypseKingUnityGame
 
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
-            danmuQueue.EnqueueRawMessage("local-human", "Local Human", "人族步兵");
+            danmuQueue.EnqueueRawMessage("local-blue", "Local Blue", "1");
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha2))
         {
-            danmuQueue.EnqueueRawMessage("local-orc", "Local Orc", "兽族地狱犬");
+            danmuQueue.EnqueueRawMessage("local-green", "Local Green", "2");
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha3))
         {
-            danmuQueue.EnqueueRawMessage("local-skill", "Local Skill", "人族空袭");
+            danmuQueue.EnqueueRawMessage("local-zombie", "Local Zombie", "3");
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha4))
         {
-            danmuQueue.EnqueueRawMessage("local-rage", "Local Rage", "兽族狂暴");
+            if (matchSettings != null)
+            {
+                matchSettings.RageLikeEnabled = !matchSettings.RageLikeEnabled;
+                ShowBanner(matchSettings.RageLikeEnabled ? "狂暴点赞 ON" : "狂暴点赞 OFF", true, 1.2f);
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Alpha5))
+        {
+            danmuQueue.EnqueueRawMessage("local-gift", "Local Gift", "仙女棒");
+        }
+
+        if (Input.GetKeyDown(KeyCode.Alpha6))
+        {
+            danmuQueue.EnqueueRawMessage("local-skill", "Local Skill", "超能喷射");
         }
     }
 
@@ -53,6 +67,15 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void ApplyDanmuCommand(DanmuCommand command)
     {
+        if (matchPhase == MatchPhase.Battle || command.type == DanmuCommandType.JoinFaction)
+        {
+            ApplyApocalypseDanmuCommand(command);
+            if (command.type == DanmuCommandType.JoinFaction || matchPhase == MatchPhase.Battle)
+            {
+                return;
+            }
+        }
+
         switch (command.type)
         {
             case DanmuCommandType.SpawnUnit:

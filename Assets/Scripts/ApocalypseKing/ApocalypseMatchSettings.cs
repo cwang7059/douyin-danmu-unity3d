@@ -1,0 +1,35 @@
+using UnityEngine;
+
+[CreateAssetMenu(menuName = "Apocalypse/Match Settings", fileName = "ApocalypseMatchSettings")]
+public sealed class ApocalypseMatchSettings : ScriptableObject
+{
+    [Header("Mode select")]
+    public float BaseMaxHp = 100000f;
+    public float MatchDurationSeconds = 600f;
+    public bool BetrayalEnabled = true;
+    [Range(0f, 1f)] public float BetrayalChance = 0.35f;
+    [Range(0.01f, 0.2f)] public float BetrayalBaseRestorePercent = 0.01f;
+    public float BetrayalExtraSeconds = 120f;
+
+    [Header("Engagement")]
+    public bool RageLikeEnabled;
+    public int RageLikeMultiplier = 4;
+    public float NuclearCountdownSeconds = 90f;
+    public int MaxSpawnsPerFrame = 24;
+
+    public static ApocalypseMatchSettings CreateRuntimeDefault()
+    {
+        var s = CreateInstance<ApocalypseMatchSettings>();
+        s.BaseMaxHp = 100000f;
+        s.MatchDurationSeconds = 600f;
+        s.BetrayalEnabled = true;
+        s.BetrayalChance = 0.35f;
+        s.BetrayalBaseRestorePercent = 0.01f;
+        s.BetrayalExtraSeconds = 120f;
+        s.RageLikeEnabled = false;
+        s.RageLikeMultiplier = 4;
+        s.NuclearCountdownSeconds = 90f;
+        s.MaxSpawnsPerFrame = 24;
+        return s;
+    }
+}

@@ -1,7 +1,8 @@
 param(
     [string]$HostUrl = "http://127.0.0.1:8765",
     [switch]$Gift,
-    [switch]$Full
+    [switch]$Full,
+    [switch]$Apocalypse
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,39 @@ function Send-Danmu {
 }
 
 Invoke-RestMethod -Method Get -Uri "$HostUrl/health" | Out-Host
+
+if ($Apocalypse) {
+    Write-Host "[Apocalypse] 请先在游戏内按 Enter 开战，再发送下列弹幕…"
+    foreach ($pair in @(
+            @{ u = "apk-blue"; n = "蓝军"; t = "1" },
+            @{ u = "apk-green"; n = "绿军"; t = "2" },
+            @{ u = "apk-zombie"; n = "丧尸"; t = "3" }
+        )) {
+        Send-Danmu -Path "danmu" -Payload @{
+            eventType = "danmu"
+            userId = $pair.u
+            userName = $pair.n
+            text = $pair.t
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    Send-Danmu -Path "danmu" -Payload @{ eventType = "danmu"; userId = "apk-like"; userName = "点赞"; text = "点赞" }
+    Start-Sleep -Milliseconds 250
+    Send-Danmu -Path "danmu" -Payload @{ eventType = "danmu"; userId = "apk-666"; userName = "666"; text = "666" }
+    Start-Sleep -Milliseconds 250
+    Send-Danmu -Path "danmu" -Payload @{ eventType = "danmu"; userId = "apk-gift"; userName = "仙女棒"; text = "仙女棒" }
+    Start-Sleep -Milliseconds 250
+    Send-Danmu -Path "gift" -Payload @{
+        eventType = "gift"
+        userId = "apk-super"
+        userName = "超能喷射"
+        giftName = "超能喷射"
+        giftValue = 1200
+    }
+    Write-Host "[OK] Apocalypse King test sequence sent."
+    exit 0
+}
 
 Send-Danmu -Path "danmu" -Payload @{
     eventType = "danmu"

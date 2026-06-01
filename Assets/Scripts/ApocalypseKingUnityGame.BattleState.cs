@@ -44,7 +44,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         public void CheckBattleEnd()
         {
-            if (game.ended)
+            if (game.ended || game.matchPhase == MatchPhase.Battle)
             {
                 return;
             }

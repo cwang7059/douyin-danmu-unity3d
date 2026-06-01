@@ -251,6 +251,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         EnsureBattleEffectServices();
         danmuQueue = GetComponent<DanmuCommandQueue>();
         EnsureDanmuSpawnMappingConfig();
+        EnsureApocalypseConfigs();
+        InitApocalypseBases();
         Application.targetFrameRate = 60;
         QualitySettings.vSyncCount = 0;
         ApplyDefaultMobilePresentation();
@@ -271,7 +273,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             PrewarmBattlePools();
             assetsReady = true;
             ShowLoading(false);
+            matchPhase = MatchPhase.ModeSelect;
+            paused = true;
             ResetBattle();
+            ShowBanner("末日之王 — Enter 开战 | 1/2/3 加入阵营", false, 5f);
         }
         catch (Exception ex)
         {
@@ -281,8 +286,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             ShowLoading(false);
             AttachFallbackPrototypes();
             PrewarmBattlePools();
+            matchPhase = MatchPhase.ModeSelect;
+            paused = true;
             ResetBattle();
-            ShowBanner("Loaded with fallback geometry", true, 3f);
+            ShowBanner("Loaded with fallback geometry — Enter 开战", true, 4f);
         }
     }
 
@@ -305,10 +312,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            ResetBattle();
+            BeginApocalypseBattle();
         }
 
+        HandleMatchPhaseInput();
         UpdateCameraShake(Time.deltaTime);
+        EnqueueLocalDanmuShortcuts();
+        ProcessDanmuCommands();
+
+        if (matchPhase == MatchPhase.ModeSelect)
+        {
+            RefreshHud();
+            return;
+        }
 
         if (paused || ended)
         {
@@ -318,8 +334,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float dt = Mathf.Min(Time.deltaTime, 0.045f);
         battleTime += dt;
-        EnqueueLocalDanmuShortcuts();
-        ProcessDanmuCommands();
+        UpdateApocalypseMatch(dt);
+        DrainPendingSpawns();
         UpdateHumans(dt);
         UpdateGiants(dt);
         ResolveUnitOverlaps();

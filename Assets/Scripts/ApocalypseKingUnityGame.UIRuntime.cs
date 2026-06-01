@@ -53,25 +53,32 @@ public sealed partial class ApocalypseKingUnityGame
             int giantAlive = game.CountActive(game.giants);
             float giantHp = Mathf.Ceil(game.GetGiantHpTotal());
             float giantMax = game.GetGiantMaxHpTotal();
-            float hpPct = Mathf.Clamp01(giantHp / Mathf.Max(1f, giantMax));
-            float humanPct = Mathf.Clamp01(humanAlive / Mathf.Max(1f, (float)humanTotal));
+            float blueBasePct = game.GetBlueBaseHpPercent();
+            float greenBasePct = game.GetGreenBaseHpPercent();
+            float zombieBasePct = game.GetZombieBaseHpPercent();
+            float hpPct = zombieBasePct;
+            float humanPct = Mathf.Clamp01((blueBasePct + greenBasePct) * 0.5f);
             int pool = 380000 + Mathf.FloorToInt(game.battleTime * 8200f) + game.humanLosses * 2600;
-            float remaining = Mathf.Max(0f, 180f - game.battleTime);
-            float skillCooldown = 9f - game.battleTime % 9f;
+            float matchDuration = game.matchSettings != null ? game.matchSettings.MatchDurationSeconds : 600f;
+            float remaining = Mathf.Max(0f, matchDuration - game.battleTime);
+            float skillCooldown = game.GetNuclearTimer();
 
             if (game.leftTeamLabel != null)
             {
-                game.leftTeamLabel.text = $"BLUE FORCE {humanAlive}";
+                game.leftTeamLabel.text = $"蓝军 基地 {blueBasePct * 100f:0}% | 单位 {humanAlive}";
             }
 
             if (game.rightTeamLabel != null)
             {
-                game.rightTeamLabel.text = giantAlive > 0 ? "MONSTER SIDE" : "MONSTER DOWN";
+                game.rightTeamLabel.text = $"绿军 {greenBasePct * 100f:0}% | 丧尸 {zombieBasePct * 100f:0}%";
             }
 
             if (game.battlePhaseLabel != null)
             {
-                game.battlePhaseLabel.text = game.ended ? "RESULT" : game.paused ? "PAUSED" : "LIVE BARRAGE WAR";
+                string phase = game.matchPhase == MatchPhase.ModeSelect
+                    ? "MODE SELECT"
+                    : game.ended ? "RESULT" : game.paused ? "PAUSED" : game.IsBetrayalActive() ? "BETRAYAL" : "LIVE";
+                game.battlePhaseLabel.text = phase;
             }
 
             if (game.poolLabel != null)
@@ -81,7 +88,9 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.timerLabel != null)
             {
-                game.timerLabel.text = FormatTime(remaining);
+                game.timerLabel.text = game.matchPhase == MatchPhase.ModeSelect
+                    ? "Enter 开战"
+                    : $"{FormatTime(remaining)}  核武 {game.GetNuclearTimer():0}s";
             }
 
             if (game.humanLabel != null)

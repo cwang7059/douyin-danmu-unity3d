@@ -89,6 +89,8 @@ public sealed partial class ApocalypseKingUnityGame
         public UnitKind kind;
         public TankModelVariant tankModel;
         public TeamKind team;
+        public FactionId faction;
+        public ApocalypseUnitRole apocalypseRole;
         public GameObject root;
         public Transform body;
         public GameObject modelInstance;

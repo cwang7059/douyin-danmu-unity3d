@@ -77,12 +77,43 @@ public static class ApocalypseKingProjectSetup
         DanmuSpawnMappingConfig resourcesMapping = GetOrCreateDanmuMapping(DanmuMappingResourcesPath);
         CopyDanmuMapping(mapping, resourcesMapping);
         GetOrCreateHudPrefab();
+        GetOrCreateApocalypseMatchSettings(ResourcesApocalypseFolder + "/ApocalypseMatchSettings.asset");
+        GetOrCreateApocalypseGiftCatalog(ResourcesApocalypseFolder + "/ApocalypseGiftCatalog.asset");
         ApocalypseKingBattleContentSetup.CreateOrUpdateBattleContentAssets();
         ApocalypseKingVfxTextureBake.BakeAll();
         ApocalypseKingVfxPrefabBinder.TryBindAllEffectConfigs();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log("[ApocalypseKing] Created/updated DanmuSpawnMappingConfig, HUD prefab, and battle effect/audio assets.");
+    }
+
+    private static ApocalypseMatchSettings GetOrCreateApocalypseMatchSettings(string path)
+    {
+        var settings = AssetDatabase.LoadAssetAtPath<ApocalypseMatchSettings>(path);
+        if (settings != null)
+        {
+            return settings;
+        }
+
+        settings = ApocalypseMatchSettings.CreateRuntimeDefault();
+        AssetDatabase.CreateAsset(settings, path);
+        Debug.Log($"[ApocalypseKing] Created {path}");
+        return settings;
+    }
+
+    private static ApocalypseGiftCatalog GetOrCreateApocalypseGiftCatalog(string path)
+    {
+        var catalog = AssetDatabase.LoadAssetAtPath<ApocalypseGiftCatalog>(path);
+        if (catalog != null)
+        {
+            return catalog;
+        }
+
+        catalog = ScriptableObject.CreateInstance<ApocalypseGiftCatalog>();
+        catalog.Entries = ApocalypseGiftCatalog.CreateDefaultEntries();
+        AssetDatabase.CreateAsset(catalog, path);
+        Debug.Log($"[ApocalypseKing] Created {path}");
+        return catalog;
     }
 
     private static DanmuSpawnMappingConfig GetOrCreateDanmuMapping(string path)
