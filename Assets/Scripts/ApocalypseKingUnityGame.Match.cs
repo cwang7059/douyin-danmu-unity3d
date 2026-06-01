@@ -49,9 +49,9 @@ public sealed partial class ApocalypseKingUnityGame
     private void InitApocalypseBases()
     {
         float hp = matchSettings != null ? matchSettings.BaseMaxHp : 100000f;
-        blueBase = new ApocalypseBaseState(FactionId.Blue, hp, Left + 72f, 0f);
-        greenBase = new ApocalypseBaseState(FactionId.Green, hp, Right - 72f, 0f);
-        zombieBase = new ApocalypseBaseState(FactionId.Zombie, hp, Left - 48f, 0f);
+        blueBase = new ApocalypseBaseState(FactionId.Blue, hp, HumanCastleGateX - 18f, HumanCastleCenterZ);
+        greenBase = new ApocalypseBaseState(FactionId.Green, hp, BeastCastleGateX + 18f, BeastCastleCenterZ);
+        zombieBase = new ApocalypseBaseState(FactionId.Zombie, hp, BeastCastleGateX + 42f, -96f);
         betrayalActive = false;
         betrayalAlly = FactionId.Neutral;
         nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 90f;

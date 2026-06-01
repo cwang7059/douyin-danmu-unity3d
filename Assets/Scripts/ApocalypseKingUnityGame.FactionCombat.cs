@@ -348,7 +348,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void RefreshBaseMarkers()
     {
-        if (blueBase == null)
+        if (!ShowWorldBaseMarkersEnabled() || blueBase == null)
         {
             return;
         }
@@ -394,13 +394,13 @@ public sealed partial class ApocalypseKingUnityGame
                 orbitCamera.yaw = -38f;
                 orbitCamera.pitch = 28f;
                 orbitCamera.distance = 72f;
-                cameraTarget.localPosition = new Vector3(-2.2f, 0f, -1.5f);
+                cameraTarget.localPosition = new Vector3(HumanCastleWorldX + 6f, 0f, -1.5f);
                 break;
             case 2:
                 orbitCamera.yaw = 18f;
                 orbitCamera.pitch = 26f;
                 orbitCamera.distance = 76f;
-                cameraTarget.localPosition = new Vector3(2.4f, 0f, -1.2f);
+                cameraTarget.localPosition = new Vector3(BeastCastleWorldX - 6f, 0f, -1.2f);
                 break;
             default:
                 orbitCamera.yaw = -6f;

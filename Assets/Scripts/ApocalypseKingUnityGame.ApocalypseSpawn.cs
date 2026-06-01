@@ -2,8 +2,6 @@ using UnityEngine;
 
 public sealed partial class ApocalypseKingUnityGame
 {
-    private static readonly float[] GreenSoldierLanes = { 180f, 228f, 276f, 132f, 84f, 36f, -12f, -60f, -108f, -156f };
-
     private void ApplyApocalypseDanmuCommand(DanmuCommand command)
     {
         RecordDanmuEconomy(command);
@@ -174,12 +172,9 @@ public sealed partial class ApocalypseKingUnityGame
             return false;
         }
 
-        float[] lanes = faction == FactionId.Green ? GreenSoldierLanes : SoldierLanes;
-        int lane = processedDanmuCommandCount % lanes.Length;
-        int rank = CountActiveFaction(soldiers, faction) / lanes.Length;
-        float x = faction == FactionId.Green ? Right - 190f - rank * 38f : Left + 190f + rank * 38f;
-        float z = lanes[lane] + (Noise(processedDanmuCommandCount + 29f) - 0.5f) * 12f;
-        int facing = faction == FactionId.Green ? -1 : 1;
+        int lane = processedDanmuCommandCount % CastleSpawnLanes.Length;
+        int rank = CountActiveFaction(soldiers, faction) / CastleSpawnLanes.Length;
+        GetFactionCastleSpawn(faction, processedDanmuCommandCount + rank * 19 + lane, out float x, out float z, out int facing);
         float hpMul = role == ApocalypseUnitRole.MeleeGrunt ? 1.1f : role == ApocalypseUnitRole.RangedGrunt ? 0.95f : 1f;
         float dmgMul = role == ApocalypseUnitRole.RangedGrunt ? 1.2f : 1f;
         ActivateUnit(unit, x, z,
@@ -210,8 +205,9 @@ public sealed partial class ApocalypseKingUnityGame
             return ReviveApocalypseSoldier(faction, role);
         }
 
-        float x = faction == FactionId.Green ? Right - 60f : Left + 40f;
-        float z = TankLanes[processedDanmuCommandCount % TankLanes.Length];
+        int tankLane = processedDanmuCommandCount % TankLanes.Length;
+        GetFactionCastleSpawn(faction, processedDanmuCommandCount + tankLane * 5, out float x, out float z, out int facing);
+        z += (TankLanes[tankLane] - CastleSpawnLanes[tankLane % CastleSpawnLanes.Length]) * 0.25f;
         float hpMul = role == ApocalypseUnitRole.ShieldTank ? 1.8f : role == ApocalypseUnitRole.Artillery ? 0.85f : 1.2f;
         ActivateUnit(unit, x, z,
             tankConfig.MaxHp * hpMul,
@@ -220,7 +216,7 @@ public sealed partial class ApocalypseKingUnityGame
             tankConfig.Radius,
             tankConfig.AttackRange + (role == ApocalypseUnitRole.Artillery ? 80f : 0f),
             tankConfig.AttackInterval,
-            0, faction == FactionId.Green ? -1 : 1, 0f);
+            0, facing, 0f);
         unit.faction = faction;
         unit.apocalypseRole = role;
         unit.team = TeamKind.Human;
@@ -236,8 +232,9 @@ public sealed partial class ApocalypseKingUnityGame
             return ReviveApocalypseTank(faction, ApocalypseUnitRole.AirUnit);
         }
 
-        float x = faction == FactionId.Green ? Right - 80f : Left + 52f;
-        float z = AirLanes[processedDanmuCommandCount % AirLanes.Length];
+        int airLane = processedDanmuCommandCount % AirLanes.Length;
+        GetFactionCastleSpawn(faction, processedDanmuCommandCount + airLane * 7, out float x, out float z, out int facing);
+        z = AirLanes[airLane] * 0.4f + z * 0.6f;
         ActivateUnit(unit, x, z,
             aircraftConfig.MaxHp,
             aircraftConfig.Damage * globalAttackBuffMultiplier,
@@ -245,7 +242,7 @@ public sealed partial class ApocalypseKingUnityGame
             aircraftConfig.Radius,
             aircraftConfig.AttackRange,
             aircraftConfig.AttackInterval,
-            0, faction == FactionId.Green ? -1 : 1, 2.5f);
+            0, facing, 2.5f);
         unit.faction = faction;
         unit.apocalypseRole = ApocalypseUnitRole.AirUnit;
         unit.team = TeamKind.Human;
@@ -261,8 +258,7 @@ public sealed partial class ApocalypseKingUnityGame
             return false;
         }
 
-        float x = Left - 120f - CountActiveFaction(giants, FactionId.Zombie) * 42f;
-        float z = -460f + (processedDanmuCommandCount % 5) * 230f;
+        GetBeastCastleSpawn(processedDanmuCommandCount + CountActiveFaction(giants, FactionId.Zombie) * 17, out float x, out float z);
         ActivateUnit(unit, x, z,
             giantConfig.MaxHp * 1.4f,
             giantConfig.Damage * globalAttackBuffMultiplier,

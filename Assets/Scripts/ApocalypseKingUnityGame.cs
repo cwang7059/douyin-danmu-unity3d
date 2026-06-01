@@ -382,7 +382,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         mainCamera.clearFlags = CameraClearFlags.Skybox;
         mainCamera.backgroundColor = new Color(0.78f, 0.55f, 0.38f, 1f);
         mainCamera.nearClipPlane = 0.1f;
-        mainCamera.farClipPlane = 180f;
+        mainCamera.farClipPlane = 320f;
         mainCamera.fieldOfView = 31f;
         mainCamera.transform.position = new Vector3(0f, 22f, -20f);
         mainCamera.transform.rotation = Quaternion.Euler(24f, -14f, 0f);
@@ -395,7 +395,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         orbitCamera.maxPitch = 64f;
         orbitCamera.minDistance = 46f;
         orbitCamera.maxDistance = 112f;
-        orbitCamera.panXBounds = new Vector2(-10.5f, 10.5f);
+        orbitCamera.clampPanX = false;
+        orbitCamera.clampPanZ = true;
         orbitCamera.panZBounds = new Vector2(-14f, 14f);
 
         cameraTarget = new GameObject("Camera Target").transform;
@@ -604,9 +605,17 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         CreateGround();
         CreateTerrainDepth();
-        CreateVillagePaths();
-        CreateMedievalVillage();
-        CreateFactionFrontlines();
+        CreateCombatZoneRoads();
+        CreateFactionCastles();
+    }
+
+    /// <summary>Only open roads in the combat lane — no village houses or fences.</summary>
+    private void CreateCombatZoneRoads()
+    {
+        Material roadMaterial = GetTexturedOpaqueMaterial(CoastSandTextureResourcePath, new Color(0.55f, 0.42f, 0.25f, 1f), new Vector2(5f, 1.3f), 0.04f);
+
+        CreateBattlefieldPlane("Battle_MainRoad", ToWorldPoint(0f, -120f, 0.032f), new Vector2(22f, 3.4f), roadMaterial, -3f);
+        AddRoadCorridor("MainStreet", 0f, -120f, 440f, 70f, 0f);
     }
 
     private void CreateGround()
@@ -2862,8 +2871,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             int lane = i % lanes.Length;
             int rank = i / lanes.Length;
-            float x = Left + 190f + rank * 38f + Noise(i + 3f) * 5f;
-            float z = lanes[lane] + (Noise(i + 19f) - 0.5f) * 8f;
+            GetHumanCastleSpawn(i + rank * 17, out float x, out float z);
             ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 18f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, facing, 0f);
         }
     }
@@ -2880,8 +2888,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             int lane = i % TankLanes.Length;
             int rank = i / TankLanes.Length;
-            float x = Left + 40f + rank * 94f;
-            float z = TankLanes[lane] + rank * 10f;
+            GetHumanCastleSpawn(i + rank * 23 + lane * 3, out float x, out float z);
+            z += (TankLanes[lane] - CastleSpawnLanes[lane % CastleSpawnLanes.Length]) * 0.22f;
             ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 8f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
@@ -2896,8 +2904,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            float x = Left + 52f + i * 126f;
-            float z = AirLanes[i % AirLanes.Length];
+            GetHumanCastleSpawn(i + 401, out float x, out float z);
+            z = AirLanes[i % AirLanes.Length] * 0.35f + z * 0.65f;
             ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 9f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
         }
     }
@@ -2914,8 +2922,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             int lane = i % 5;
             int rank = i / 5;
-            float x = Right + 72f + rank * 120f;
-            float z = -460f + lane * 230f + rank * 24f;
+            GetBeastCastleSpawn(i + rank * 31 + lane * 7, out float x, out float z);
             ActivateUnit(giants[i], x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
             giants[i].attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
         }
@@ -3004,8 +3011,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         int lane = processedDanmuCommandCount % SoldierLanes.Length;
         int rank = Mathf.Max(0, CountActive(soldiers) / SoldierLanes.Length);
-        float x = Left + 126f + Noise(processedDanmuCommandCount + 17f) * 36f;
-        float z = SoldierLanes[lane] + (Noise(processedDanmuCommandCount + 29f) - 0.5f) * 12f;
+        GetHumanCastleSpawn(processedDanmuCommandCount + rank * 19, out float x, out float z);
         ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 8f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
@@ -3025,8 +3031,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         int lane = processedDanmuCommandCount % TankLanes.Length;
-        float x = Left + 54f + Noise(processedDanmuCommandCount + 41f) * 42f;
-        float z = TankLanes[lane] + (Noise(processedDanmuCommandCount + 43f) - 0.5f) * 18f;
+        GetHumanCastleSpawn(processedDanmuCommandCount + lane * 5, out float x, out float z);
+        z += (TankLanes[lane] - CastleSpawnLanes[lane % CastleSpawnLanes.Length]) * 0.25f;
         ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, processedDanmuCommandCount, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
@@ -3042,8 +3048,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         int lane = processedDanmuCommandCount % AirLanes.Length;
         int rank = Mathf.Max(0, CountActive(aircraft) / AirLanes.Length);
-        float x = Left + 58f + Noise(processedDanmuCommandCount + 61f) * 64f;
-        float z = AirLanes[lane] + (Noise(processedDanmuCommandCount + 67f) - 0.5f) * 22f;
+        GetHumanCastleSpawn(processedDanmuCommandCount + rank * 11, out float x, out float z);
+        z = AirLanes[lane] * 0.4f + z * 0.6f;
         ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 9f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.05f);
         return true;
@@ -3058,8 +3064,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         int lane = processedDanmuCommandCount % 5;
-        float x = Right + 88f + Noise(processedDanmuCommandCount + 71f) * 36f;
-        float z = -460f + lane * 230f + (Noise(processedDanmuCommandCount + 83f) - 0.5f) * 34f;
+        GetBeastCastleSpawn(processedDanmuCommandCount + lane * 13, out float x, out float z);
         ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 5f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
         PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 1.15f);

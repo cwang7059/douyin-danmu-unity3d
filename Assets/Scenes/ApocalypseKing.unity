@@ -179,6 +179,8 @@ MonoBehaviour:
   cameraYaw: -14
   cameraPitch: 24
   cameraDistance: 84
+  matchSettings: {fileID: 0}
+  giftCatalog: {fileID: 0}
 --- !u!114 &1075837010
 MonoBehaviour:
   m_ObjectHideFlags: 0
