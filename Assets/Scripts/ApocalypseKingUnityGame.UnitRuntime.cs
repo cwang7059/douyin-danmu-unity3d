@@ -169,7 +169,7 @@ public sealed partial class ApocalypseKingUnityGame
         {
             Vector2 muzzleAim = DirectionFromYaw(unit.turretYawDegrees);
             Vector2 muzzle = SoldierMuzzlePoint(unit, muzzleAim);
-            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 1.08f, RotationFromDirection(muzzleAim));
+            PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 0.72f, RotationFromDirection(muzzleAim));
             PlayBattleAudio(BattleAudioCueId.RifleShot, muzzle.x, muzzle.y, 1.02f);
             SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzle.x, muzzle.y, 1.05f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
             return;
@@ -179,8 +179,8 @@ public sealed partial class ApocalypseKingUnityGame
         {
             Vector2 muzzle = TankMuzzlePoint(unit);
             Vector2 barrelAim = DirectionFromYaw(unit.turretYawDegrees);
-            PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 1.0f, RotationFromDirection(barrelAim));
-            PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 1.0f, RotationFromDirection(barrelAim));
+            PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 0.88f, RotationFromDirection(barrelAim));
+            PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 0.50f, RotationFromDirection(barrelAim));
             PlayBattleAudio(BattleAudioCueId.TankShot, muzzle.x, muzzle.y, 0.82f);
             TriggerCameraShake(0.08f, 0.035f);
             SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, unit.damage, 52f, 520f, new Color(1f, 0.76f, 0.42f, 1f));
@@ -189,8 +189,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         float bombX = unit.x + aim.x * 22f;
         float bombZ = unit.z + aim.y * 22f;
-        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.85f, RotationFromDirection(aim));
-        PlayBattleEffect(BattleEffectId.BombDropTrail, bombX, bombZ, 2.3f, 0.75f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.62f, RotationFromDirection(aim));
         SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x, target.z, 0.18f, unit.damage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
     }
 
@@ -325,8 +324,8 @@ public sealed partial class ApocalypseKingUnityGame
 
         float impactX = Mathf.Min(giant.x - 62f, target.x + 16f);
         float impactZ = target.z;
-        PlayBattleEffect(BattleEffectId.MonsterHammerImpact, impactX, impactZ + 24f, 0.18f, 1.45f, Quaternion.identity);
-        PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ + 24f, 0.08f, 1.1f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterHammerImpact, impactX, impactZ, 0.18f, 1.05f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ, 0.08f, 0.72f, Quaternion.identity);
         ApplyAreaDamageToHumans(impactX, impactZ, 162f, giant.damage, true, 44f);
         ShowBanner("Giant smash", true, 0.95f);
     }
@@ -364,10 +363,10 @@ public sealed partial class ApocalypseKingUnityGame
             : target.kind == UnitKind.Aircraft
                 ? BattleEffectId.ClawHit
                 : BattleEffectId.MonsterStompDust;
-        PlayBattleEffect(impactEffect, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.4f : 0.16f, target.kind == UnitKind.Tank ? 1.55f : 1.15f, Quaternion.identity);
-        if (target.kind != UnitKind.Aircraft)
+        PlayBattleEffect(impactEffect, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.4f : 0.16f, target.kind == UnitKind.Tank ? 1.05f : 0.82f, Quaternion.identity);
+        if (BattleEffectTuning.ShouldPlayMeleeShockwave(target.kind))
         {
-            PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ, 0.08f, target.kind == UnitKind.Tank ? 1.2f : 0.9f, Quaternion.identity);
+            PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ, 0.08f, 0.68f, Quaternion.identity);
         }
 
         PlayBattleAudio(BattleAudioCueId.CreatureHit, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.2f : 0.2f);
@@ -443,9 +442,9 @@ public sealed partial class ApocalypseKingUnityGame
         rubble.transform.localRotation = Quaternion.Euler(0f, Noise(obstacle.CenterX * 0.17f + obstacle.CenterZ * 0.31f) * 180f - 90f, 0f);
         rubble.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.20f, 0.18f, 0.15f, 1f));
 
-        float effectScale = Mathf.Clamp((obstacle.HalfX + obstacle.HalfZ) / 95f, 0.85f, 1.65f);
+        float effectScale = Mathf.Clamp((obstacle.HalfX + obstacle.HalfZ) / 95f, 0.75f, 1.15f);
         PlayBattleEffect(BattleEffectId.ShellExplosionLarge, obstacle.CenterX, obstacle.CenterZ, 0.28f, effectScale, Quaternion.identity);
-        PlayBattleEffect(BattleEffectId.TankWreckSmoke, obstacle.CenterX, obstacle.CenterZ, 0.22f, effectScale * 0.95f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.TankWreckSmoke, obstacle.CenterX, obstacle.CenterZ, 0.22f, effectScale * 0.72f, Quaternion.identity);
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, obstacle.CenterX, obstacle.CenterZ, 0.18f);
         TriggerCameraShake(0.16f, 0.08f);
     }
@@ -466,21 +465,21 @@ public sealed partial class ApocalypseKingUnityGame
         {
             case UnitKind.Tank:
                 SpawnDeathVisual(unit);
-                PlayBattleEffect(BattleEffectId.TankDeathExplosion, unit.x, unit.z, 0.35f, 1.45f, Quaternion.identity);
-                PlayBattleEffect(BattleEffectId.TankWreckSmoke, unit.x, unit.z, 0.25f, 1.1f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.TankDeathExplosion, unit.x, unit.z, 0.35f, 1.05f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.TankWreckSmoke, unit.x, unit.z, 0.25f, 0.82f, Quaternion.identity);
                 PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 0.35f);
                 TriggerCameraShake(0.22f, 0.15f);
                 break;
             case UnitKind.Aircraft:
                 SpawnDeathVisual(unit);
-                PlayBattleEffect(BattleEffectId.AircraftDeathExplosion, unit.x, unit.z, 2.45f, 1.5f, Quaternion.identity);
-                PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, unit.x, unit.z, 1.2f, 1.0f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.AircraftDeathExplosion, unit.x, unit.z, 2.45f, 1.12f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, unit.x, unit.z, 1.2f, 0.78f, Quaternion.identity);
                 PlayBattleAudio(BattleAudioCueId.ExplosionLarge, unit.x, unit.z, 2.2f);
                 TriggerCameraShake(0.18f, 0.12f);
                 break;
             default:
                 SpawnDeathVisual(unit);
-                PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.75f, Quaternion.identity);
+                PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.58f, Quaternion.identity);
                 break;
         }
     }
@@ -496,9 +495,8 @@ public sealed partial class ApocalypseKingUnityGame
         giant.runtimeState = UnitRuntimeState.Dead;
         giant.root.SetActive(false);
         SpawnDeathVisual(giant);
-        PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 38f, giant.z + 80f, 0.8f, 1.5f, Quaternion.identity);
-        PlayBattleEffect(BattleEffectId.MonsterDeathDust, giant.x + 32f, giant.z + 128f, 0.18f, 1.55f, Quaternion.identity);
-        PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x - 6f, giant.z + 34f, 0.45f, 1.35f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterDeathExplosion, giant.x, giant.z + 48f, 0.55f, 1.22f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.MonsterDeathDust, giant.x, giant.z + 12f, 0.22f, 0.95f, Quaternion.identity);
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, giant.x, giant.z, 0.4f);
         TriggerCameraShake(0.32f, 0.24f);
         if (CountActive(giants) <= 0)

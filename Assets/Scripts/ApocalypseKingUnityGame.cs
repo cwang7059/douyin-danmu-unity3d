@@ -2892,7 +2892,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float x = Left + 126f + Noise(processedDanmuCommandCount + 17f) * 36f;
         float z = SoldierLanes[lane] + (Noise(processedDanmuCommandCount + 29f) - 0.5f) * 12f;
         ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 8f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
-        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.2f);
+        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
     }
 
@@ -2908,7 +2908,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float x = Left + 54f + Noise(processedDanmuCommandCount + 41f) * 42f;
         float z = TankLanes[lane] + (Noise(processedDanmuCommandCount + 43f) - 0.5f) * 18f;
         ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, processedDanmuCommandCount, 1, 0f);
-        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.6f);
+        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
     }
 
@@ -2925,7 +2925,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float x = Left + 58f + Noise(processedDanmuCommandCount + 61f) * 64f;
         float z = AirLanes[lane] + (Noise(processedDanmuCommandCount + 67f) - 0.5f) * 22f;
         ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 9f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
-        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.7f);
+        PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.05f);
         return true;
     }
 
@@ -2942,7 +2942,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float z = -460f + lane * 230f + (Noise(processedDanmuCommandCount + 83f) - 0.5f) * 34f;
         ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 5f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
-        PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 2.0f);
+        PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 1.15f);
         return true;
     }
 
@@ -3325,7 +3325,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 {
                     visual.smokeTimer = 1.05f;
                     Vector3 position = visual.root.transform.position;
-                    PlayBattleEffect(BattleEffectId.TankWreckSmoke, position, 0.75f, Quaternion.identity);
+                    PlayBattleEffect(BattleEffectId.TankWreckSmoke, position, 0.52f, Quaternion.identity);
                 }
             }
 
@@ -3353,8 +3353,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             Vector3 position = visual.root.transform.position;
             position.y = 0.08f;
             visual.root.transform.position = position;
-            PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, position, 1.0f, Quaternion.identity);
-            PlayBattleEffect(BattleEffectId.ShellExplosionSmall, position, 0.9f, Quaternion.identity);
+            PlayBattleEffect(BattleEffectId.AircraftCrashSmoke, position, 0.72f, Quaternion.identity);
+            PlayBattleEffect(BattleEffectId.ShellExplosionSmall, position, 0.78f, Quaternion.identity);
             TriggerCameraShake(0.10f, 0.07f);
         }
     }

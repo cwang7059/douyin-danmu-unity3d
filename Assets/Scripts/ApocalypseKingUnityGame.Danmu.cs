@@ -135,8 +135,8 @@ public sealed partial class ApocalypseKingUnityGame
             Vector2 center = GetActiveGiantCenter();
             if (EffectManager.Instance != null)
             {
-                EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.HumanAirStrikeWarning, ToWorldPoint(center.x, center.y, 0.05f), Quaternion.identity, null, 2.2f));
-                EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.ExplosionLarge, ToWorldPoint(center.x, center.y, 0.35f), Quaternion.identity, null, 2.6f));
+                EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.HumanAirStrikeWarning, ToWorldPoint(center.x, center.y, 0.05f), Quaternion.identity, null, 1.45f));
+                EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.ExplosionLarge, ToWorldPoint(center.x, center.y, 0.35f), Quaternion.identity, null, 1.15f));
             }
 
             DamageGiantsInArea(center.x, center.y, 290f, 330f);
@@ -149,7 +149,7 @@ public sealed partial class ApocalypseKingUnityGame
         if (EffectManager.Instance != null)
         {
             Vector2 center = GetActiveGiantCenter();
-            EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.OrcRageBuff, ToWorldPoint(center.x, center.y, 0.25f), Quaternion.identity, null, 2.8f));
+            EffectManager.Instance.Play(EffectPlayback.Create(BattleEffectId.OrcRageBuff, ToWorldPoint(center.x, center.y, 0.25f), Quaternion.identity, null, 1.35f));
         }
 
         ShowBanner("Danmu monster rage", true, 1.1f);

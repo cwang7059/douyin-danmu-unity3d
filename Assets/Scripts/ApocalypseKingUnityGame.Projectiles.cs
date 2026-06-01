@@ -120,8 +120,8 @@ public sealed partial class ApocalypseKingUnityGame
                     shot.trailTimer -= dt;
                     if (shot.trailTimer <= 0f)
                     {
-                        shot.trailTimer = 0.08f;
-                        game.PlayBattleEffect(BattleEffectId.BombDropTrail, shot.worldPosition, 0.42f, Quaternion.identity);
+                        shot.trailTimer = 0.14f;
+                        game.PlayBattleEffect(BattleEffectId.BombDropTrail, shot.worldPosition, 0.30f, Quaternion.identity);
                     }
                 }
                 UpdateProjectileVisual(shot, t);
@@ -242,7 +242,7 @@ public sealed partial class ApocalypseKingUnityGame
                 if (shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rocket || shot.kind == ProjectileKind.Bomb)
                 {
                     BattleEffectId impact = shot.kind == ProjectileKind.Bomb ? BattleEffectId.BombExplosion : BattleEffectId.ShellImpactMonster;
-                    float scale = shot.kind == ProjectileKind.Bomb ? 1.7f : shot.kind == ProjectileKind.Rocket ? 1.55f : 1.25f;
+                    float scale = shot.kind == ProjectileKind.Bomb ? 1.22f : shot.kind == ProjectileKind.Rocket ? 1.12f : 1.0f;
                     float impactHeight = shot.kind == ProjectileKind.Bomb ? 0.18f : 1.72f;
                     game.PlayBattleEffect(impact, shot.toX, shot.toZ, impactHeight, scale, Quaternion.identity);
                     game.PlayBattleAudio(shot.kind == ProjectileKind.Bomb ? BattleAudioCueId.ExplosionLarge : BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.2f);
@@ -250,13 +250,13 @@ public sealed partial class ApocalypseKingUnityGame
                 }
                 else if (game.Noise(game.battleTime * 25f + shot.toX) > 0.68f)
                 {
-                    game.PlayBattleEffect(BattleEffectId.BulletHitMetal, shot.toX, shot.toZ, 1.7f, 0.65f, Quaternion.identity);
+                    game.PlayBattleEffect(BattleEffectId.BulletHitMetal, shot.toX, shot.toZ, 1.7f, 0.52f, Quaternion.identity);
                 }
 
                 return;
             }
 
-            game.PlayBattleEffect(shot.kind == ProjectileKind.Rock ? BattleEffectId.MonsterHammerImpact : BattleEffectId.ShellExplosionSmall, shot.toX, shot.toZ, 0.12f, shot.kind == ProjectileKind.Rock ? 1.35f : 1.0f, Quaternion.identity);
+            game.PlayBattleEffect(shot.kind == ProjectileKind.Rock ? BattleEffectId.MonsterHammerImpact : BattleEffectId.ShellExplosionSmall, shot.toX, shot.toZ, 0.12f, shot.kind == ProjectileKind.Rock ? 0.95f : 0.82f, Quaternion.identity);
             game.PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.12f);
             game.TriggerCameraShake(0.12f, 0.08f);
             game.ApplyAreaDamageToHumans(shot.toX, shot.toZ, shot.radius, shot.damage, false, 36f);
