@@ -15,6 +15,8 @@ public sealed class OrbitTouchCamera : MonoBehaviour
     public float panSensitivity = 0.018f;
     public float pinchSensitivity = 0.035f;
     public float mouseZoomSensitivity = 2.2f;
+    public bool clampPanX;
+    public bool clampPanZ = true;
     public Vector2 panXBounds = new Vector2(-7.5f, 7.5f);
     public Vector2 panZBounds = new Vector2(-10.5f, 11.5f);
     public Vector3 shakeOffset;
@@ -124,8 +126,16 @@ public sealed class OrbitTouchCamera : MonoBehaviour
     private void ClampTarget()
     {
         var position = target.position;
-        position.x = Mathf.Clamp(position.x, panXBounds.x, panXBounds.y);
-        position.z = Mathf.Clamp(position.z, panZBounds.x, panZBounds.y);
+        if (clampPanX)
+        {
+            position.x = Mathf.Clamp(position.x, panXBounds.x, panXBounds.y);
+        }
+
+        if (clampPanZ)
+        {
+            position.z = Mathf.Clamp(position.z, panZBounds.x, panZBounds.y);
+        }
+
         target.position = position;
     }
 
