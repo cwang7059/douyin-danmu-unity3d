@@ -279,21 +279,39 @@ public sealed partial class ApocalypseKingUnityGame
             return null;
         }
 
-        var root = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        var root = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         root.name = name;
         root.transform.SetParent(decorRoot, false);
-        root.transform.position = ToWorldPoint(state.WorldX, state.WorldZ, 8f);
-        root.transform.localScale = new Vector3(6f, 16f, 6f);
+        root.transform.position = ToWorldPoint(state.WorldX, state.WorldZ, 1.2f);
+        root.transform.localScale = new Vector3(14f, 0.35f, 14f);
         var renderer = root.GetComponent<Renderer>();
         if (renderer != null)
         {
-            renderer.sharedMaterial = GetTransparentMaterial(color);
+            Color padColor = new Color(color.r, color.g, color.b, 0.22f);
+            renderer.sharedMaterial = GetTransparentMaterial(padColor);
         }
 
         var collider = root.GetComponent<Collider>();
         if (collider != null)
         {
             Object.Destroy(collider);
+        }
+
+        var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        beacon.name = name + "_Beacon";
+        beacon.transform.SetParent(root.transform, false);
+        beacon.transform.localPosition = new Vector3(0f, 2.8f, 0f);
+        beacon.transform.localScale = new Vector3(0.22f, 2.4f, 0.22f);
+        var beaconRenderer = beacon.GetComponent<Renderer>();
+        if (beaconRenderer != null)
+        {
+            beaconRenderer.sharedMaterial = GetTransparentMaterial(new Color(color.r, color.g, color.b, 0.55f));
+        }
+
+        var beaconCollider = beacon.GetComponent<Collider>();
+        if (beaconCollider != null)
+        {
+            Object.Destroy(beaconCollider);
         }
 
         return root.transform;
@@ -318,8 +336,14 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
-        float h = Mathf.Lerp(2f, 16f, Mathf.Clamp01(hpPercent));
-        marker.localScale = new Vector3(6f, h, 6f);
+        float h = Mathf.Lerp(0.2f, 0.45f, Mathf.Clamp01(hpPercent));
+        marker.localScale = new Vector3(14f, h, 14f);
+        Transform beacon = marker.Find(marker.name + "_Beacon");
+        if (beacon != null)
+        {
+            float beam = Mathf.Lerp(1.2f, 3.2f, Mathf.Clamp01(hpPercent));
+            beacon.localScale = new Vector3(0.22f, beam, 0.22f);
+        }
     }
 
     private void ApplyCameraPreset(int index)

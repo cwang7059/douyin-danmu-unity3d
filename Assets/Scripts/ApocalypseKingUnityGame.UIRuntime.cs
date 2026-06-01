@@ -160,7 +160,8 @@ public sealed partial class ApocalypseKingUnityGame
                 float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 90f;
                 float pct = maxNuclear > 0f ? nuclear / maxNuclear : 0f;
                 int filled = Mathf.Clamp(Mathf.CeilToInt(pct * 8f), 0, 8);
-                game.skillCountdownLabel.text = $"核武 {nuclear:0}s\n{new string('█', filled)}{new string('░', 8 - filled)}";
+                string bar = new string('#', filled).PadRight(8, '-');
+                game.skillCountdownLabel.text = $"核武 {nuclear:0}s\n[{bar}]";
             }
 
             game.RefreshModeSelectUi();
