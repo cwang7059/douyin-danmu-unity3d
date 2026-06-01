@@ -23,7 +23,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void UpdateHumanUnit(BattleUnit unit, float dt)
     {
-        var target = FindNearestGiant(unit);
+        var target = FindNearestEnemy(unit, true);
         if (!unit.active || target == null)
         {
             return;
@@ -163,6 +163,13 @@ public sealed partial class ApocalypseKingUnityGame
         unit.attackCooldown = unit.attackInterval * (0.9f + Noise(battleTime * 31f + unit.id) * 0.22f);
         unit.attackVisualTimer = unit.kind == UnitKind.Soldier ? 0.18f : 0.42f;
 
+        if (target.kind != UnitKind.Giant)
+        {
+            ApplyDirectUnitDamage(unit, target, unit.damage);
+            return;
+        }
+
+        float scaledDamage = ScaleOutgoingDamage(unit, target, unit.damage);
         Vector2 aim = DirectionTo(unit.x, unit.z, target.x, target.z, unit.turretYawDegrees);
 
         if (unit.kind == UnitKind.Soldier)
@@ -171,7 +178,7 @@ public sealed partial class ApocalypseKingUnityGame
             Vector2 muzzle = SoldierMuzzlePoint(unit, muzzleAim);
             PlayBattleEffect(BattleEffectId.MuzzleRifle, muzzle.x, muzzle.y, 1.04f, 0.55f, RotationFromDirection(muzzleAim));
             PlayBattleAudio(BattleAudioCueId.RifleShot, muzzle.x, muzzle.y, 1.02f);
-            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzle.x, muzzle.y, 1.05f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, unit.damage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
+            SpawnProjectile(ProjectileKind.Bullet, ProjectileTarget.Giant, muzzle.x, muzzle.y, 1.05f, target.x - aim.x * 24f, target.z - aim.y * 24f, 1.9f, scaledDamage, 0f, 760f, new Color(1f, 0.82f, 0.32f, 1f));
             return;
         }
 
@@ -183,14 +190,14 @@ public sealed partial class ApocalypseKingUnityGame
             PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 0.50f, RotationFromDirection(barrelAim));
             PlayBattleAudio(BattleAudioCueId.TankShot, muzzle.x, muzzle.y, 0.82f);
             TriggerCameraShake(0.08f, 0.035f);
-            SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, unit.damage, 52f, 520f, new Color(1f, 0.76f, 0.42f, 1f));
+            SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, scaledDamage, 52f, 520f, new Color(1f, 0.76f, 0.42f, 1f));
             return;
         }
 
         float bombX = unit.x + aim.x * 22f;
         float bombZ = unit.z + aim.y * 22f;
         PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.62f, RotationFromDirection(aim));
-        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x, target.z, 0.18f, unit.damage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
+        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x, target.z, 0.18f, scaledDamage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
     }
 
     private void UpdateGiants(float dt)
@@ -213,7 +220,7 @@ public sealed partial class ApocalypseKingUnityGame
         giant.attackVisualTimer = Mathf.Max(0f, giant.attackVisualTimer - dt);
         giant.hitFlashTimer = Mathf.Max(0f, giant.hitFlashTimer - dt);
 
-        var chaseTarget = FindNearestHuman(giant, true);
+        var chaseTarget = FindNearestEnemy(giant, true);
         var contactTarget = FindGiantContactTarget(giant);
         var engagementTarget = contactTarget ?? FindGiantEngagementTarget(giant);
         float rage = giant.hp / giant.maxHp < 0.45f ? 1.22f : 1f;

@@ -58,7 +58,7 @@ public sealed partial class ApocalypseKingUnityGame
             float zombieBasePct = game.GetZombieBaseHpPercent();
             float hpPct = zombieBasePct;
             float humanPct = Mathf.Clamp01((blueBasePct + greenBasePct) * 0.5f);
-            int pool = 380000 + Mathf.FloorToInt(game.battleTime * 8200f) + game.humanLosses * 2600;
+            float pool = game.GetPointPoolTotal();
             float matchDuration = game.matchSettings != null ? game.matchSettings.MatchDurationSeconds : 600f;
             float remaining = Mathf.Max(0f, matchDuration - game.battleTime);
             float skillCooldown = game.GetNuclearTimer();
@@ -83,7 +83,9 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.poolLabel != null)
             {
-                game.poolLabel.text = $"POINT POOL {pool:N0}";
+                game.poolLabel.text = game.matchPhase == MatchPhase.Result
+                    ? game.DiagnosticsSettlementSummary
+                    : $"POINT POOL {pool:N0}";
             }
 
             if (game.timerLabel != null)
@@ -105,7 +107,11 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.statusLabel != null)
             {
-                game.statusLabel.text = game.paused ? "Paused" : game.ended ? "Battle over" : $"Battle {FormatTime(game.battleTime)}  Losses {game.humanLosses}";
+                game.statusLabel.text = game.paused
+                    ? "Paused"
+                    : game.ended
+                        ? "Battle over"
+                        : $"绿军基地 {greenBasePct * 100f:0}%  |  Losses {game.humanLosses}";
             }
 
             if (game.bottomTickerLabel != null)
@@ -115,7 +121,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.giftFeedLabel != null)
             {
-                game.giftFeedLabel.text = $"Gift heat +{pool - 380000:N0}  Barrage combo x{1 + Mathf.FloorToInt(game.battleTime * 0.45f) % 9}";
+                float basePool = game.matchSettings != null ? game.matchSettings.PointPoolBase : 380000f;
+                game.giftFeedLabel.text = $"Gift heat +{pool - basePool:N0}  Barrage combo x{1 + Mathf.FloorToInt(game.battleTime * 0.45f) % 9}";
             }
 
             if (game.skillCountdownLabel != null)
@@ -125,14 +132,14 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.humanPowerFill != null)
             {
-                game.humanPowerFill.fillAmount = humanPct;
-                game.humanPowerFill.color = humanPct > 0.28f ? ApocalypseKingUnityGame.HumanColor : new Color(1f, 0.63f, 0.26f, 1f);
+                game.humanPowerFill.fillAmount = blueBasePct;
+                game.humanPowerFill.color = blueBasePct > 0.28f ? ApocalypseKingUnityGame.HumanColor : new Color(1f, 0.63f, 0.26f, 1f);
             }
 
             if (game.monsterPowerFill != null)
             {
-                game.monsterPowerFill.fillAmount = hpPct;
-                game.monsterPowerFill.color = hpPct > 0.35f ? ApocalypseKingUnityGame.GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
+                game.monsterPowerFill.fillAmount = zombieBasePct;
+                game.monsterPowerFill.color = zombieBasePct > 0.35f ? ApocalypseKingUnityGame.GiantColor : new Color(1f, 0.82f, 0.24f, 1f);
             }
 
             if (game.hpFill != null && game.hpFill != game.monsterPowerFill)

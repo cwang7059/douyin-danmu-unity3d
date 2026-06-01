@@ -15,6 +15,7 @@ public enum MatchPhase
 
 public enum ApocalypseUnitRole
 {
+    None = 0,
     Survivor,
     MeleeGrunt,
     RangedGrunt,

@@ -304,11 +304,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.Space) && !ended)
+        if (Input.GetKeyDown(KeyCode.P) && !ended)
         {
             paused = !paused;
             ShowBanner(paused ? "Paused" : "Resumed", false, 1f);
         }
+
+        HandleCameraPresetInput();
 
         if (Input.GetKeyDown(KeyCode.R))
         {
@@ -2943,6 +2945,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.wheelSpinDegrees = Noise(unit.id + rank * 5.3f) * 360f;
         unit.trackScroll = 0f;
         unit.animationPresentationKey = -1;
+        unit.infectionTimer = 0f;
+        unit.preInfectionFaction = FactionId.Neutral;
+        if (unit.faction == FactionId.Neutral)
+        {
+            unit.faction = unit.team == TeamKind.Giant ? FactionId.Zombie : FactionId.Blue;
+        }
+
         if (unit.modelInstance == null)
         {
             TryAttachCachedUnitModel(unit);

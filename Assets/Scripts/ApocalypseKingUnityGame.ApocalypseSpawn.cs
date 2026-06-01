@@ -6,6 +6,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void ApplyApocalypseDanmuCommand(DanmuCommand command)
     {
+        RecordDanmuEconomy(command);
         FactionId faction = ResolveCommandFaction(command);
         command.faction = faction;
         command.team = DanmuCommand.TeamFromFaction(faction);
@@ -113,22 +114,31 @@ public sealed partial class ApocalypseKingUnityGame
             }
         }
 
-        pendingSpawnBudget += Mathf.Max(0, count - spawned);
+        int remaining = Mathf.Max(0, count - spawned);
+        for (int i = 0; i < remaining; i++)
+        {
+            pendingSpawnQueue.Enqueue(new PendingSpawnRequest { Faction = faction, Role = role });
+        }
     }
 
     private void DrainPendingSpawns()
     {
-        if (pendingSpawnBudget <= 0)
+        if (pendingSpawnQueue.Count <= 0)
         {
             return;
         }
 
         int maxPerFrame = matchSettings != null ? matchSettings.MaxSpawnsPerFrame : 24;
-        int n = Mathf.Min(pendingSpawnBudget, maxPerFrame);
-        pendingSpawnBudget -= n;
+        int n = Mathf.Min(pendingSpawnQueue.Count, maxPerFrame);
         for (int i = 0; i < n; i++)
         {
-            TrySpawnApocalypseRole(FactionId.Blue, ApocalypseUnitRole.Survivor);
+            if (pendingSpawnQueue.Count <= 0)
+            {
+                break;
+            }
+
+            var req = pendingSpawnQueue.Dequeue();
+            TrySpawnApocalypseRole(req.Faction, req.Role);
         }
     }
 

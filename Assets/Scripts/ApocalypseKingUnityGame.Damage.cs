@@ -23,6 +23,11 @@ public sealed partial class ApocalypseKingUnityGame
         DamageResolver.DamageGiantsInArea(x, z, radius, amount);
     }
 
+    private void ApplyDirectUnitDamage(BattleUnit attacker, BattleUnit target, float amount)
+    {
+        DamageResolver.ApplyDirectUnitDamage(attacker, target, ScaleOutgoingDamage(attacker, target, amount));
+    }
+
     private sealed class DamageSystem
     {
         private readonly ApocalypseKingUnityGame game;
@@ -103,10 +108,17 @@ public sealed partial class ApocalypseKingUnityGame
                     continue;
                 }
 
+                if (!game.IsHostileUnit(giant, unit))
+                {
+                    continue;
+                }
+
                 float reach = Mathf.Max(1f, game.GiantMeleeDistance(unit.kind, true));
                 float pct = 1f - Mathf.Clamp01(game.Distance(giant.x, giant.z, unit.x, unit.z) / reach);
                 float damage = unit.kind == UnitKind.Aircraft ? giant.damage * 0.88f : giant.damage;
+                damage = game.ScaleOutgoingDamage(giant, unit, damage);
                 var result = ApplyDamage(unit, damage * (0.76f + pct * 0.45f), 0f);
+                game.TryApplyInfection(giant, unit);
 
                 if (result.Defeated)
                 {
@@ -162,6 +174,27 @@ public sealed partial class ApocalypseKingUnityGame
             }
 
             return new DamageResult(target.hp <= 0f);
+        }
+
+        public void ApplyDirectUnitDamage(BattleUnit attacker, BattleUnit target, float amount)
+        {
+            if (target == null || !target.active || amount <= 0f)
+            {
+                return;
+            }
+
+            var result = ApplyDamage(target, amount, 0.04f);
+            if (result.Defeated)
+            {
+                if (target.kind == UnitKind.Giant)
+                {
+                    game.DefeatGiant(target);
+                }
+                else
+                {
+                    game.DeactivateHumanUnit(target);
+                }
+            }
         }
 
         private readonly struct DamageResult

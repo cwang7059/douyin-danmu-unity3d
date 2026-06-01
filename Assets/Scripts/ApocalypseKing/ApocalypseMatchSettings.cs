@@ -17,6 +17,14 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
     public float NuclearCountdownSeconds = 90f;
     public int MaxSpawnsPerFrame = 24;
 
+    [Header("Infection")]
+    [Range(0f, 1f)] public float InfectionChance = 0.12f;
+    public float InfectionDurationSeconds = 3f;
+
+    [Header("Economy mock")]
+    public float PointPoolBase = 380000f;
+    public float PointPoolPerSecond = 8200f;
+
     public static ApocalypseMatchSettings CreateRuntimeDefault()
     {
         var s = CreateInstance<ApocalypseMatchSettings>();
@@ -30,6 +38,10 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
         s.RageLikeMultiplier = 4;
         s.NuclearCountdownSeconds = 90f;
         s.MaxSpawnsPerFrame = 24;
+        s.InfectionChance = 0.12f;
+        s.InfectionDurationSeconds = 3f;
+        s.PointPoolBase = 380000f;
+        s.PointPoolPerSecond = 8200f;
         return s;
     }
 }

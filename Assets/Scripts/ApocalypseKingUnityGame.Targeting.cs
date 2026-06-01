@@ -193,6 +193,11 @@ public sealed partial class ApocalypseKingUnityGame
                     continue;
                 }
 
+                if (game.matchPhase == MatchPhase.Battle && !game.IsHostileUnit(giant, candidate))
+                {
+                    continue;
+                }
+
                 float score = game.DistanceSq(giant.x, giant.z, candidate.x, candidate.z);
                 if (score < bestScore)
                 {

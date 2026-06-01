@@ -17,7 +17,6 @@ public sealed partial class ApocalypseKingUnityGame
     private float globalAttackBuffTimer;
     private float globalAttackBuffMultiplier = 1f;
     private float nuclearTimer;
-    private int pendingSpawnBudget;
     private readonly System.Collections.Generic.Dictionary<string, FactionId> viewerFactions =
         new System.Collections.Generic.Dictionary<string, FactionId>();
 
@@ -64,9 +63,13 @@ public sealed partial class ApocalypseKingUnityGame
         ended = false;
         paused = false;
         battleTime = 0f;
+        factionInteractionScores.Clear();
+        pendingSpawnQueue.Clear();
+        lastSettlementSummary = string.Empty;
         InitApocalypseBases();
         ResetBattle();
-        ShowBanner("末日之王 — 对局开始", false, 2.2f);
+        EnsureBaseMarkers();
+        ShowBanner("末日之王 — 对局开始 | F1-F4 镜头", false, 2.2f);
     }
 
     private void HandleMatchPhaseInput()
@@ -108,6 +111,8 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         ApplyBaseSiegeDamage(dt);
+        TickInfectionTimers(dt);
+        RefreshBaseMarkers();
         CheckApocalypseMatchEnd();
     }
 
@@ -149,21 +154,22 @@ public sealed partial class ApocalypseKingUnityGame
 
     private ApocalypseBaseState GetEnemyBaseForUnit(BattleUnit unit)
     {
-        if (unit.faction == FactionId.Zombie)
+        FactionId faction = GetEffectiveFaction(unit);
+        if (faction == FactionId.Zombie)
         {
-            if (betrayalActive && unit.faction == betrayalAlly)
+            if (betrayalActive)
             {
-                return null;
+                return betrayalAlly == FactionId.Blue ? greenBase : blueBase;
             }
 
             return blueBase.Hp >= greenBase.Hp ? blueBase : greenBase;
         }
 
-        if (unit.faction == FactionId.Blue || unit.faction == FactionId.Green)
+        if (faction == FactionId.Blue || faction == FactionId.Green)
         {
-            if (betrayalActive && unit.faction == betrayalAlly)
+            if (betrayalActive && faction == betrayalAlly)
             {
-                return unit.faction == FactionId.Blue ? greenBase : blueBase;
+                return faction == FactionId.Blue ? greenBase : blueBase;
             }
 
             return zombieBase;
@@ -221,6 +227,16 @@ public sealed partial class ApocalypseKingUnityGame
             matchSettings.MatchDurationSeconds += extra;
         }
 
+        if (EffectManager.Instance != null && zombieBase != null)
+        {
+            EffectManager.Instance.Play(EffectPlayback.Create(
+                BattleEffectId.OrcRageBuff,
+                ToWorldPoint(zombieBase.WorldX, zombieBase.WorldZ, 0.4f),
+                Quaternion.identity,
+                null,
+                1.6f));
+        }
+
         ShowBanner($"叛变！{FactionLabel(betrayalAlly)} 联手丧尸", true, 4f);
     }
 
@@ -246,7 +262,8 @@ public sealed partial class ApocalypseKingUnityGame
     {
         ended = true;
         matchPhase = MatchPhase.Result;
-        ShowBanner(reason, true, 5f);
+        BuildSettlementSummary();
+        ShowBanner($"{reason}\n{lastSettlementSummary}", true, 6f);
     }
 
     private static string FactionLabel(FactionId faction)

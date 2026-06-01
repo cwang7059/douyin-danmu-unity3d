@@ -90,7 +90,9 @@ public sealed partial class ApocalypseKingUnityGame
         public TankModelVariant tankModel;
         public TeamKind team;
         public FactionId faction;
+        public FactionId preInfectionFaction;
         public ApocalypseUnitRole apocalypseRole;
+        public float infectionTimer;
         public GameObject root;
         public Transform body;
         public GameObject modelInstance;
