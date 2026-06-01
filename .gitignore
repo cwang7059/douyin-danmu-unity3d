@@ -37,6 +37,8 @@ player-*.log
 unity-build-*.log
 preview-*.png
 tools/_downloads/
+tools/_feishu_raw.html
+tools/_feishu_extracted.txt
 
 # Local asset download source folders kept outside the runtime path
 tank-t-55a/
