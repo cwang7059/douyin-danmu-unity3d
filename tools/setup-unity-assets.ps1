@@ -19,14 +19,30 @@ function Resolve-UnityExe {
     }
 
     $projectVersionPath = Join-Path $ProjectRoot "ProjectSettings\ProjectVersion.txt"
+    $versions = @()
     if (Test-Path -LiteralPath $projectVersionPath) {
         $versionLine = Select-String -Path $projectVersionPath -Pattern "m_EditorVersion:\s*(.+)$" | Select-Object -First 1
         if ($versionLine) {
             $version = $versionLine.Matches[0].Groups[1].Value.Trim()
-            $candidate = Join-Path $env:ProgramFiles "Unity\Hub\Editor\$version\Editor\Unity.exe"
-            if (Test-Path -LiteralPath $candidate) {
-                return $candidate
-            }
+            $versions += $version
+            $versions += ($version -replace "c\d+$", "")
+        }
+    }
+
+    foreach ($version in ($versions | Select-Object -Unique)) {
+        $candidate = Join-Path $env:ProgramFiles "Unity\Hub\Editor\$version\Editor\Unity.exe"
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    $hubRoot = Join-Path $env:ProgramFiles "Unity\Hub\Editor"
+    if (Test-Path -LiteralPath $hubRoot) {
+        $candidate = Get-ChildItem -LiteralPath $hubRoot -Recurse -Filter Unity.exe -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+        if ($candidate) {
+            return $candidate.FullName
         }
     }
 
@@ -61,5 +77,5 @@ if ($process.ExitCode -ne 0 -or -not $setupSucceeded) {
     throw "Unity asset setup failed. Close the Unity Editor if the project is open, then retry."
 }
 
-Write-Host "[OK] HUD prefab, danmu mapping, unit configs, and scene references are ready."
+Write-Host "[OK] HUD, danmu mapping, battle effect/audio assets, and scene references are ready."
 Write-Host "[LOG] $LogFile"

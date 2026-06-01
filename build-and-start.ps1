@@ -2,6 +2,8 @@ param(
     [string]$UnityExe = "",
     [int]$DanmuHttpPort = 8765,
     [switch]$DisableDanmuHttp,
+    [string]$DanmuWsUrl = "",
+    [switch]$DisableDanmuWs,
     [switch]$KeepBuildLog,
     [switch]$KeepRunLog,
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -129,6 +131,14 @@ try {
     elseif ($DanmuHttpPort -gt 0) {
         $arguments += "-danmuHttpPort"
         $arguments += $DanmuHttpPort.ToString([Globalization.CultureInfo]::InvariantCulture)
+    }
+
+    if ($DisableDanmuWs) {
+        $arguments += "-danmuWsOff"
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($DanmuWsUrl)) {
+        $arguments += "-danmuWsUrl"
+        $arguments += $DanmuWsUrl
     }
 
     $arguments += "-logFile"

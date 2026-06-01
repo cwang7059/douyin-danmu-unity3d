@@ -3,6 +3,8 @@ param(
     [switch]$ProbeDanmu,
     [int]$DanmuHttpPort = 8765,
     [switch]$DisableDanmuHttp,
+    [string]$DanmuWsUrl = "",
+    [switch]$DisableDanmuWs,
     [double]$ProbeDelay = 2.0,
     [double]$ProbeTimeScale = 1.0,
     [string]$ProbeOutput = "preview-manual-probe.png",
@@ -41,6 +43,14 @@ if ($DisableDanmuHttp) {
 elseif ($DanmuHttpPort -gt 0) {
     $arguments += "-danmuHttpPort"
     $arguments += $DanmuHttpPort.ToString([Globalization.CultureInfo]::InvariantCulture)
+}
+
+if ($DisableDanmuWs) {
+    $arguments += "-danmuWsOff"
+}
+elseif (-not [string]::IsNullOrWhiteSpace($DanmuWsUrl)) {
+    $arguments += "-danmuWsUrl"
+    $arguments += $DanmuWsUrl
 }
 
 if ([string]::IsNullOrWhiteSpace($LogFile)) {

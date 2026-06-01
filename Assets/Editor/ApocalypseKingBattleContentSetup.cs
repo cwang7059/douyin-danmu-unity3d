@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -30,7 +31,12 @@ public static class ApocalypseKingBattleContentSetup
         effectsCatalog.configs = effectConfigs;
         EditorUtility.SetDirty(effectsCatalog);
 
-        AudioMixer mixer = GetOrCreateMixer();
+        AudioMixer mixer = LoadBattleMixer();
+        if (mixer != null)
+        {
+            EnsureMixerChildGroups(mixer);
+        }
+
         var mixerGroups = ResolveMixerGroups(mixer);
         var audioCues = CreateOrUpdateAudioCueConfigs(mixerGroups);
         var audioCatalog = GetOrCreateCatalog<BattleAudioCatalog>(AudioCatalogPath);
@@ -60,7 +66,6 @@ public static class ApocalypseKingBattleContentSetup
             Undo.RecordObject(effectManager, "Assign Battle Effects");
             var effectSo = new SerializedObject(effectManager);
             effectSo.FindProperty("effectsCatalog").objectReferenceValue = effectsCatalog;
-            effectSo.FindProperty("configs").objectReferenceValue = effectsCatalog != null ? effectsCatalog.configs : null;
             effectSo.ApplyModifiedProperties();
             EditorUtility.SetDirty(effectManager);
         }
@@ -71,7 +76,6 @@ public static class ApocalypseKingBattleContentSetup
             Undo.RecordObject(audioManager, "Assign Battle Audio");
             var audioSo = new SerializedObject(audioManager);
             audioSo.FindProperty("audioCatalog").objectReferenceValue = audioCatalog;
-            audioSo.FindProperty("cues").objectReferenceValue = audioCatalog != null ? audioCatalog.cues : null;
             audioSo.FindProperty("masterGroup").objectReferenceValue = mixerGroups.Master;
             audioSo.FindProperty("bgmGroup").objectReferenceValue = mixerGroups.Bgm;
             audioSo.FindProperty("sfxGroup").objectReferenceValue = mixerGroups.Sfx;
@@ -156,19 +160,104 @@ public static class ApocalypseKingBattleContentSetup
         return list.ToArray();
     }
 
-    private static AudioMixer GetOrCreateMixer()
+    private static AudioMixer LoadBattleMixer()
     {
-        var mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(MixerPath);
-        if (mixer != null)
+        return AssetDatabase.LoadAssetAtPath<AudioMixer>(MixerPath);
+    }
+
+    [MenuItem("Apocalypse King/Create Battle Audio Mixer Asset (Instructions)")]
+    public static void LogBattleAudioMixerInstructions()
+    {
+        if (LoadBattleMixer() != null)
         {
-            return mixer;
+            EnsureMixerChildGroups(LoadBattleMixer());
+            Debug.Log($"[ApocalypseKing] Mixer ready at {MixerPath}. Re-run Setup Project Assets to bind groups.");
+            return;
         }
 
-        mixer = new AudioMixer();
-        AssetDatabase.CreateAsset(mixer, MixerPath);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.ImportAsset(MixerPath);
-        return AssetDatabase.LoadAssetAtPath<AudioMixer>(MixerPath);
+        Debug.Log(
+            "[ApocalypseKing] In Project window: Create > Audio Mixer, save as Assets/Audio/BattleAudioMixer.mixer, "
+            + "then run Apocalypse King > Setup Project Assets.");
+    }
+
+    private static void EnsureMixerChildGroups(AudioMixer mixer)
+    {
+        if (mixer == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var editorAssembly = typeof(UnityEditor.Editor).Assembly;
+            Type controllerType = editorAssembly.GetType("UnityEditor.Audio.AudioMixerController");
+            Type groupType = editorAssembly.GetType("UnityEditor.Audio.AudioMixerGroupController");
+            if (controllerType == null || groupType == null)
+            {
+                return;
+            }
+
+            object controller = mixer;
+            PropertyInfo masterProperty = controllerType.GetProperty("masterGroup", BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo createGroupMethod = controllerType.GetMethod("CreateNewGroup", BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo addChildMethod = controllerType.GetMethod("AddChildToParent", BindingFlags.Instance | BindingFlags.Public);
+            if (masterProperty == null || createGroupMethod == null || addChildMethod == null)
+            {
+                return;
+            }
+
+            object master = masterProperty.GetValue(controller);
+            if (master == null)
+            {
+                return;
+            }
+
+            object sfx = EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, master, "SFX");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, master, "BGM");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, master, "Voice");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, master, "Ambience");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, sfx, "Weapon");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, sfx, "Explosion");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, sfx, "Creature");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, sfx, "Magic");
+            EnsureMixerChildReflection(controller, createGroupMethod, addChildMethod, groupType, sfx, "UI");
+            EditorUtility.SetDirty(mixer);
+            AssetDatabase.SaveAssets();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[ApocalypseKing] Could not auto-create mixer groups: {ex.Message}");
+        }
+    }
+
+    private static object EnsureMixerChildReflection(
+        object controller,
+        MethodInfo createGroupMethod,
+        MethodInfo addChildMethod,
+        Type groupType,
+        object parent,
+        string name)
+    {
+        PropertyInfo childrenProperty = groupType.GetProperty("children", BindingFlags.Instance | BindingFlags.Public);
+        if (childrenProperty != null)
+        {
+            var children = childrenProperty.GetValue(parent) as Array;
+            if (children != null)
+            {
+                for (int i = 0; i < children.Length; i++)
+                {
+                    var child = children.GetValue(i);
+                    if (child != null && string.Equals(((UnityEngine.Object)child).name, name, StringComparison.Ordinal))
+                    {
+                        return child;
+                    }
+                }
+            }
+        }
+
+        object created = createGroupMethod.Invoke(controller, new object[] { name, false });
+        addChildMethod.Invoke(controller, new[] { created, parent });
+        return created;
     }
 
     private static MixerGroupSet ResolveMixerGroups(AudioMixer mixer)

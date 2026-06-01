@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 /// <summary>Routes live-platform JSON into <see cref="DanmuCommandQueue"/>.</summary>
 public static class DanmuLiveIngress
