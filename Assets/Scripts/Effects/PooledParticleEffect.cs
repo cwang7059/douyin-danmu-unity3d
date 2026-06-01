@@ -45,11 +45,10 @@ public sealed class PooledParticleEffect : MonoBehaviour
 
             system.Clear(true);
             system.Play(true);
-            var main = system.main;
-            duration = Mathf.Max(duration, main.duration + main.startLifetime.constantMax);
+            duration = Mathf.Max(duration, EstimateParticleSystemDuration(system));
         }
 
-        returnRoutine = StartCoroutine(ReturnAfter(duration));
+        returnRoutine = StartCoroutine(ReturnAfter(duration + 0.35f));
     }
 
     public void StopAndReturn()
@@ -68,6 +67,13 @@ public sealed class PooledParticleEffect : MonoBehaviour
         yield return new WaitForSeconds(Mathf.Max(0.05f, seconds));
         returnRoutine = null;
         ReturnToPool();
+    }
+
+    private static float EstimateParticleSystemDuration(ParticleSystem system)
+    {
+        var main = system.main;
+        float lifetimeMax = Mathf.Max(main.startLifetime.constant, main.startLifetime.constantMax);
+        return main.duration + lifetimeMax;
     }
 
     private void ReturnToPool()

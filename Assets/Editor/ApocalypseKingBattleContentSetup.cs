@@ -43,8 +43,9 @@ public static class ApocalypseKingBattleContentSetup
         audioCatalog.cues = audioCues;
         EditorUtility.SetDirty(audioCatalog);
 
+        int vfxBound = ApocalypseKingVfxPrefabBinder.TryBindAllEffectConfigs();
         AssetDatabase.SaveAssets();
-        Debug.Log("[ApocalypseKing] Battle effect/audio assets created or updated.");
+        Debug.Log($"[ApocalypseKing] Battle effect/audio assets created or updated. Store VFX bound: {vfxBound}.");
     }
 
     public static void AssignBattleContentToOpenScene()

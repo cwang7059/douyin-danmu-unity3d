@@ -6,6 +6,8 @@ public sealed class EffectConfig : ScriptableObject
 {
     public BattleEffectId id;
     public GameObject prefab;
+    [Tooltip("Applied when prefab is set; game playback scale is multiplied before BattleEffectTuning clamp.")]
+    public float prefabScaleMultiplier = 1f;
     public int prewarmCount = 8;
     public int maxCount = 64;
     public bool attachToParent;
