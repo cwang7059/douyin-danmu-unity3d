@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 6
   prefab: {fileID: 0}
+  prefabScaleMultiplier: 1
   prewarmCount: 16
   maxCount: 96
   attachToParent: 0

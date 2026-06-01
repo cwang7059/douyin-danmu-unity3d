@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(-200)]
 public sealed class EffectManager : MonoBehaviour
 {
     private const string VfxSelectedPath = "VFX/Online/Selected/";
@@ -535,10 +536,10 @@ public sealed class EffectManager : MonoBehaviour
         Texture2D texture = null;
         if (!string.IsNullOrEmpty(textureResourcePath))
         {
-            texture = Resources.Load<Texture2D>(textureResourcePath);
+            texture = BattleVfxProceduralTextures.Resolve(textureResourcePath);
             if (texture == null)
             {
-                Debug.LogWarning($"VFX texture not found in Resources: {textureResourcePath}");
+                Debug.LogWarning($"VFX texture unavailable: {textureResourcePath}");
                 return null;
             }
         }
@@ -628,8 +629,7 @@ public sealed class EffectManager : MonoBehaviour
 
     private static bool TryGetTextureSheetTiles(string textureResourcePath, out int tilesX, out int tilesY)
     {
-        if (textureResourcePath == TextureExplosionSinestesiaSmall
-            || textureResourcePath == TextureExplosionSinestesiaLarge
+        if (textureResourcePath == TextureExplosionSinestesiaLarge
             || textureResourcePath == TextureExplosionSinestesiaBomb)
         {
             tilesX = 8;
@@ -637,8 +637,10 @@ public sealed class EffectManager : MonoBehaviour
             return true;
         }
 
-        if (textureResourcePath == TextureExplosionFireball
+        if (textureResourcePath == TextureExplosionSinestesiaSmall
+            || textureResourcePath == TextureExplosionFireball
             || textureResourcePath == TextureExplosionBomb
+            || textureResourcePath == TextureExplosionKenney
             || textureResourcePath == TextureShockwaveRing)
         {
             tilesX = 4;

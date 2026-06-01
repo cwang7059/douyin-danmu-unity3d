@@ -248,6 +248,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void Awake()
     {
+        EnsureBattleEffectServices();
         danmuQueue = GetComponent<DanmuCommandQueue>();
         EnsureDanmuSpawnMappingConfig();
         Application.targetFrameRate = 60;
@@ -3150,9 +3151,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void PlayDanmuSpawnEffect(BattleEffectId effectId, float x, float z, float scale)
     {
-        if (EffectManager.Instance != null)
+        if (TryPlayBattleEffect(effectId, ToWorldPoint(x, z, 0.12f), Quaternion.identity, scale))
         {
-            EffectManager.Instance.Play(EffectPlayback.Create(effectId, ToWorldPoint(x, z, 0.12f), Quaternion.identity, null, scale));
             return;
         }
 
@@ -4752,9 +4752,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void PlayBattleEffect(BattleEffectId id, float x, float z, float height, float scale, Quaternion rotation)
     {
-        if (EffectManager.Instance != null)
+        if (TryPlayBattleEffect(id, ToWorldPoint(x, z, height), rotation, scale))
         {
-            EffectManager.Instance.Play(EffectPlayback.Create(id, ToWorldPoint(x, z, height), rotation, null, scale));
             return;
         }
 
@@ -4764,13 +4763,37 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void PlayBattleEffect(BattleEffectId id, Vector3 worldPosition, float scale, Quaternion rotation)
     {
-        if (EffectManager.Instance != null)
+        if (TryPlayBattleEffect(id, worldPosition, rotation, scale))
         {
-            EffectManager.Instance.Play(EffectPlayback.Create(id, worldPosition, rotation, null, scale));
             return;
         }
 
         SpawnEffect(worldPosition.x / LogicalToWorld, worldPosition.z / LogicalToWorld, Mathf.Max(0.1f, scale), IsSmokeFallback(id) ? EffectKind.Smoke : EffectKind.Fireball, IsSmokeFallback(id) ? 0.55f : 0.28f);
+    }
+
+    private void EnsureBattleEffectServices()
+    {
+        if (GetComponent<EffectManager>() == null)
+        {
+            gameObject.AddComponent<EffectManager>();
+        }
+
+        if (GetComponent<BattleAudioManager>() == null)
+        {
+            gameObject.AddComponent<BattleAudioManager>();
+        }
+    }
+
+    private bool TryPlayBattleEffect(BattleEffectId id, Vector3 worldPosition, Quaternion rotation, float scale)
+    {
+        EnsureBattleEffectServices();
+        if (EffectManager.Instance == null)
+        {
+            return false;
+        }
+
+        EffectManager.Instance.Play(EffectPlayback.Create(id, worldPosition, rotation, null, scale));
+        return true;
     }
 
     private void PlayBattleAudio(BattleAudioCueId id, float x, float z, float height)
