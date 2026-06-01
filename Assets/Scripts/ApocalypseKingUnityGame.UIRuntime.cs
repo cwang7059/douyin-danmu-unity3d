@@ -154,14 +154,21 @@ public sealed partial class ApocalypseKingUnityGame
                     : $"Gift heat +{pool - basePool:N0}  Barrage combo x{1 + Mathf.FloorToInt(game.battleTime * 0.45f) % 9}";
             }
 
-            if (game.skillCountdownLabel != null && game.matchPhase == MatchPhase.Battle)
+            if (game.skillCountdownLabel != null)
             {
-                float nuclear = game.GetNuclearTimer();
-                float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 90f;
-                float pct = maxNuclear > 0f ? nuclear / maxNuclear : 0f;
-                int filled = Mathf.Clamp(Mathf.CeilToInt(pct * 8f), 0, 8);
-                string bar = new string('#', filled).PadRight(8, '-');
-                game.skillCountdownLabel.text = $"核武 {nuclear:0}s\n[{bar}]";
+                if (game.matchPhase == MatchPhase.Battle)
+                {
+                    float nuclear = game.GetNuclearTimer();
+                    float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 90f;
+                    float pct = maxNuclear > 0f ? nuclear / maxNuclear : 0f;
+                    int filled = Mathf.Clamp(Mathf.CeilToInt(pct * 8f), 0, 8);
+                    string bar = new string('#', filled).PadRight(8, '-');
+                    game.skillCountdownLabel.text = $"核武 {nuclear:0}s [{bar}]";
+                }
+                else
+                {
+                    game.skillCountdownLabel.text = string.Empty;
+                }
             }
 
             game.RefreshModeSelectUi();

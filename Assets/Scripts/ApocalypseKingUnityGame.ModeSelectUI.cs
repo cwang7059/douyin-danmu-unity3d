@@ -55,26 +55,99 @@ public sealed partial class ApocalypseKingUnityGame
         ConfigureTextFit(hint, 14, 20);
     }
 
-    private void EnsureTripleBaseHpBars()
+    private Transform ResolveTopHpBarRoot()
     {
-        if (greenPowerFill != null || hudRoot == null)
+        if (humanPowerFill != null)
+        {
+            return humanPowerFill.transform.parent;
+        }
+
+        if (hudRoot != null)
+        {
+            Transform topDynamic = hudRoot.Find("TopDynamicRoot");
+            if (topDynamic != null)
+            {
+                return topDynamic;
+            }
+        }
+
+        return hudRoot;
+    }
+
+    private Transform ResolveTopHpBarBackRoot(Transform topDynamic)
+    {
+        if (topDynamic != null && topDynamic.parent != null)
+        {
+            Transform topPanel = topDynamic.parent.Find("TopPanel");
+            if (topPanel != null)
+            {
+                return topPanel;
+            }
+        }
+
+        return topDynamic;
+    }
+
+    private void CleanupMisplacedGreenHpWidgets()
+    {
+        if (greenPowerFill != null && greenPowerFill.transform.parent == hudRoot)
+        {
+            Object.Destroy(greenPowerFill.gameObject);
+            greenPowerFill = null;
+        }
+
+        if (hudRoot == null)
         {
             return;
         }
+
+        Transform stray = hudRoot.Find("GreenPowerFill");
+        if (stray != null && (greenPowerFill == null || stray != greenPowerFill.transform))
+        {
+            Object.Destroy(stray.gameObject);
+        }
+
+        if (staticHudRoot != null)
+        {
+            Transform strayBack = staticHudRoot.Find("GreenPowerBack");
+            if (strayBack != null && strayBack.parent == staticHudRoot)
+            {
+                Object.Destroy(strayBack.gameObject);
+            }
+        }
+    }
+
+    private void EnsureTripleBaseHpBars()
+    {
+        CleanupMisplacedGreenHpWidgets();
+
+        if (hudRoot == null)
+        {
+            return;
+        }
+
+        Transform topDynamic = ResolveTopHpBarRoot();
+        Transform topBack = ResolveTopHpBarBackRoot(topDynamic);
 
         if (humanPowerFill != null)
         {
             SetAnchors(humanPowerFill.rectTransform, 0.03f, 0.03f, 0.32f, 0.17f);
         }
 
-        var greenBack = CreatePanel(staticHudRoot != null ? staticHudRoot : hudRoot, "GreenPowerBack", new Color(0.05f, 0.12f, 0.06f, 1f));
-        SetAnchors(greenBack.rectTransform, 0.34f, 0.03f, 0.63f, 0.17f);
+        if (greenPowerFill == null && topDynamic != null)
+        {
+            if (topBack != null && topBack.Find("GreenPowerBack") == null)
+            {
+                var greenBack = CreatePanel(topBack, "GreenPowerBack", new Color(0.05f, 0.12f, 0.06f, 1f));
+                SetAnchors(greenBack.rectTransform, 0.34f, 0.03f, 0.63f, 0.17f);
+            }
 
-        greenPowerFill = CreatePanel(hudRoot, "GreenPowerFill", GreenBarColor);
-        greenPowerFill.type = Image.Type.Filled;
-        greenPowerFill.fillMethod = Image.FillMethod.Horizontal;
-        greenPowerFill.fillOrigin = 0;
-        SetAnchors(greenPowerFill.rectTransform, 0.34f, 0.03f, 0.63f, 0.17f);
+            greenPowerFill = CreatePanel(topDynamic, "GreenPowerFill", GreenBarColor);
+            greenPowerFill.type = Image.Type.Filled;
+            greenPowerFill.fillMethod = Image.FillMethod.Horizontal;
+            greenPowerFill.fillOrigin = 0;
+            SetAnchors(greenPowerFill.rectTransform, 0.34f, 0.03f, 0.63f, 0.17f);
+        }
 
         if (monsterPowerFill != null)
         {
