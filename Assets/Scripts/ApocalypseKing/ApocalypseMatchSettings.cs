@@ -21,6 +21,10 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
     [Range(0f, 1f)] public float InfectionChance = 0.12f;
     public float InfectionDurationSeconds = 3f;
 
+    [Header("Presentation")]
+    [Tooltip("关闭时仅显示 HUD 三条基地血条，不在场景里生成彩色基地柱")]
+    public bool ShowWorldBaseMarkers;
+
     [Header("Economy mock")]
     public float PointPoolBase = 380000f;
     public float PointPoolPerSecond = 8200f;
@@ -40,6 +44,7 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
         s.MaxSpawnsPerFrame = 24;
         s.InfectionChance = 0.12f;
         s.InfectionDurationSeconds = 3f;
+        s.ShowWorldBaseMarkers = false;
         s.PointPoolBase = 380000f;
         s.PointPoolPerSecond = 8200f;
         return s;

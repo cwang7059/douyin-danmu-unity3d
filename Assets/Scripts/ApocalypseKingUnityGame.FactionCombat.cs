@@ -260,8 +260,37 @@ public sealed partial class ApocalypseKingUnityGame
         return basePool + battleTime * perSec + humanLosses * 2600f;
     }
 
+    private bool ShowWorldBaseMarkersEnabled()
+    {
+        return matchSettings != null && matchSettings.ShowWorldBaseMarkers;
+    }
+
+    private void ClearWorldBaseMarkers()
+    {
+        DestroyMarker(ref blueBaseMarker);
+        DestroyMarker(ref greenBaseMarker);
+        DestroyMarker(ref zombieBaseMarker);
+    }
+
+    private static void DestroyMarker(ref Transform marker)
+    {
+        if (marker == null)
+        {
+            return;
+        }
+
+        Object.Destroy(marker.gameObject);
+        marker = null;
+    }
+
     private void EnsureBaseMarkers()
     {
+        if (!ShowWorldBaseMarkersEnabled())
+        {
+            ClearWorldBaseMarkers();
+            return;
+        }
+
         if (blueBaseMarker != null)
         {
             return;
