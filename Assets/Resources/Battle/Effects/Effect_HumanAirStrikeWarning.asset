@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_HumanAirStrikeWarning
   m_EditorClassIdentifier: 
   id: 10
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 1058325498707994, guid: 8333d50130027574ca8b4e0268fdd047, type: 3}
+  prefabScaleMultiplier: 0.85
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_BulletHitMetal
   m_EditorClassIdentifier: 
   id: 3
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 1612221337289516, guid: 85ab2ba31682fca4e9c1e40ea154ee43, type: 3}
+  prefabScaleMultiplier: 0.55
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

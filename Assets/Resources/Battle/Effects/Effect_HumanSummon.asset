@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_HumanSummon
   m_EditorClassIdentifier: 
   id: 8
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 1404681256839616, guid: 3640199bf9dc32f4da57c37d57581f57, type: 3}
+  prefabScaleMultiplier: 0.72
   prewarmCount: 12
   maxCount: 48
   attachToParent: 0

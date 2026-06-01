@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_AirCrashExplosion
   m_EditorClassIdentifier: 
   id: 20
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 1372040286346358, guid: 53ebac442b16db64f9177d0c749cbb06, type: 3}
+  prefabScaleMultiplier: 0.75
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_MuzzleRifle
   m_EditorClassIdentifier: 
   id: 6
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 1612221337289516, guid: 85ab2ba31682fca4e9c1e40ea154ee43, type: 3}
+  prefabScaleMultiplier: 0.52
   prewarmCount: 16
   maxCount: 96
   attachToParent: 0

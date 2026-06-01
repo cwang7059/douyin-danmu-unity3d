@@ -13,11 +13,46 @@ public static class ApocalypseKingVfxPrefabBinder
 {
     private const string EffectsResourcesFolder = "Assets/Resources/Battle/Effects";
 
+    private const string KenneyPrefabsRoot = "Assets/Kenney/Particle samples/Prefabs";
+
     private static readonly string[] VfxSearchRoots =
     {
         "Assets/ThirdParty",
+        "Assets/Kenney",
         "Assets/JMO Assets",
         "Assets/JMO",
+    };
+
+    private static readonly KenneyPrefabBinding[] KenneyPrefabBindings =
+    {
+        new KenneyPrefabBinding(BattleEffectId.MuzzleRifle, "Sparks.prefab", 0.52f),
+        new KenneyPrefabBinding(BattleEffectId.MuzzleTank, "Fire.prefab", 0.38f),
+        new KenneyPrefabBinding(BattleEffectId.MuzzleAircraft, "Sparks.prefab", 0.48f),
+        new KenneyPrefabBinding(BattleEffectId.ShellLaunchSmoke, "Smoke.prefab", 0.45f),
+        new KenneyPrefabBinding(BattleEffectId.BombDropTrail, "Smoke.prefab", 0.35f),
+        new KenneyPrefabBinding(BattleEffectId.BulletHitMetal, "Sparks.prefab", 0.55f),
+        new KenneyPrefabBinding(BattleEffectId.BulletHitDirt, "Smoke.prefab", 0.42f),
+        new KenneyPrefabBinding(BattleEffectId.SoldierDeath, "Smoke.prefab", 0.48f),
+        new KenneyPrefabBinding(BattleEffectId.ShellExplosionSmall, "Fire.prefab", 0.58f),
+        new KenneyPrefabBinding(BattleEffectId.ExplosionSmall, "Fire.prefab", 0.58f),
+        new KenneyPrefabBinding(BattleEffectId.ShellExplosionLarge, "Fire.prefab", 0.72f),
+        new KenneyPrefabBinding(BattleEffectId.ExplosionLarge, "Fire.prefab", 0.72f),
+        new KenneyPrefabBinding(BattleEffectId.BombExplosion, "Fire.prefab", 0.78f),
+        new KenneyPrefabBinding(BattleEffectId.ShellImpactMonster, "Fire.prefab", 0.68f),
+        new KenneyPrefabBinding(BattleEffectId.MonsterHammerImpact, "Fire.prefab", 0.65f),
+        new KenneyPrefabBinding(BattleEffectId.TankDeathExplosion, "Fire.prefab", 0.75f),
+        new KenneyPrefabBinding(BattleEffectId.AircraftDeathExplosion, "Fire.prefab", 0.75f),
+        new KenneyPrefabBinding(BattleEffectId.AirCrashExplosion, "Fire.prefab", 0.75f),
+        new KenneyPrefabBinding(BattleEffectId.TankWreckSmoke, "Smoke.prefab", 0.55f),
+        new KenneyPrefabBinding(BattleEffectId.AircraftCrashSmoke, "Smoke.prefab", 0.50f),
+        new KenneyPrefabBinding(BattleEffectId.MonsterDeathExplosion, "Fire.prefab", 0.82f),
+        new KenneyPrefabBinding(BattleEffectId.MonsterDeathDust, "Smoke.prefab", 0.62f),
+        new KenneyPrefabBinding(BattleEffectId.MonsterStompDust, "Smoke.prefab", 0.58f),
+        new KenneyPrefabBinding(BattleEffectId.HumanSummon, "Magic.prefab", 0.72f),
+        new KenneyPrefabBinding(BattleEffectId.OrcSummon, "Magic.prefab", 0.78f),
+        new KenneyPrefabBinding(BattleEffectId.HumanAirStrikeWarning, "Electricity.prefab", 0.85f),
+        new KenneyPrefabBinding(BattleEffectId.OrcRageBuff, "Fire.prefab", 0.80f),
+        new KenneyPrefabBinding(BattleEffectId.ClawHit, "Sparks.prefab", 0.52f),
     };
 
     [MenuItem("Apocalypse King/Bind Store VFX Prefabs to Effect Configs")]
@@ -30,20 +65,19 @@ public static class ApocalypseKingVfxPrefabBinder
 
     public static int TryBindAllEffectConfigs(bool logDetails = false)
     {
+        int bound = BindKenneyPrefabs(logDetails);
         var prefabs = CollectCandidatePrefabs();
-        if (prefabs.Count == 0)
+        if (prefabs.Count == 0 && bound == 0)
         {
             if (logDetails)
             {
                 Debug.Log(
-                    "[ApocalypseKing] No War FX / Cartoon FX prefabs found. Import War FX + Cartoon FX Remaster Free, "
-                    + "then re-run Apocalypse King > Bind Store VFX Prefabs (or Setup Project Assets).");
+                    "[ApocalypseKing] No VFX prefabs found. Run tools/import-free-vfx.ps1 or import War FX + Cartoon FX Remaster Free from Asset Store.");
             }
 
             return 0;
         }
 
-        int bound = 0;
         foreach (var rule in Rules)
         {
             if (rule.Id == BattleEffectId.None || rule.Id == BattleEffectId.BulletTracer)
@@ -60,6 +94,11 @@ public static class ApocalypseKingVfxPrefabBinder
 
             GameObject match = FindBestPrefab(prefabs, rule);
             if (match == null)
+            {
+                continue;
+            }
+
+            if (IsKenneyPrefab(config.prefab) && !IsStoreVfxPrefab(match))
             {
                 continue;
             }
@@ -81,6 +120,49 @@ public static class ApocalypseKingVfxPrefabBinder
             if (logDetails)
             {
                 Debug.Log($"[ApocalypseKing] {rule.Id} <- {AssetDatabase.GetAssetPath(match)} (scale x{rule.PrefabScaleMultiplier:0.##})");
+            }
+        }
+
+        return bound;
+    }
+
+    private static int BindKenneyPrefabs(bool logDetails)
+    {
+        if (!AssetDatabase.IsValidFolder("Assets/Kenney"))
+        {
+            return 0;
+        }
+
+        int bound = 0;
+        for (int i = 0; i < KenneyPrefabBindings.Length; i++)
+        {
+            KenneyPrefabBinding entry = KenneyPrefabBindings[i];
+            string path = KenneyPrefabsRoot + "/" + entry.PrefabFileName;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+            {
+                continue;
+            }
+
+            string configPath = EffectsResourcesFolder + "/Effect_" + entry.Id + ".asset";
+            var config = AssetDatabase.LoadAssetAtPath<EffectConfig>(configPath);
+            if (config == null)
+            {
+                continue;
+            }
+
+            if (config.prefab == prefab && Mathf.Approximately(config.prefabScaleMultiplier, entry.Scale))
+            {
+                continue;
+            }
+
+            config.prefab = prefab;
+            config.prefabScaleMultiplier = entry.Scale;
+            EditorUtility.SetDirty(config);
+            bound++;
+            if (logDetails)
+            {
+                Debug.Log($"[ApocalypseKing] {entry.Id} <- {path} (Kenney, scale x{entry.Scale:0.##})");
             }
         }
 
@@ -274,6 +356,43 @@ public static class ApocalypseKingVfxPrefabBinder
         }
 
         return score;
+    }
+
+    private static bool IsKenneyPrefab(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            return false;
+        }
+
+        string path = AssetDatabase.GetAssetPath(prefab);
+        return !string.IsNullOrEmpty(path) && path.Replace('\\', '/').IndexOf("Assets/Kenney/", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsStoreVfxPrefab(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            return false;
+        }
+
+        string name = prefab.name;
+        return name.StartsWith("WFX_", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("CFXR", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private readonly struct KenneyPrefabBinding
+    {
+        public readonly BattleEffectId Id;
+        public readonly string PrefabFileName;
+        public readonly float Scale;
+
+        public KenneyPrefabBinding(BattleEffectId id, string prefabFileName, float scale)
+        {
+            Id = id;
+            PrefabFileName = prefabFileName;
+            Scale = scale;
+        }
     }
 
     private sealed class VfxBindRule
