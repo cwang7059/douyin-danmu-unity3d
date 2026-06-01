@@ -65,6 +65,56 @@ public sealed class ApocalypseGiftCatalog : ScriptableObject
         return false;
     }
 
+    public static bool TryResolveGiftKey(string text, out string giftKey)
+    {
+        return TryResolveGiftKeyFromEntries(CreateDefaultEntries(), text, out giftKey);
+    }
+
+    public bool TryResolveGiftKeyFromCatalog(string text, out string giftKey)
+    {
+        return TryResolveGiftKeyFromEntries(Entries, text, out giftKey);
+    }
+
+    private static bool TryResolveGiftKeyFromEntries(ApocalypseGiftEntry[] entries, string text, out string giftKey)
+    {
+        giftKey = string.Empty;
+        if (string.IsNullOrWhiteSpace(text) || entries == null)
+        {
+            return false;
+        }
+
+        string normalized = text.Trim().ToLowerInvariant();
+        for (int i = 0; i < entries.Length; i++)
+        {
+            var e = entries[i];
+            if (e == null)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(e.GiftKey) && normalized.IndexOf(e.GiftKey, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                giftKey = e.GiftKey;
+                return true;
+            }
+
+            if (e.Aliases != null)
+            {
+                for (int a = 0; a < e.Aliases.Length; a++)
+                {
+                    string alias = e.Aliases[a];
+                    if (!string.IsNullOrWhiteSpace(alias) && normalized.IndexOf(alias.Trim(), StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        giftKey = e.GiftKey;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     public ApocalypseSpawnBatch[] GetSpawns(FactionId faction, ApocalypseGiftEntry entry)
     {
         if (entry == null)
