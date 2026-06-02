@@ -102,7 +102,7 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.giantLabel != null)
             {
-                game.giantLabel.text = $"Boss {giantAlive}/{ApocalypseKingUnityGame.MaxGiantCount} HP {giantHp:0}";
+                game.giantLabel.text = $"丧尸 {giantAlive}/{ApocalypseKingUnityGame.MaxGiantCount} HP {giantHp:0}";
             }
 
             if (game.statusLabel != null)
@@ -235,7 +235,7 @@ public sealed partial class ApocalypseKingUnityGame
                 case 2:
                     return $"Barrage: air support suppressing  helicopters {airAlive}/{ApocalypseKingUnityGame.MaxAircraftCount}";
                 case 3:
-                    return $"Barrage: boss HP {giantHp:0}  breach contested";
+                    return $"弹幕：丧尸 HP {giantHp:0}  前线胶着";
                 default:
                     return $"Barrage: drag to inspect the battlefield  losses {game.humanLosses}";
             }

@@ -114,11 +114,11 @@ public sealed partial class ApocalypseKingUnityGame
         {
             HealGiants(90f);
             HastenGiants(0.2f);
-            ShowBanner(CountActive(giants) >= GiantCount ? "Monster roster full" : "Danmu monster reinforce", true, 0.85f);
+            ShowBanner(CountActive(giants) >= GiantCount ? "丧尸已满" : "弹幕增援丧尸", true, 0.85f);
             return;
         }
 
-        ShowBanner("Danmu monster reinforce", true, 0.85f);
+        ShowBanner("弹幕增援丧尸", true, 0.85f);
     }
 
     private DanmuHumanSpawnAction ResolveHumanDanmuSpawnAction(string key)

@@ -176,7 +176,7 @@ public static class ApocalypseKingProjectSetup
         view.LeftTeamLabel = CreateText(topDynamicRoot, "LeftTeamLabel", "BLUE FORCE", 15, humanColor, TextAnchor.MiddleLeft, font);
         Stretch(view.LeftTeamLabel.rectTransform, 0.03f, 0.66f, 0.25f, 0.93f);
 
-        view.RightTeamLabel = CreateText(topDynamicRoot, "RightTeamLabel", "MONSTER", 15, giantColor, TextAnchor.MiddleRight, font);
+        view.RightTeamLabel = CreateText(topDynamicRoot, "RightTeamLabel", "丧尸", 15, giantColor, TextAnchor.MiddleRight, font);
         Stretch(view.RightTeamLabel.rectTransform, 0.75f, 0.66f, 0.97f, 0.93f);
 
         view.BattlePhaseLabel = CreateText(topDynamicRoot, "BattlePhaseLabel", "LIVE BARRAGE WAR", 12, new Color(0.78f, 0.82f, 0.86f, 1f), TextAnchor.MiddleCenter, font);
@@ -206,7 +206,7 @@ public static class ApocalypseKingProjectSetup
         view.HumanLabel = CreateText(topDynamicRoot, "HumanLabel", "Force 0/0", 12, Color.white, TextAnchor.MiddleLeft, font);
         Stretch(view.HumanLabel.rectTransform, 0.03f, 0.18f, 0.34f, 0.36f);
 
-        view.GiantLabel = CreateText(topDynamicRoot, "GiantLabel", "Boss HP 0", 12, Color.white, TextAnchor.MiddleRight, font);
+        view.GiantLabel = CreateText(topDynamicRoot, "GiantLabel", "丧尸 HP 0", 12, Color.white, TextAnchor.MiddleRight, font);
         Stretch(view.GiantLabel.rectTransform, 0.66f, 0.18f, 0.97f, 0.36f);
 
         var bottomPanel = CreatePanel(view.StaticHudRoot, "LiveBottomPanel", new Color(0.025f, 0.03f, 0.04f, 0.84f));

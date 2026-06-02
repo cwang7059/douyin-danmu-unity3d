@@ -23,11 +23,14 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void UpdateHumanUnit(BattleUnit unit, float dt)
     {
-        var target = FindNearestEnemy(unit, true);
-        if (!unit.active || target == null)
+        if (!unit.active)
         {
             return;
         }
+
+        var target = FindNearestEnemy(unit, true);
+        bool siegeCastle = IsEnemyCastleInSiegeRange(unit);
+        bool engageEnemy = target != null && IsUnitInCastleAggro(unit, target);
 
         unit.animTimer += dt;
         unit.attackCooldown = Mathf.Max(0f, unit.attackCooldown - dt);
@@ -36,21 +39,28 @@ public sealed partial class ApocalypseKingUnityGame
         float previousX = unit.x;
         float previousZ = unit.z;
 
-        float dx = target.x - unit.x;
-        float dz = target.z - unit.z;
-        float distance = Mathf.Sqrt(dx * dx + dz * dz);
-        bool canFire = distance <= unit.attackRange + target.radius * 0.55f;
-
-        if (canFire && unit.attackCooldown <= 0f)
+        if (engageEnemy && target != null)
         {
-            FireHumanWeapon(unit, target);
+            float dx = target.x - unit.x;
+            float dz = target.z - unit.z;
+            float distance = Mathf.Sqrt(dx * dx + dz * dz);
+            bool canFire = distance <= unit.attackRange + target.radius * 0.55f;
+            if (canFire && unit.attackCooldown <= 0f)
+            {
+                FireHumanWeapon(unit, target);
+            }
+        }
+        else if (siegeCastle)
+        {
+            unit.runtimeState = UnitRuntimeState.Attacking;
         }
 
-        bool tankAnchored = unit.kind == UnitKind.Tank && canFire;
+        bool tankAnchored = unit.kind == UnitKind.Tank && engageEnemy && target != null
+            && Mathf.Sqrt(DistanceSq(unit.x, unit.z, target.x, target.z)) <= unit.attackRange + target.radius * 0.55f;
         float nextX = unit.x;
         if (!tankAnchored)
         {
-            float desiredX = HumanHoldX(unit, target);
+            float desiredX = HumanHoldX(unit, target, engageEnemy);
             float holdDeltaX = desiredX - unit.x;
             if (Mathf.Abs(holdDeltaX) > 0.5f)
             {
@@ -76,17 +86,47 @@ public sealed partial class ApocalypseKingUnityGame
         unit.x = Mathf.Clamp(unit.x, HumanCastleMinUnitX - 40f, BeastCastleMaxUnitX + 40f);
 
         RecordUnitMovement(unit, previousX, previousZ, dt);
-        UpdateHumanFacing(unit, target, dt);
+        if (engageEnemy && target != null)
+        {
+            UpdateHumanFacing(unit, target, dt);
+        }
+        else
+        {
+            AimUnitTowardCastle(unit, dt);
+        }
 
         RefreshRuntimeStateFromMovement(unit);
         UpdateUnitTransform(unit, dt);
     }
 
-    private float HumanHoldX(BattleUnit unit, BattleUnit target)
+    private float HumanHoldX(BattleUnit unit, BattleUnit target, bool engageEnemy)
     {
-        float gap = HumanEngagementGap(unit.kind);
         float stagger = (Noise(unit.id * 0.37f + unit.rank * 1.9f) - 0.5f) * 40f;
-        float holdX = (unit.facing >= 0 ? target.x - gap : target.x + gap) + stagger;
+        bool hasSiegePoint = TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _);
+        float desiredX = hasSiegePoint ? siegeX + stagger : unit.x + stagger;
+
+        if (target != null && engageEnemy)
+        {
+            float gap = HumanEngagementGap(unit.kind);
+            float combatX = (unit.facing >= 0 ? target.x - gap : target.x + gap) + stagger;
+            if (hasSiegePoint)
+            {
+                // 只向城堡方向推进：交战站位不得落在身后，避免双方在中场对顶不前
+                if (unit.facing >= 0)
+                {
+                    desiredX = Mathf.Min(Mathf.Max(combatX, unit.x), siegeX + stagger);
+                }
+                else
+                {
+                    desiredX = Mathf.Max(Mathf.Min(combatX, unit.x), siegeX + stagger);
+                }
+            }
+            else
+            {
+                desiredX = combatX;
+            }
+        }
+
         float minX = Left + 58f;
         float maxX = Right - 48f;
         if (unit.kind == UnitKind.Tank)
@@ -95,7 +135,21 @@ public sealed partial class ApocalypseKingUnityGame
             maxX = Right - 160f;
         }
 
-        return Mathf.Clamp(holdX, minX, maxX);
+        return Mathf.Clamp(desiredX, minX, maxX);
+    }
+
+    private void AimUnitTowardCastle(BattleUnit unit, float dt)
+    {
+        if (unit == null || !TryGetEnemyCastleSiegePoint(unit, out float siegeX, out float siegeZ))
+        {
+            return;
+        }
+
+        float aimYaw = DirectionYawDegrees(siegeX - unit.x, siegeZ - unit.z, unit.headingDegrees);
+        float turnRate = unit.kind == UnitKind.Tank ? 8.5f : unit.kind == UnitKind.Aircraft ? 5.8f : 7.5f;
+        unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, Mathf.Clamp01(dt * turnRate));
+        unit.turretYawDegrees = unit.headingDegrees;
+        unit.facing = DirectionFromYaw(unit.headingDegrees).x >= 0f ? 1 : -1;
     }
 
     private float HumanEngagementGap(UnitKind kind)
@@ -115,12 +169,14 @@ public sealed partial class ApocalypseKingUnityGame
 
     private float HumanHoldZ(BattleUnit unit)
     {
-        if (unit.kind == UnitKind.Aircraft)
+        float wave = unit.kind == UnitKind.Aircraft ? 0f : Mathf.Sin(battleTime * 1.7f + unit.seed * 6f) * 5f;
+        if (TryGetEnemyCastleSiegePoint(unit, out _, out float siegeZ))
         {
-            return unit.baseZ;
+            float anchor = unit.kind == UnitKind.Aircraft ? unit.baseZ : unit.baseZ + wave;
+            return Mathf.Lerp(anchor, siegeZ, unit.kind == UnitKind.Aircraft ? 0.22f : 0.38f);
         }
 
-        return unit.baseZ + Mathf.Sin(battleTime * 1.7f + unit.seed * 6f) * 5f;
+        return unit.baseZ + wave;
     }
 
     private void UpdateHumanFacing(BattleUnit unit, BattleUnit target, float dt)
@@ -266,17 +322,46 @@ public sealed partial class ApocalypseKingUnityGame
             float targetYaw = DirectionYawDegrees(faceTarget.x - giant.x, faceTarget.z - giant.z, giant.headingDegrees);
             giant.headingDegrees = Mathf.LerpAngle(giant.headingDegrees, targetYaw, Mathf.Clamp01(dt * 4.6f));
         }
+        else
+        {
+            AimUnitTowardCastle(giant, dt);
+        }
 
         if (engagementTarget != null && giant.attackCooldown <= 0f)
         {
             PerformGiantMeleeAttack(giant, engagementTarget);
         }
 
-        if (contactTarget == null && chaseTarget != null)
+        if (contactTarget == null)
         {
-            float formationZ = Mathf.Clamp(chaseTarget.z + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
-            Vector2 chase = DirectionTo(giant.x, giant.z, chaseTarget.x, formationZ, giant.headingDegrees);
-            MoveUnitToAvoidingBuildings(giant, giant.x + chase.x * giant.speed * dt, giant.z + chase.y * giant.speed * dt);
+            float goalX = giant.x;
+            float goalZ = giant.z;
+            bool marchCastle = TryGetEnemyCastleSiegePoint(giant, out float siegeX, out float siegeZ);
+            if (marchCastle)
+            {
+                goalX = siegeX;
+                goalZ = siegeZ;
+                if (giant.facing >= 0)
+                {
+                    goalX = Mathf.Min(Mathf.Max(goalX, giant.x), siegeX);
+                }
+                else
+                {
+                    goalX = Mathf.Max(Mathf.Min(goalX, giant.x), siegeX);
+                }
+            }
+            else if (chaseTarget != null)
+            {
+                goalX = chaseTarget.x;
+                goalZ = chaseTarget.z;
+            }
+
+            if (marchCastle || chaseTarget != null)
+            {
+                float formationZ = Mathf.Clamp(goalZ + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
+                Vector2 chase = DirectionTo(giant.x, giant.z, goalX, formationZ, giant.headingDegrees);
+                MoveUnitToAvoidingBuildings(giant, giant.x + chase.x * giant.speed * dt, giant.z + chase.y * giant.speed * dt);
+            }
         }
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
@@ -364,7 +449,7 @@ public sealed partial class ApocalypseKingUnityGame
         PlayBattleEffect(BattleEffectId.MonsterHammerImpact, impactX, impactZ, 0.18f, 1.05f, Quaternion.identity);
         PlayBattleEffect(BattleEffectId.MonsterShockwave, impactX, impactZ, 0.08f, 0.72f, Quaternion.identity);
         ApplyAreaDamageToHumans(impactX, impactZ, 162f, giant.damage, true, 44f);
-        ShowBanner("Giant smash", true, 0.95f);
+        ShowBanner("丧尸猛击", true, 0.95f);
     }
 
     private void PerformGiantMeleeAttack(BattleUnit giant, BattleUnit target)
@@ -409,7 +494,7 @@ public sealed partial class ApocalypseKingUnityGame
         PlayBattleAudio(BattleAudioCueId.CreatureHit, impactX, impactZ, target.kind == UnitKind.Aircraft ? 2.2f : 0.2f);
         TriggerCameraShake(target.kind == UnitKind.Tank ? 0.20f : 0.14f, target.kind == UnitKind.Tank ? 0.13f : 0.08f);
         ApplyGiantContactDamage(giant);
-        ShowBanner(target.kind == UnitKind.Aircraft ? "Giant swat" : target.kind == UnitKind.Tank ? "Giant hammer" : "Giant stomp", true, 0.85f);
+        ShowBanner(target.kind == UnitKind.Aircraft ? "丧尸拍落" : target.kind == UnitKind.Tank ? "丧尸重击" : "丧尸践踏", true, 0.85f);
     }
 
     private void ThrowGiantRock(BattleUnit giant, BattleUnit target)

@@ -254,7 +254,7 @@ public sealed partial class ApocalypseKingUnityGame
                         continue;
                     }
 
-                    float stopX = game.HumanHoldX(unit, giant);
+                    float stopX = game.HumanHoldX(unit, giant, true);
                     float guard = 4f + padding * 2f;
                     const float maxGiantGuardPush = 56f;
                     if (unit.facing >= 0)
