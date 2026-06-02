@@ -8,6 +8,12 @@ Set-Location $Root
 Write-Host "[Apocalypse] Importing VFX (Kenney particles)..."
 & "$PSScriptRoot\import-free-vfx.ps1"
 
+Write-Host "[Apocalypse] Importing US Army tactical soldier..."
+& "$PSScriptRoot\import-us-soldier.ps1"
+
+Write-Host "[Apocalypse] Importing M14 rifle for soldiers..."
+& "$PSScriptRoot\import-m14-weapon.ps1"
+
 $ThirdParty = Join-Path $Root "Assets\ThirdParty\Kenney"
 New-Item -ItemType Directory -Force -Path $ThirdParty | Out-Null
 
