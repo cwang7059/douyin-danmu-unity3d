@@ -1,0 +1,154 @@
+using UnityEngine;
+
+public sealed partial class ApocalypseKingUnityGame
+{
+    private const float NuclearCountdownStrikeDelaySeconds = 1.35f;
+    private const float NuclearStrikeRadius = 520f;
+    private const float NuclearStrikeUnitDamage = 680f;
+    private const float NuclearStrikeGiantDamage = 920f;
+
+    private static readonly float[] NuclearRingOffsetX = { 0f, -200f, 200f, -120f, 120f };
+    private static readonly float[] NuclearRingOffsetZ = { 0f, 140f, -140f, -95f, 95f };
+
+    private float nuclearStrikeSequenceTimer;
+    private float nuclearStrikeCenterX;
+    private float nuclearStrikeCenterZ;
+    private bool nuclearStrikeDetonated;
+
+    private void UpdateNuclearStrikeSequence(float dt)
+    {
+        if (nuclearStrikeSequenceTimer <= 0f)
+        {
+            return;
+        }
+
+        nuclearStrikeSequenceTimer = Mathf.Max(0f, nuclearStrikeSequenceTimer - dt);
+        if (!nuclearStrikeDetonated && nuclearStrikeSequenceTimer <= 0.22f)
+        {
+            nuclearStrikeDetonated = true;
+            DetonateScheduledNuclearStrike();
+        }
+    }
+
+    private void TryBeginNuclearCountdownStrike()
+    {
+        if (matchPhase != MatchPhase.Battle || ended || nuclearStrikeSequenceTimer > 0f)
+        {
+            return;
+        }
+
+        Vector2 center = GetNuclearStrikeCenter();
+        nuclearStrikeCenterX = center.x;
+        nuclearStrikeCenterZ = center.y;
+        nuclearStrikeSequenceTimer = NuclearCountdownStrikeDelaySeconds;
+        nuclearStrikeDetonated = false;
+
+        PlayBattleEffect(BattleEffectId.NuclearStrikeWarning, nuclearStrikeCenterX, nuclearStrikeCenterZ, 0.08f, 1.85f, Quaternion.identity);
+        PlayBattleAudio(BattleAudioCueId.ExplosionSmall, nuclearStrikeCenterX, nuclearStrikeCenterZ, 0.12f);
+        TriggerCameraShake(0.35f, 0.12f);
+        ShowBanner("核武倒计时归零 — 战术核打击锁定", true, 1.6f);
+    }
+
+    private void DetonateScheduledNuclearStrike()
+    {
+        ExecuteNuclearDetonation(nuclearStrikeCenterX, nuclearStrikeCenterZ, 1f, true);
+        ResetNuclearCountdown();
+        ShowBanner("核武降临 — 战场震颤", true, 3.2f);
+    }
+
+    private void ResetNuclearCountdown()
+    {
+        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 90f;
+    }
+
+    private Vector2 GetNuclearStrikeCenter()
+    {
+        Vector2 giantCenter = GetActiveGiantCenter();
+        if (giantCenter != Vector2.zero)
+        {
+            return giantCenter;
+        }
+
+        return new Vector2((Left + Right) * 0.5f, 0f);
+    }
+
+    private void TriggerTacticalAirStrike(bool resetNuclearCountdown, string bannerText)
+    {
+        Vector2 center = GetNuclearStrikeCenter();
+        PlayBattleEffect(BattleEffectId.HumanAirStrikeWarning, center.x, center.y, 0.05f, 1.45f, Quaternion.identity);
+        PlayBattleEffect(BattleEffectId.ExplosionLarge, center.x, center.y, 0.35f, 1.15f, Quaternion.identity);
+        PlayBattleAudio(BattleAudioCueId.ExplosionLarge, center.x, center.y, 0.35f);
+        TriggerCameraShake(0.85f, 0.22f);
+
+        DamageGiantsInArea(center.x, center.y, 320f, 380f);
+        if (zombieBase != null)
+        {
+            zombieBase.ApplyDamage(8000f);
+        }
+
+        if (resetNuclearCountdown)
+        {
+            ResetNuclearCountdown();
+        }
+
+        if (!string.IsNullOrEmpty(bannerText))
+        {
+            ShowBanner(bannerText, true, 2.5f);
+        }
+    }
+
+    private void ExecuteNuclearDetonation(float centerX, float centerZ, float intensity, bool fullStrike)
+    {
+        float effectScale = Mathf.Lerp(2.2f, 3.1f, Mathf.Clamp01(intensity));
+        TriggerNuclearFlash(2.4f);
+        TriggerCameraShake(3.2f, 0.58f);
+
+        for (int i = 0; i < NuclearRingOffsetX.Length; i++)
+        {
+            float x = centerX + NuclearRingOffsetX[i];
+            float z = centerZ + NuclearRingOffsetZ[i];
+            float ringScale = effectScale * (i == 0 ? 1f : 0.72f);
+            float height = i == 0 ? 0.42f : 0.28f;
+            PlayBattleEffect(BattleEffectId.NuclearDetonation, x, z, height, ringScale, Quaternion.identity);
+            if (i == 0)
+            {
+                PlayBattleEffect(BattleEffectId.BombExplosion, x, z, 0.22f, 1.35f, Quaternion.identity);
+            }
+        }
+
+        PlayBattleAudio(BattleAudioCueId.ExplosionLarge, centerX, centerZ, 0.45f);
+        PlayBattleAudio(BattleAudioCueId.ExplosionLarge, centerX + 40f, centerZ, 0.35f);
+
+        float radius = fullStrike ? NuclearStrikeRadius : 320f;
+        float unitDamage = fullStrike ? NuclearStrikeUnitDamage : 380f;
+        float giantDamage = fullStrike ? NuclearStrikeGiantDamage : 380f;
+        DamageGiantsInArea(centerX, centerZ, radius, giantDamage);
+        DamageResolver.DamageAllUnitsInArea(centerX, centerZ, radius, unitDamage);
+        ApplyNuclearBaseDamage(centerX, centerZ, fullStrike);
+    }
+
+    private void ApplyNuclearBaseDamage(float centerX, float centerZ, bool fullStrike)
+    {
+        if (!fullStrike)
+        {
+            return;
+        }
+
+        if (zombieBase != null)
+        {
+            zombieBase.ApplyDamage(18000f);
+        }
+
+        if (greenBase != null)
+        {
+            greenBase.ApplyDamage(9000f);
+        }
+
+        if (blueBase != null)
+        {
+            float dist = Distance(centerX, centerZ, blueBase.WorldX, blueBase.WorldZ);
+            float falloff = Mathf.Clamp01(1f - dist / 900f);
+            blueBase.ApplyDamage(3500f * falloff);
+        }
+    }
+}

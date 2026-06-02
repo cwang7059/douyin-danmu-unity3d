@@ -17,6 +17,7 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureExplosionSinestesiaSmall = VfxSelectedPath + "explosion_sinestesia_small";
     private const string TextureExplosionSinestesiaLarge = VfxSelectedPath + "explosion_sinestesia_large";
     private const string TextureExplosionSinestesiaBomb = VfxSelectedPath + "explosion_sinestesia_bomb";
+    private const string TextureExplosionNuclear = VfxSelectedPath + "explosion_nuclear";
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
 
     [SerializeField] private EffectConfig[] configs;
@@ -181,6 +182,8 @@ public sealed class EffectManager : MonoBehaviour
         EnsurePrewarmed(BattleEffectId.AircraftDeathExplosion, 4);
         EnsurePrewarmed(BattleEffectId.MonsterDeathExplosion, 4);
         EnsurePrewarmed(BattleEffectId.MonsterDeathDust, 4);
+        EnsurePrewarmed(BattleEffectId.NuclearStrikeWarning, 2);
+        EnsurePrewarmed(BattleEffectId.NuclearDetonation, 2);
     }
 
     private void EnsurePrewarmed(BattleEffectId id, int desiredCount)
@@ -416,6 +419,16 @@ public sealed class EffectManager : MonoBehaviour
                 AddShockwave(root, 16, 0.68f, new Color(1f, 0.42f, 0.14f, 0.44f));
                 AddPointLight(root, "OrcSummonLight", new Color(1f, 0.35f, 0.10f, 1f), 2.8f, 5.2f);
                 break;
+            case BattleEffectId.NuclearStrikeWarning:
+                AddShockwave(root, 72, 2.35f, new Color(1f, 0.92f, 0.42f, 0.72f));
+                AddShockwave(root, 48, 1.65f, new Color(1f, 0.38f, 0.12f, 0.58f));
+                AddBurst(root, "NuclearWarningRing", 1.45f, 0.62f, 1.05f, 0.04f, 0.18f, 0.12f, 0.28f, 36, new Color(1f, 0.95f, 0.55f, 0.95f), new Color(1f, 0.32f, 0.05f, 0f), ParticleSystemShapeType.Circle, 0.72f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "NuclearWarningSparks", 1.2f, 0.38f, 0.72f, 0.8f, 2.4f, 0.08f, 0.18f, 28, new Color(1f, 0.72f, 0.22f, 0.95f), new Color(1f, 0.18f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.48f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddPointLight(root, "NuclearWarningLight", new Color(1f, 0.78f, 0.32f, 1f), 5.5f, 12f);
+                break;
+            case BattleEffectId.NuclearDetonation:
+                AddNuclearDetonation(root);
+                break;
             default:
                 AddBurst(root, "FallbackBurst", IsLargeEffect(id) ? 0.9f : 0.45f, IsSmokeLike(id) ? 0.7f : 0.25f, IsSmokeLike(id) ? 1.2f : 0.45f, IsLargeEffect(id) ? 3.5f : 1.4f, IsLargeEffect(id) ? 7f : 3.5f, IsLargeEffect(id) ? 0.32f : 0.16f, IsLargeEffect(id) ? 0.62f : 0.28f, IsLargeEffect(id) ? 42 : 16, FallbackColor(id), new Color(0.36f, 0.36f, 0.36f, 0f), ParticleSystemShapeType.Sphere, IsLargeEffect(id) ? 0.55f : 0.18f, 0f, IsSmokeLike(id) ? -0.1f : 0f);
                 break;
@@ -430,6 +443,21 @@ public sealed class EffectManager : MonoBehaviour
         AddBurst(root, "MonsterShellImpactDebris", 0.58f, 0.20f, 0.52f, 3.0f, 8.0f, 0.08f, 0.18f, 26, new Color(1f, 0.72f, 0.24f, 0.95f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Sphere, 0.24f, 0f, -0.18f, ParticleSystemRenderMode.Stretch);
         AddShockwave(root, 30, 1.18f, new Color(1f, 0.58f, 0.18f, 0.52f));
         AddPointLight(root, "MonsterShellImpactLight", new Color(1f, 0.48f, 0.14f, 1f), 4.2f, 6.5f);
+    }
+
+    private static void AddNuclearDetonation(Transform root)
+    {
+        const float scale = 2.85f;
+        string fireTexture = TextureExplosionNuclear;
+        AddBurst(root, "NuclearFlash", 0.42f, 0.08f, 0.16f, 0.02f, 0.08f, 2.4f * scale, 4.2f * scale, 4, Color.white, new Color(1f, 0.92f, 0.72f, 0f), ParticleSystemShapeType.Sphere, 0.06f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+        AddExplosion(root, 2.2f, 42, 52, scale * 1.05f, fireTexture);
+        AddBurst(root, "NuclearFireColumn", 3.6f, 0.85f, 1.45f, 0.35f * scale, 1.1f * scale, 1.2f * scale, 2.6f * scale, 18, Color.white, new Color(1f, 0.42f, 0.08f, 0f), ParticleSystemShapeType.Cone, 0.22f * scale, 8f, -0.04f, ParticleSystemRenderMode.Billboard, fireTexture);
+        AddBurst(root, "NuclearMushroomStem", 4.8f, 1.2f, 2.2f, 0.55f * scale, 1.8f * scale, 1.6f * scale, 3.4f * scale, 64, new Color(0.42f, 0.38f, 0.34f, 0.88f), new Color(0.12f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Cone, 0.38f * scale, 4f, -0.22f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+        AddBurst(root, "NuclearMushroomCap", 5.6f, 1.6f, 2.8f, 0.18f * scale, 0.65f * scale, 2.4f * scale, 4.8f * scale, 88, new Color(0.55f, 0.50f, 0.46f, 0.82f), new Color(0.16f, 0.14f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.92f * scale, 0f, -0.35f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+        AddBurst(root, "NuclearHeatRipple", 2.4f, 0.48f, 0.92f, 0.05f * scale, 0.14f * scale, 1.8f * scale, 3.2f * scale, 12, new Color(1f, 0.62f, 0.18f, 0.75f), new Color(1f, 0.18f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.55f * scale, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureShockwaveRing);
+        AddShockwave(root, 96, 2.85f, new Color(1f, 0.88f, 0.52f, 0.62f));
+        AddShockwave(root, 64, 2.1f, new Color(1f, 0.42f, 0.12f, 0.52f));
+        AddPointLight(root, "NuclearDetonationLight", new Color(1f, 0.72f, 0.28f, 1f), 9.5f * scale, 18f * scale);
     }
 
     private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
@@ -630,7 +658,8 @@ public sealed class EffectManager : MonoBehaviour
     private static bool TryGetTextureSheetTiles(string textureResourcePath, out int tilesX, out int tilesY)
     {
         if (textureResourcePath == TextureExplosionSinestesiaLarge
-            || textureResourcePath == TextureExplosionSinestesiaBomb)
+            || textureResourcePath == TextureExplosionSinestesiaBomb
+            || textureResourcePath == TextureExplosionNuclear)
         {
             tilesX = 8;
             tilesY = 8;
@@ -683,7 +712,9 @@ public sealed class EffectManager : MonoBehaviour
             || id == BattleEffectId.AircraftDeathExplosion
             || id == BattleEffectId.MonsterDeathExplosion
             || id == BattleEffectId.HumanAirStrikeWarning
-            || id == BattleEffectId.OrcRageBuff;
+            || id == BattleEffectId.OrcRageBuff
+            || id == BattleEffectId.NuclearStrikeWarning
+            || id == BattleEffectId.NuclearDetonation;
     }
 
     private static bool IsSmokeLike(BattleEffectId id)
@@ -709,6 +740,9 @@ public sealed class EffectManager : MonoBehaviour
             case BattleEffectId.ShellLaunchSmoke:
                 return new Color(0.72f, 0.70f, 0.66f, 1f);
             case BattleEffectId.HumanSummon:
+            case BattleEffectId.NuclearStrikeWarning:
+            case BattleEffectId.NuclearDetonation:
+                return new Color(1f, 0.72f, 0.22f, 1f);
             case BattleEffectId.HumanAirStrikeWarning:
                 return new Color(0.25f, 0.68f, 1f, 1f);
             case BattleEffectId.OrcSummon:

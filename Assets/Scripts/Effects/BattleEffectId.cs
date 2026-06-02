@@ -31,4 +31,6 @@ public enum BattleEffectId
     AircraftCrashSmoke,
     MonsterDeathExplosion,
     MonsterDeathDust,
+    NuclearStrikeWarning,
+    NuclearDetonation,
 }

@@ -69,26 +69,49 @@ public sealed partial class ApocalypseKingUnityGame
 
         public void DamageGiantsInArea(float x, float z, float radius, float amount)
         {
+            DamageUnitsInArea(game.giants, x, z, radius, amount, 0.09f, true);
+        }
+
+        public void DamageAllUnitsInArea(float x, float z, float radius, float damage)
+        {
+            DamageUnitsInArea(game.soldiers, x, z, radius, damage, 0.07f, false);
+            DamageUnitsInArea(game.tanks, x, z, radius, damage * 1.08f, 0.08f, false);
+            DamageUnitsInArea(game.aircraft, x, z, radius, damage * 0.92f, 0.06f, false);
+            DamageUnitsInArea(game.giants, x, z, radius, damage * 1.15f, 0.09f, true);
+        }
+
+        private void DamageUnitsInArea(List<BattleUnit> units, float x, float z, float radius, float damage, float hitFlash, bool isGiant)
+        {
             float radiusSq = radius * radius;
-            for (int i = 0; i < game.giants.Count; i++)
+            for (int i = 0; i < units.Count; i++)
             {
-                var giant = game.giants[i];
-                if (giant == null || !giant.active)
+                var unit = units[i];
+                if (unit == null || !unit.active)
                 {
                     continue;
                 }
 
-                float distanceSq = game.DistanceSq(x, z, giant.x, giant.z);
+                float distanceSq = game.DistanceSq(x, z, unit.x, unit.z);
                 if (distanceSq > radiusSq)
                 {
                     continue;
                 }
 
                 float pct = 1f - Mathf.Clamp01(Mathf.Sqrt(distanceSq) / Mathf.Max(1f, radius));
-                var result = ApplyDamage(giant, amount * (0.55f + pct * 0.65f), 0.09f);
-                if (result.Defeated)
+                float scaled = damage * (0.5f + pct * 0.7f);
+                var result = ApplyDamage(unit, scaled, hitFlash);
+                if (!result.Defeated)
                 {
-                    game.DefeatGiant(giant);
+                    continue;
+                }
+
+                if (isGiant || unit.kind == UnitKind.Giant)
+                {
+                    game.DefeatGiant(unit);
+                }
+                else
+                {
+                    game.DeactivateHumanUnit(unit);
                 }
             }
         }

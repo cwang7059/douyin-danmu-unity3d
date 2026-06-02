@@ -69,7 +69,7 @@ public sealed partial class ApocalypseKingUnityGame
         InitApocalypseBases();
         ResetBattle();
         EnsureBaseMarkers();
-        ShowBanner("末日之王 — 对局开始 | F1-F4 镜头", false, 2.2f);
+        ShowBanner("末日之王 — 摧毁敌方基地获胜 | F1-F4 镜头", false, 2.4f);
     }
 
     private void HandleMatchPhaseInput()
@@ -103,7 +103,14 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        float nuclearBefore = nuclearTimer;
         nuclearTimer = Mathf.Max(0f, nuclearTimer - dt);
+        if (nuclearBefore > 0f && nuclearTimer <= 0f)
+        {
+            TryBeginNuclearCountdownStrike();
+        }
+
+        UpdateNuclearStrikeSequence(dt);
         if (globalAttackBuffTimer > 0f)
         {
             globalAttackBuffTimer -= dt;
@@ -145,15 +152,19 @@ public sealed partial class ApocalypseKingUnityGame
 
             float dx = unit.x - target.WorldX;
             float dz = unit.z - target.WorldZ;
-            if (dx * dx + dz * dz > 140f * 140f)
+            if (dx * dx + dz * dz > CastleSiegeDamageRadius * CastleSiegeDamageRadius)
             {
                 continue;
             }
 
-            float dps = unit.kind == UnitKind.Giant ? 420f : unit.kind == UnitKind.Tank ? 180f : 45f;
+            float dps = unit.kind == UnitKind.Giant ? 520f : unit.kind == UnitKind.Tank ? 220f : 58f;
             target.ApplyDamage(dps * dt);
         }
     }
+
+    private const float CastleSiegeStandoffX = 48f;
+    private const float CastleSiegeAggroRadius = 300f;
+    private const float CastleSiegeDamageRadius = 168f;
 
     private ApocalypseBaseState GetEnemyBaseForUnit(BattleUnit unit)
     {
@@ -179,6 +190,70 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         return zombieBase;
+    }
+
+    private bool TryGetEnemyCastleSiegePoint(BattleUnit unit, out float siegeX, out float siegeZ)
+    {
+        siegeX = 0f;
+        siegeZ = 0f;
+        if (unit == null)
+        {
+            return false;
+        }
+
+        if (matchPhase == MatchPhase.Battle)
+        {
+            ApocalypseBaseState enemyBase = GetEnemyBaseForUnit(unit);
+            if (enemyBase == null || enemyBase.Destroyed)
+            {
+                return false;
+            }
+
+            siegeX = enemyBase.WorldX - unit.facing * CastleSiegeStandoffX;
+            siegeZ = enemyBase.WorldZ;
+            return true;
+        }
+
+        FactionId faction = GetEffectiveFaction(unit);
+        if (faction == FactionId.Zombie || unit.team == TeamKind.Giant)
+        {
+            siegeX = HumanCastleGateX + CastleSiegeStandoffX;
+            siegeZ = HumanCastleCenterZ;
+            return true;
+        }
+
+        siegeX = BeastCastleGateX - CastleSiegeStandoffX;
+        siegeZ = BeastCastleCenterZ;
+        return true;
+    }
+
+    private bool IsEnemyCastleInSiegeRange(BattleUnit unit)
+    {
+        if (unit == null || matchPhase != MatchPhase.Battle)
+        {
+            return false;
+        }
+
+        ApocalypseBaseState enemyBase = GetEnemyBaseForUnit(unit);
+        if (enemyBase == null || enemyBase.Destroyed)
+        {
+            return false;
+        }
+
+        float dx = unit.x - enemyBase.WorldX;
+        float dz = unit.z - enemyBase.WorldZ;
+        return dx * dx + dz * dz <= CastleSiegeDamageRadius * CastleSiegeDamageRadius;
+    }
+
+    private bool IsUnitInCastleAggro(BattleUnit unit, BattleUnit enemy)
+    {
+        if (unit == null || enemy == null)
+        {
+            return false;
+        }
+
+        float radiusSq = CastleSiegeAggroRadius * CastleSiegeAggroRadius;
+        return DistanceSq(unit.x, unit.z, enemy.x, enemy.z) <= radiusSq;
     }
 
     private void CheckApocalypseMatchEnd()

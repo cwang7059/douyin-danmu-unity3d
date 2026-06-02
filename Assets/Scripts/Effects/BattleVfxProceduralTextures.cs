@@ -58,10 +58,10 @@ public static class BattleVfxProceduralTextures
             return CreateStreak(128, 64, new Color(1f, 0.72f, 0.22f, 1f), name.Contains("tank"));
         }
 
-        if (name.Contains("explosion") || name.Contains("sinestesia") || name.Contains("fireball") || name.Contains("bomb"))
+        if (name.Contains("explosion") || name.Contains("sinestesia") || name.Contains("fireball") || name.Contains("bomb") || name.Contains("nuclear"))
         {
-            int cells = name.Contains("large") || name.Contains("bomb") ? 8 : 4;
-            float intensity = name.Contains("bomb") ? 1.25f : name.Contains("large") ? 1.05f : 0.9f;
+            int cells = name.Contains("large") || name.Contains("bomb") || name.Contains("nuclear") ? 8 : 4;
+            float intensity = name.Contains("nuclear") ? 1.55f : name.Contains("bomb") ? 1.25f : name.Contains("large") ? 1.05f : 0.9f;
             return CreateExplosionSheet(cells, cells, intensity);
         }
 

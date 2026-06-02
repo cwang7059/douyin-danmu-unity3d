@@ -88,6 +88,8 @@ if (Test-Path -LiteralPath $KenneyPng) {
     New-FlipbookPng "explosion_sinestesia_small.png" $smallFrames
     New-FlipbookPng "explosion_sinestesia_large.png" $largeFrames
     New-FlipbookPng "explosion_sinestesia_bomb.png" $bombFrames
+    $nuclearFrames = @("magic_03.png", "magic_04.png", "magic_05.png", "fire_02.png", "flame_05.png", "flame_06.png", "scorch_03.png", "smoke_09.png", "smoke_10.png", "smoke_08.png", "light_02.png", "light_03.png", "spark_07.png", "spark_06.png", "flame_04.png", "fire_01.png")
+    New-FlipbookPng "explosion_nuclear.png" $nuclearFrames
 }
 
 if (-not $SkipUnitySetup) {
