@@ -5,6 +5,5 @@ License: CC0 1.0 — commercial use allowed, attribution optional.
 
 Imported by `tools/import-apocalypse-assets.ps1` for left/right **Roman-style forts** (Kenney Castle Kit, CC0) in `ApocalypseKingUnityGame.FactionCastles.cs`.
 
-Open Unity once after import so GLTF prefabs are generated under this folder.
-
-After adding GLB files, open Unity once so GLTF importer generates prefabs under this folder.
+1. Open Unity once so GLB files import (UnityGLTF).
+2. Run **Apocalypse King > Bake Castle Kit Prefabs** (or batch build via `build-and-start.bat`) to create `Prefabs/*.prefab` for runtime loading.
