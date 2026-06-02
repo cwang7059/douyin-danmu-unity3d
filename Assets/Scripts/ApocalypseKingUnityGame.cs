@@ -59,19 +59,36 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
     private const string AircraftResourceFolderPath = "KumaSousa/LowPolyHelicopter";
     private const string AircraftResourceModelPath = AircraftResourceFolderPath + "/helicopter";
-    private const string GiantResourceFolderPath = "Quaternius/UltimateMonsters";
-    private const string GiantResourceModelPath = GiantResourceFolderPath + "/BlueDemon";
+    private const string GiantSamResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
+    private const string GiantSamResourceFolderPath = "Quaternius/ZombieApocalypse";
+    private const string GiantResourceFolderPath = "Kenney/ZombieCharacters";
+    private const string GiantResourceModelPath = GiantResourceFolderPath + "/Model/characterMedium";
+    private const string GiantQuaterniusResourceFolderPath = "Quaternius/ZombieUnits";
+
+    private static readonly string[] GiantResourceModelCandidates =
+    {
+        GiantSamResourceModelPath,
+        GiantResourceModelPath,
+    };
     private const string MedievalVillageResourceFolderPath = "Quaternius/MedievalVillageMegaKit";
     private const string EnvironmentResourceFolderPath = "Environment/Online";
     private const string GrassTextureResourcePath = EnvironmentResourceFolderPath + "/grass_meadow";
+    private const string GrassDetailTextureResourcePath = EnvironmentResourceFolderPath + "/grass_detail";
     private const string CoastSandTextureResourcePath = EnvironmentResourceFolderPath + "/coast_sand";
     private const string SunsetSkyboxResourcePath = EnvironmentResourceFolderPath + "/cape_hill_sunset";
 
-    private static readonly string[] GiantResourceVariantModelPaths =
+    private static readonly string[] GiantZombieSkinResourcePaths =
     {
-        GiantResourceFolderPath + "/Orc",
-        GiantResourceFolderPath + "/Yeti",
-        GiantResourceFolderPath + "/Dino",
+        GiantResourceFolderPath + "/Skins/zombieMaleA",
+        GiantResourceFolderPath + "/Skins/zombieFemaleA",
+    };
+
+    private static readonly string[] GiantQuaterniusResourceVariantPaths =
+    {
+        GiantQuaterniusResourceFolderPath + "/ZombieA",
+        GiantQuaterniusResourceFolderPath + "/ZombieB",
+        GiantQuaterniusResourceFolderPath + "/ZombieC",
+        GiantQuaterniusResourceFolderPath + "/ZombieD",
     };
 
     [Header("Unit Settings")]
@@ -132,7 +149,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
         // 直升机轴向绑定在 NormalizePrototype 中写入原型；运行时仅绕 Y 转向（headingDegrees）。
         { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 0f, 0f, 0.2f, true) },
-        { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
+        { UnitKind.Giant, new ModelPose(2.55f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
     };
@@ -360,6 +377,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float dt = Mathf.Min(Time.deltaTime, 0.045f);
         battleTime += dt;
+        UpdateBattlefieldEnvironment(battleTime);
         TickGiftFeedDisplay(dt);
         UpdateApocalypseMatch(dt);
         DrainPendingSpawns();
@@ -433,6 +451,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         light.color = new Color(1f, 0.72f, 0.48f, 1f);
         light.intensity = 1.18f;
         light.shadows = LightShadows.Soft;
+        RegisterSunLight(light, lightObject.transform);
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = new Color(0.48f, 0.42f, 0.37f, 1f);
@@ -498,6 +517,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         RenderSettings.skybox = skybox;
+        runtimeSkyboxMaterial = skybox;
     }
 
     private void CreateHud()
@@ -531,7 +551,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         SetAnchors(leftTeamLabel.rectTransform, 0.03f, 0.66f, 0.25f, 0.93f);
         ConfigureTextFit(leftTeamLabel, 10, 15);
 
-        rightTeamLabel = CreateText(topDynamicRoot, "RightTeamLabel", "MONSTER", 15, GiantColor, TextAnchor.MiddleRight);
+        rightTeamLabel = CreateText(topDynamicRoot, "RightTeamLabel", "丧尸", 15, GiantColor, TextAnchor.MiddleRight);
         SetAnchors(rightTeamLabel.rectTransform, 0.75f, 0.66f, 0.97f, 0.93f);
         ConfigureTextFit(rightTeamLabel, 10, 15);
 
@@ -570,7 +590,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         SetAnchors(humanLabel.rectTransform, 0.03f, 0.18f, 0.34f, 0.36f);
         ConfigureTextFit(humanLabel, 9, 12);
 
-        giantLabel = CreateText(topDynamicRoot, "GiantLabel", "Boss HP 0", 12, Color.white, TextAnchor.MiddleRight);
+        giantLabel = CreateText(topDynamicRoot, "GiantLabel", "丧尸 HP 0", 12, Color.white, TextAnchor.MiddleRight);
         SetAnchors(giantLabel.rectTransform, 0.66f, 0.18f, 0.97f, 0.36f);
         ConfigureTextFit(giantLabel, 9, 12);
 
@@ -627,7 +647,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         CreateGround();
-        CreateTerrainDepth();
         CreateCombatZoneRoads();
         CreateFactionCastles();
     }
@@ -639,11 +658,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         CreateBattlefieldPlane("Battle_MainRoad", ToWorldPoint(0f, -120f, 0.032f), new Vector2(22f, 3.4f), roadMaterial, -3f);
         AddRoadCorridor("MainStreet", 0f, -120f, 440f, 70f, 0f);
-    }
-
-    private void CreateTerrainDepth()
-    {
-        CreateCoastalSunsetBackdrop();
     }
 
     private void CreateVillageLandingFields()
@@ -683,80 +697,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         renderer.shadowCastingMode = ShadowCastingMode.Off;
         renderer.receiveShadows = true;
         return plane;
-    }
-
-    private void CreateCoastalSunsetBackdrop()
-    {
-        Material coastMaterial = GetTexturedOpaqueMaterial(CoastSandTextureResourcePath, new Color(1f, 0.84f, 0.58f, 1f), new Vector2(10f, 3f), 0.06f);
-        Material oceanMaterial = GetOpaqueMaterial(new Color(0.09f, 0.30f, 0.42f, 1f));
-        Material shallowWaterMaterial = GetTransparentMaterial(new Color(0.23f, 0.58f, 0.62f, 0.32f));
-        Material sunsetReflectionMaterial = GetTransparentMaterial(new Color(1f, 0.62f, 0.22f, 0.28f));
-
-        CreateBattlefieldPlane("DistantCoastSand", new Vector3(0f, 0.018f, 28f), new Vector2(132f, 9.5f), coastMaterial, -2f);
-        CreateBattlefieldPlane("DistantOcean", new Vector3(0f, 0.010f, 48f), new Vector2(170f, 44f), oceanMaterial);
-        CreateBattlefieldPlane("CoastShallowWater", new Vector3(0f, 0.024f, 34f), new Vector2(148f, 9f), shallowWaterMaterial);
-        CreateBattlefieldPlane("SunsetWaterReflection", new Vector3(20f, 0.030f, 45f), new Vector2(24f, 15f), sunsetReflectionMaterial, -6f);
-
-        CreateMountainRange("DistantMountainBack", 67f, 1.2f, -72f, 72f, new Color(0.17f, 0.22f, 0.24f, 1f), 8.5f, 31f);
-        CreateMountainRange("DistantMountainFront", 60f, 0.55f, -78f, 78f, new Color(0.23f, 0.31f, 0.26f, 1f), 6.2f, 79f);
-
-        var sun = CreatePrimitive(PrimitiveType.Sphere, "SunsetSunDisk", decorRoot);
-        sun.transform.localPosition = new Vector3(23f, 11.5f, 58f);
-        sun.transform.localScale = new Vector3(4.1f, 4.1f, 0.35f);
-        sun.GetComponent<Renderer>().sharedMaterial = GetUnlitMaterial(new Color(1f, 0.53f, 0.18f, 1f));
-
-        var haze = CreatePrimitive(PrimitiveType.Plane, "SunsetHorizonGlow", decorRoot);
-        haze.transform.localPosition = new Vector3(0f, 5.2f, 57f);
-        haze.transform.localScale = new Vector3(17f, 1f, 1.2f);
-        haze.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        haze.GetComponent<Renderer>().sharedMaterial = GetTransparentMaterial(new Color(1f, 0.55f, 0.25f, 0.22f));
-    }
-
-    private void CreateMountainRange(string name, float z, float baseY, float minX, float maxX, Color color, float heightScale, float seed)
-    {
-        const int segments = 22;
-        var vertices = new Vector3[(segments + 1) * 2];
-        var triangles = new int[segments * 6];
-
-        for (int i = 0; i <= segments; i++)
-        {
-            float t = i / (float)segments;
-            float x = Mathf.Lerp(minX, maxX, t);
-            float wave = Mathf.Sin((t * 3.2f + seed) * Mathf.PI) * 0.5f + 0.5f;
-            float rough = Noise(seed + i * 9.31f);
-            float height = 1.8f + heightScale * (0.25f + wave * 0.45f + rough * 0.35f);
-            vertices[i * 2] = new Vector3(x, baseY, z);
-            vertices[i * 2 + 1] = new Vector3(x, baseY + height, z);
-        }
-
-        for (int i = 0; i < segments; i++)
-        {
-            int v = i * 2;
-            int t = i * 6;
-            triangles[t] = v;
-            triangles[t + 1] = v + 1;
-            triangles[t + 2] = v + 2;
-            triangles[t + 3] = v + 1;
-            triangles[t + 4] = v + 3;
-            triangles[t + 5] = v + 2;
-        }
-
-        var range = new GameObject(name);
-        range.transform.SetParent(decorRoot, false);
-
-        var mesh = new Mesh { name = $"{name}_Mesh" };
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.RecalculateBounds();
-        mesh.RecalculateNormals();
-
-        var meshFilter = range.AddComponent<MeshFilter>();
-        meshFilter.sharedMesh = mesh;
-
-        var meshRenderer = range.AddComponent<MeshRenderer>();
-        meshRenderer.sharedMaterial = GetOpaqueMaterial(color);
-        meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
-        meshRenderer.receiveShadows = false;
     }
 
     private void CreateVillagePaths()
@@ -1496,11 +1436,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             var prototype = await LoadPrototype(modelPaths[i], kinds[i], tankModel);
             if (prototype == null)
             {
-                DiagnosticsUsingFallback = true;
-                prototype = CreateFallbackPrototype(kinds[i]);
+                if (kinds[i] == UnitKind.Giant)
+                {
+                    Debug.LogError("[ApocalypseKing] 丧尸模型未加载。请运行 .\\tools\\import-zombie-units.ps1 后重新导入 Unity。");
+                }
+                else
+                {
+                    DiagnosticsUsingFallback = true;
+                    prototype = CreateFallbackPrototype(kinds[i]);
+                }
             }
 
-            modelPrototypes[kinds[i]] = prototype;
+            if (prototype != null)
+            {
+                modelPrototypes[kinds[i]] = prototype;
+            }
         }
 
         SetLoadingMessage("Loading T55AK Tank (7/7)");
@@ -1594,8 +1544,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] candidates =
         {
-            "Sketchfab/sevens_sin_helldog.glb",
-            "PolyPizza/giant.glb",
+            "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon.gltf",
+            "Kenney/ZombieCharacters/Model/characterMedium.fbx",
+            "Quaternius/ZombieUnits/ZombieA.glb",
         };
 
         for (int i = 0; i < candidates.Length; i++)
@@ -1638,10 +1589,30 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
         else if (kind == UnitKind.Giant)
         {
-            var giantResourcePrototype = LoadGiantResourcePrototype(GiantResourceModelPath);
-            if (giantResourcePrototype != null)
+            for (int i = 0; i < GiantResourceModelCandidates.Length; i++)
             {
-                return giantResourcePrototype;
+                string resourcePath = GiantResourceModelCandidates[i];
+                string clipFolder = resourcePath == GiantSamResourceModelPath
+                    ? GiantSamResourceFolderPath
+                    : GiantResourceFolderPath;
+                string skinPath = resourcePath == GiantResourceModelPath ? GiantZombieSkinResourcePaths[0] : null;
+                var giantResourcePrototype = TryLoadGiantResourcePrototype(resourcePath, clipFolder, skinPath);
+                if (giantResourcePrototype != null)
+                {
+                    return giantResourcePrototype;
+                }
+            }
+
+            for (int i = 0; i < GiantQuaterniusResourceVariantPaths.Length; i++)
+            {
+                var giantResourcePrototype = TryLoadGiantResourcePrototype(
+                    GiantQuaterniusResourceVariantPaths[i],
+                    GiantQuaterniusResourceFolderPath,
+                    null);
+                if (giantResourcePrototype != null)
+                {
+                    return giantResourcePrototype;
+                }
             }
         }
 
@@ -1769,7 +1740,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return prototype;
     }
 
-    private GameObject LoadGiantResourcePrototype(string resourcePath)
+    private GameObject TryLoadGiantResourcePrototype(string resourcePath, string clipFolder, string skinTexturePath)
+    {
+        var prototype = LoadGiantResourcePrototype(resourcePath, clipFolder, skinTexturePath);
+        if (prototype == null)
+        {
+            return null;
+        }
+
+        if (!IsAcceptableGiantPrototype(prototype, Poses[UnitKind.Giant].TargetHeight))
+        {
+            Destroy(prototype);
+            return null;
+        }
+
+        return prototype;
+    }
+
+    private GameObject LoadGiantResourcePrototype(string resourcePath, string clipFolder, string skinTexturePath)
     {
         var source = Resources.Load<GameObject>(resourcePath);
         if (source == null)
@@ -1778,12 +1766,73 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         var prototype = Instantiate(source, modelCacheRoot, false);
-        prototype.name = $"{UnitKind.Giant}_Prototype";
+        prototype.name = $"{UnitKind.Giant}_Prototype_{SanitizeResourceToken(resourcePath)}";
         prototype.hideFlags = HideFlags.HideInHierarchy;
-        AttachResourceAnimationClips(prototype, resourcePath, GiantResourceFolderPath);
+        AttachResourceAnimationClips(prototype, resourcePath, clipFolder);
         ConfigureImportedPrototype(prototype, UnitKind.Giant);
+        if (!string.IsNullOrEmpty(skinTexturePath))
+        {
+            ApplyKenneyZombieSkin(prototype, skinTexturePath);
+        }
+
         prototype.SetActive(false);
         return prototype;
+    }
+
+    private static string SanitizeResourceToken(string resourcePath)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return "Unknown";
+        }
+
+        int slash = resourcePath.LastIndexOf('/');
+        return slash >= 0 ? resourcePath.Substring(slash + 1) : resourcePath;
+    }
+
+    private static bool IsAcceptableGiantPrototype(GameObject prototype, float targetHeight)
+    {
+        if (prototype == null || !TryComputeModelBounds(prototype, out Bounds bounds))
+        {
+            return false;
+        }
+
+        float height = Mathf.Max(0.001f, bounds.size.y);
+        float maxSpan = Mathf.Max(bounds.size.x, bounds.size.z);
+        if (height < targetHeight * 0.35f || height > targetHeight * 2.8f)
+        {
+            return false;
+        }
+
+        if (maxSpan > height * 2.6f)
+        {
+            return false;
+        }
+
+        return HasGiantLocomotionAnimation(prototype);
+    }
+
+    private static bool HasGiantLocomotionAnimation(GameObject prototype)
+    {
+        AnimationClip[] clips = CollectRuntimeAnimationClips(prototype);
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip == null)
+            {
+                continue;
+            }
+
+            string name = clip.name;
+            if (name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("idle", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return clips.Length > 0;
     }
 
     private void ConfigureTankVariantPrototypes()
@@ -1806,14 +1855,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         giantVariantPrototypes.Clear();
 
         GameObject standardPrototype;
-        if (modelPrototypes.TryGetValue(UnitKind.Giant, out standardPrototype))
+        if (!modelPrototypes.TryGetValue(UnitKind.Giant, out standardPrototype) || standardPrototype == null)
         {
-            AddGiantVariantPrototype(standardPrototype);
+            return;
         }
 
-        for (int i = 0; i < GiantResourceVariantModelPaths.Length; i++)
+        AddGiantVariantPrototype(standardPrototype);
+
+        bool kenneyBase = standardPrototype.name.IndexOf("characterMedium", StringComparison.OrdinalIgnoreCase) >= 0
+            || standardPrototype.name.IndexOf("Kenney", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (kenneyBase)
         {
-            AddGiantVariantPrototype(LoadGiantResourcePrototype(GiantResourceVariantModelPaths[i]));
+            for (int i = 0; i < GiantZombieSkinResourcePaths.Length; i++)
+            {
+                var variant = Instantiate(standardPrototype, modelCacheRoot, false);
+                variant.name = $"{UnitKind.Giant}_KenneySkin_{i}";
+                variant.hideFlags = HideFlags.HideInHierarchy;
+                ApplyKenneyZombieSkin(variant, GiantZombieSkinResourcePaths[i]);
+                variant.SetActive(false);
+                AddGiantVariantPrototype(variant);
+            }
+        }
+
+        for (int i = 0; i < GiantQuaterniusResourceVariantPaths.Length; i++)
+        {
+            AddGiantVariantPrototype(TryLoadGiantResourcePrototype(
+                GiantQuaterniusResourceVariantPaths[i],
+                GiantQuaterniusResourceFolderPath,
+                null));
         }
     }
 
@@ -1980,6 +2049,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 ApplySoldierMilitaryTint(prototype);
             }
         }
+
         NormalizePrototype(prototype, Poses[kind].TargetHeight, kind);
     }
 
@@ -2233,6 +2303,50 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
+    private static void ApplyKenneyZombieSkin(GameObject prototype, string textureResourcePath)
+    {
+        if (prototype == null || string.IsNullOrEmpty(textureResourcePath))
+        {
+            return;
+        }
+
+        Texture skinTexture = Resources.Load<Texture>(textureResourcePath);
+        if (skinTexture == null)
+        {
+            return;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            var materials = renderer.materials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material material = materials[m];
+                if (material == null)
+                {
+                    continue;
+                }
+
+                if (material.HasProperty("_MainTex"))
+                {
+                    material.mainTexture = skinTexture;
+                }
+
+                if (material.HasProperty("_BaseMap"))
+                {
+                    material.SetTexture("_BaseMap", skinTexture);
+                }
+            }
+        }
+    }
+
     private static void ApplySoldierMilitaryTint(GameObject prototype)
     {
         if (prototype == null)
@@ -2365,10 +2479,88 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
+    private static bool TryComputeModelBounds(GameObject root, out Bounds bounds)
+    {
+        Bounds combinedBounds = default;
+        bool hasBounds = false;
+
+        void EncapsulateWorldBounds(Bounds worldBounds)
+        {
+            if (!hasBounds)
+            {
+                combinedBounds = worldBounds;
+                hasBounds = true;
+            }
+            else
+            {
+                combinedBounds.Encapsulate(worldBounds.min);
+                combinedBounds.Encapsulate(worldBounds.max);
+            }
+        }
+
+        void EncapsulateLocalMeshBounds(Transform transform, Bounds localMeshBounds)
+        {
+            Vector3 worldCenter = transform.TransformPoint(localMeshBounds.center);
+            Vector3 extents = localMeshBounds.extents;
+            Vector3 axisX = transform.TransformVector(new Vector3(extents.x, 0f, 0f));
+            Vector3 axisY = transform.TransformVector(new Vector3(0f, extents.y, 0f));
+            Vector3 axisZ = transform.TransformVector(new Vector3(0f, 0f, extents.z));
+            float extentX = Mathf.Abs(axisX.x) + Mathf.Abs(axisY.x) + Mathf.Abs(axisZ.x);
+            float extentY = Mathf.Abs(axisX.y) + Mathf.Abs(axisY.y) + Mathf.Abs(axisZ.y);
+            float extentZ = Mathf.Abs(axisX.z) + Mathf.Abs(axisY.z) + Mathf.Abs(axisZ.z);
+            EncapsulateWorldBounds(new Bounds(worldCenter, new Vector3(extentX * 2f, extentY * 2f, extentZ * 2f)));
+        }
+
+        MeshFilter[] meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+        for (int i = 0; i < meshFilters.Length; i++)
+        {
+            Mesh mesh = meshFilters[i].sharedMesh;
+            if (mesh == null)
+            {
+                continue;
+            }
+
+            EncapsulateLocalMeshBounds(meshFilters[i].transform, mesh.bounds);
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[i];
+            if (skinned.sharedMesh == null)
+            {
+                continue;
+            }
+
+            skinned.updateWhenOffscreen = true;
+            EncapsulateLocalMeshBounds(skinned.transform, skinned.sharedMesh.bounds);
+        }
+
+        if (hasBounds)
+        {
+            bounds = combinedBounds;
+            return true;
+        }
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            bounds = default;
+            return false;
+        }
+
+        bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        return true;
+    }
+
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
-        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
+        if (!TryComputeModelBounds(prototype, out Bounds bounds))
         {
             return;
         }
@@ -2376,12 +2568,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (kind == UnitKind.Aircraft)
         {
             prototype.transform.localRotation = Quaternion.Euler(AircraftBindPitch, AircraftBindYaw, AircraftBindRoll);
-        }
-
-        var bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            bounds.Encapsulate(renderers[i].bounds);
+            if (!TryComputeModelBounds(prototype, out bounds))
+            {
+                return;
+            }
         }
 
         float currentHeight = kind == UnitKind.Aircraft
@@ -2390,11 +2580,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float uniformScale = targetHeight / currentHeight;
         prototype.transform.localScale = prototype.transform.localScale * uniformScale;
 
-        renderers = prototype.GetComponentsInChildren<Renderer>(true);
-        bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        if (!TryComputeModelBounds(prototype, out bounds))
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            return;
         }
 
         float lift = -bounds.min.y;
@@ -2442,12 +2630,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 break;
             }
             case UnitKind.Giant:
-            {
-                var torso = CreatePrimitive(PrimitiveType.Capsule, "Torso", root.transform);
-                torso.transform.localScale = new Vector3(0.95f, 1.8f, 0.95f);
-                torso.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.28f, 0.84f, 0.36f, 1f));
-                break;
-            }
+                return null;
             case UnitKind.Fireball:
             {
                 var orb = CreatePrimitive(PrimitiveType.Sphere, "Orb", root.transform);
@@ -3181,27 +3364,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void FitModelToHeight(GameObject model, float targetHeight)
     {
-        var renderers = model.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
+        if (!TryComputeModelBounds(model, out Bounds bounds))
         {
             return;
         }
 
-        var bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        float currentHeight = Mathf.Max(0.001f, bounds.size.y);
+        if (Mathf.Abs(currentHeight - targetHeight) < 0.08f)
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+            return;
         }
 
-        float currentHeight = Mathf.Max(0.001f, bounds.size.y);
         float uniformScale = targetHeight / currentHeight;
         model.transform.localScale = model.transform.localScale * uniformScale;
 
-        renderers = model.GetComponentsInChildren<Renderer>(true);
-        bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        if (!TryComputeModelBounds(model, out bounds))
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            return;
         }
 
         model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
@@ -3267,7 +3447,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             int rank = i / HumanFormationLanesPerRow;
-            GetHumanFormationSpawn(UnitKind.Soldier, i, rank, i + rank * 17, out float x, out float z);
+            GetHumanFormationSpawn(UnitKind.Soldier, i, out float x, out float z);
             ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 8f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
         }
     }
@@ -3283,7 +3463,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             int rank = i / HumanFormationTanksPerRow;
-            GetHumanFormationSpawn(UnitKind.Tank, i, rank, i + rank * 23, out float x, out float z);
+            GetHumanFormationSpawn(UnitKind.Tank, i, out float x, out float z);
             ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 6f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
@@ -3298,8 +3478,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            GetHumanCastleSpawn(i + 401, out float x, out float z);
-            z = AirLanes[i % AirLanes.Length] * 0.35f + z * 0.65f;
+            GetHumanAircraftFormationSpawn(i, out float x, out float z);
             ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
         }
     }
@@ -3314,9 +3493,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            int lane = i % 5;
-            int rank = i / 5;
-            GetBeastCastleSpawn(i + rank * 31 + lane * 7, out float x, out float z);
+            GetBeastFormationSpawn(UnitKind.Giant, i, out float x, out float z);
             ActivateUnit(giants[i], x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
             giants[i].attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
         }
@@ -3405,7 +3582,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         int soldierIndex = CountActive(soldiers);
         int rank = soldierIndex / HumanFormationLanesPerRow;
-        GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, rank, processedDanmuCommandCount + rank * 19, out float x, out float z);
+        GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, out float x, out float z);
         ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 6f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
@@ -3426,7 +3603,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         int tankIndex = CountActive(tanks);
         int rank = tankIndex / HumanFormationTanksPerRow;
-        GetHumanFormationSpawn(UnitKind.Tank, tankIndex, rank, processedDanmuCommandCount + rank * 5, out float x, out float z);
+        GetHumanFormationSpawn(UnitKind.Tank, tankIndex, out float x, out float z);
         ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 5f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
@@ -3440,11 +3617,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        int lane = processedDanmuCommandCount % AirLanes.Length;
-        int rank = Mathf.Max(0, CountActive(aircraft) / AirLanes.Length);
-        GetHumanCastleSpawn(processedDanmuCommandCount + rank * 11, out float x, out float z);
-        z = AirLanes[lane] * 0.4f + z * 0.6f;
-        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 12f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
+        int lane = CountActive(aircraft) % AirLanes.Length;
+        GetHumanAircraftFormationSpawn(lane, out float x, out float z);
+        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 12f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, lane, 1, 2.5f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.05f);
         return true;
     }
@@ -3457,8 +3632,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        int lane = processedDanmuCommandCount % 5;
-        GetBeastCastleSpawn(processedDanmuCommandCount + lane * 13, out float x, out float z);
+        GetBeastFormationSpawn(UnitKind.Giant, CountActive(giants), out float x, out float z);
         ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 5f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
         PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 1.15f);
