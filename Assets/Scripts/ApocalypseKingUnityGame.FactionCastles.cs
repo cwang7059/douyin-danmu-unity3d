@@ -22,8 +22,6 @@ public sealed partial class ApocalypseKingUnityGame
     public static float HumanCastleMinUnitX => HumanCastleGateX - 68f * CastleVisualScale;
     public static float BeastCastleMaxUnitX => BeastCastleGateX + 68f * CastleVisualScale;
 
-    private static readonly float[] CastleSpawnLanes = { -168f, -108f, -48f, 12f, 72f, 132f, -228f, 192f };
-
     private Transform humanCastleRoot;
     private Transform beastCastleRoot;
     private bool loggedCastleFallback;
@@ -271,57 +269,172 @@ public sealed partial class ApocalypseKingUnityGame
         return root;
     }
 
-    private const float TankFormationForwardOffsetX = 26f;
-    private const float HumanFormationRankSpacingX = 12f;
+    private const float FormationBlockGapX = 56f;
+    private const float HumanSoldierFormationOffsetX = 10f;
+    private const float BeastSoldierFormationOffsetX = 10f;
+    private const float SoldierFormationRankSpacingX = 44f;
+    private const float SoldierFormationLaneSpacingZ = 44f;
+    private const float TankFormationRankSpacingX = 80f;
+    private const float TankFormationLaneSpacingZ = 82f;
+    private const float GiantFormationRankSpacingX = 176f;
+    private const float GiantFormationLaneSpacingZ = 176f;
+    private const int BeastFormationLanesPerRow = 4;
 
-    private static int ResolveAlternatingLaneIndex(UnitKind kind, int unitIndex)
+    private static int FormationRowCount(int unitCount, int lanesPerRow)
     {
-        unitIndex = Mathf.Max(0, unitIndex);
-        return kind == UnitKind.Tank
-            ? (unitIndex * 2) % CastleSpawnLanes.Length
-            : (unitIndex * 2 + 1) % CastleSpawnLanes.Length;
-    }
-
-    private void GetHumanFormationSpawn(UnitKind kind, int unitIndex, int rank, int noiseSeed, out float x, out float z)
-    {
-        int laneIndex = ResolveAlternatingLaneIndex(kind, unitIndex);
-        z = CastleSpawnLanes[laneIndex] + (Noise(noiseSeed * 1.73f) - 0.5f) * 10f;
-        x = HumanCastleGateX + 8f + Mathf.Max(0, rank) * HumanFormationRankSpacingX;
-        if (kind == UnitKind.Tank)
+        if (unitCount <= 0)
         {
-            x += TankFormationForwardOffsetX;
+            return 0;
         }
 
-        x += (Noise(noiseSeed * 2.07f) - 0.5f) * 5f;
+        return (unitCount - 1) / Mathf.Max(1, lanesPerRow) + 1;
     }
 
-    private void GetHumanCastleSpawn(int seed, out float x, out float z)
+    private static float FormationLaneZ(int columnIndex, int columnsPerRow, float laneSpacing)
     {
-        int lane = Mathf.Abs(seed) % CastleSpawnLanes.Length;
-        int rank = (Mathf.Abs(seed) / CastleSpawnLanes.Length) % 8;
-        x = HumanCastleGateX + 8f + rank * 10f;
-        z = CastleSpawnLanes[lane] + (Noise(seed * 1.73f) - 0.5f) * 12f;
+        int cols = Mathf.Max(1, columnsPerRow);
+        int col = Mathf.Clamp(columnIndex, 0, cols - 1);
+        float span = (cols - 1) * laneSpacing;
+        return -span * 0.5f + col * laneSpacing;
     }
 
-    private void GetBeastCastleSpawn(int seed, out float x, out float z)
+    private static float HumanSoldierBlockFrontX()
     {
-        int lane = Mathf.Abs(seed) % CastleSpawnLanes.Length;
-        int rank = (Mathf.Abs(seed) / CastleSpawnLanes.Length) % 8;
-        x = BeastCastleGateX - 8f - rank * 10f;
-        z = CastleSpawnLanes[lane] + (Noise(seed * 2.11f) - 0.5f) * 14f;
+        int rows = FormationRowCount(SoldierCount, HumanFormationLanesPerRow);
+        return HumanCastleGateX + HumanSoldierFormationOffsetX + Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
     }
 
-    private void GetFactionCastleSpawn(FactionId faction, int seed, out float x, out float z, out int facing)
+    private static float HumanTankFormationBaseX()
+    {
+        return HumanSoldierBlockFrontX() + FormationBlockGapX;
+    }
+
+    private static float HumanTankBlockFrontX()
+    {
+        int rows = FormationRowCount(TankCount, HumanFormationTanksPerRow);
+        return HumanTankFormationBaseX() + Mathf.Max(0, rows - 1) * TankFormationRankSpacingX;
+    }
+
+    private static float HumanAircraftFormationX()
+    {
+        return HumanTankBlockFrontX() + FormationBlockGapX;
+    }
+
+    private static float BeastSoldierBlockFrontX()
+    {
+        int rows = FormationRowCount(SoldierCount, BeastFormationLanesPerRow);
+        return BeastCastleGateX - BeastSoldierFormationOffsetX - Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
+    }
+
+    private static float BeastGiantFormationBaseX()
+    {
+        return BeastSoldierBlockFrontX() - FormationBlockGapX;
+    }
+
+    private static float BeastTankFormationBaseX()
+    {
+        int giantRows = FormationRowCount(GiantCount, BeastFormationLanesPerRow);
+        float giantFront = BeastGiantFormationBaseX() - Mathf.Max(0, giantRows - 1) * GiantFormationRankSpacingX;
+        return giantFront - FormationBlockGapX;
+    }
+
+    private static float BeastTankBlockFrontX()
+    {
+        int rows = FormationRowCount(TankCount, HumanFormationTanksPerRow);
+        return BeastTankFormationBaseX() - Mathf.Max(0, rows - 1) * TankFormationRankSpacingX;
+    }
+
+    private static float BeastAircraftFormationX()
+    {
+        return BeastTankBlockFrontX() - FormationBlockGapX;
+    }
+
+    private void GetHumanFormationSpawn(UnitKind kind, int unitIndex, out float x, out float z)
+    {
+        unitIndex = Mathf.Max(0, unitIndex);
+        int lanesPerRow = kind == UnitKind.Tank ? HumanFormationTanksPerRow : HumanFormationLanesPerRow;
+        float laneSpacing = kind == UnitKind.Tank ? TankFormationLaneSpacingZ : SoldierFormationLaneSpacingZ;
+        int col = unitIndex % lanesPerRow;
+        int rank = unitIndex / lanesPerRow;
+        z = FormationLaneZ(col, lanesPerRow, laneSpacing);
+        if (kind == UnitKind.Tank)
+        {
+            x = HumanTankFormationBaseX() + rank * TankFormationRankSpacingX;
+        }
+        else
+        {
+            x = HumanCastleGateX + HumanSoldierFormationOffsetX + rank * SoldierFormationRankSpacingX;
+        }
+    }
+
+    private void GetHumanAircraftFormationSpawn(int laneIndex, out float x, out float z)
+    {
+        laneIndex = Mathf.Clamp(laneIndex, 0, AirLanes.Length - 1);
+        x = HumanAircraftFormationX();
+        z = AirLanes[laneIndex];
+    }
+
+    private void GetBeastFormationSpawn(UnitKind kind, int unitIndex, out float x, out float z)
+    {
+        unitIndex = Mathf.Max(0, unitIndex);
+        int lanesPerRow = kind == UnitKind.Tank ? HumanFormationTanksPerRow : BeastFormationLanesPerRow;
+        float laneSpacing = kind == UnitKind.Tank ? TankFormationLaneSpacingZ
+            : kind == UnitKind.Giant ? GiantFormationLaneSpacingZ
+            : SoldierFormationLaneSpacingZ;
+        float rankSpacing = kind == UnitKind.Tank ? TankFormationRankSpacingX
+            : kind == UnitKind.Giant ? GiantFormationRankSpacingX
+            : SoldierFormationRankSpacingX;
+        int col = unitIndex % lanesPerRow;
+        int rank = unitIndex / lanesPerRow;
+        z = FormationLaneZ(col, lanesPerRow, laneSpacing);
+        if (kind == UnitKind.Tank)
+        {
+            x = BeastTankFormationBaseX() - rank * rankSpacing;
+        }
+        else if (kind == UnitKind.Giant)
+        {
+            x = BeastGiantFormationBaseX() - rank * rankSpacing;
+        }
+        else
+        {
+            x = BeastCastleGateX - BeastSoldierFormationOffsetX - rank * rankSpacing;
+        }
+    }
+
+    private void GetBeastAircraftFormationSpawn(int laneIndex, out float x, out float z)
+    {
+        laneIndex = Mathf.Clamp(laneIndex, 0, AirLanes.Length - 1);
+        x = BeastAircraftFormationX();
+        z = AirLanes[laneIndex];
+    }
+
+    private void GetFactionCastleSpawn(FactionId faction, UnitKind kind, int slotIndex, out float x, out float z, out int facing)
     {
         bool fromBeastCastle = faction == FactionId.Green || faction == FactionId.Zombie;
         if (fromBeastCastle)
         {
-            GetBeastCastleSpawn(seed, out x, out z);
+            if (kind == UnitKind.Aircraft)
+            {
+                GetBeastAircraftFormationSpawn(slotIndex, out x, out z);
+            }
+            else
+            {
+                GetBeastFormationSpawn(kind, slotIndex, out x, out z);
+            }
+
             facing = -1;
             return;
         }
 
-        GetHumanCastleSpawn(seed, out x, out z);
+        if (kind == UnitKind.Aircraft)
+        {
+            GetHumanAircraftFormationSpawn(slotIndex, out x, out z);
+        }
+        else
+        {
+            GetHumanFormationSpawn(kind, slotIndex, out x, out z);
+        }
+
         facing = 1;
     }
 }
