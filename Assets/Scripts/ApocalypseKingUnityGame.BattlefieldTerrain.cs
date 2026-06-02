@@ -15,21 +15,26 @@ public sealed partial class ApocalypseKingUnityGame
                       + Mathf.Sin((nx + nz) * 0.72f + 2.1f) * 0.16f;
         float detail = (Noise(worldX * 2.8f + 41f) - 0.5f) * 0.10f
                      + (Noise(worldZ * 2.5f + 19f) - 0.5f) * 0.08f;
+        float micro = (Noise(worldX * 7.4f + worldZ * 5.1f) - 0.5f) * 0.045f
+                    + (Noise(worldX * 11.2f - worldZ * 4.6f + 88f) - 0.5f) * 0.028f;
 
-        float height = (rolling + detail) * (1f - combatFlatten * 0.52f - castleFlatten * 0.38f);
+        float height = (rolling + detail + micro) * (1f - combatFlatten * 0.52f - castleFlatten * 0.38f);
         return Mathf.Clamp(height, -0.04f, 0.48f);
     }
 
     private void CreateGround()
     {
-        Material grassMaterial = GetTexturedOpaqueMaterial(GrassTextureResourcePath, new Color(0.66f, 0.78f, 0.50f, 1f), new Vector2(18f, 24f), 0.08f);
+        Color grassTint = new Color(0.66f, 0.78f, 0.50f, 1f);
+        Material grassMaterial = Resources.Load<Texture>(GrassDetailTextureResourcePath) != null
+            ? GetTexturedOpaqueMaterial(GrassDetailTextureResourcePath, grassTint, new Vector2(26f, 34f), 0.11f)
+            : GetTexturedOpaqueMaterial(GrassTextureResourcePath, grassTint, new Vector2(24f, 32f), 0.10f);
         CreateUndulatingGrassTerrain("GrasslandTerrain", new Vector2(150f, 210f), grassMaterial);
     }
 
     private GameObject CreateUndulatingGrassTerrain(string name, Vector2 worldSize, Material material)
     {
-        const int segX = 75;
-        const int segZ = 105;
+        const int segX = 96;
+        const int segZ = 132;
         float halfX = worldSize.x * 0.5f;
         float halfZ = worldSize.y * 0.5f;
 
@@ -47,7 +52,7 @@ public sealed partial class ApocalypseKingUnityGame
                 float worldZ = Mathf.Lerp(-halfZ, halfZ, z / (float)segZ);
                 float height = SampleBattlefieldGroundHeightWorld(worldX, worldZ);
                 vertices[index] = new Vector3(worldX, height, worldZ);
-                uvs[index] = new Vector2(x / (float)segX * 18f, z / (float)segZ * 24f);
+                uvs[index] = new Vector2(x / (float)segX * 24f, z / (float)segZ * 32f);
             }
         }
 
