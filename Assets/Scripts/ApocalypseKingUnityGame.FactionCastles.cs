@@ -4,8 +4,11 @@ using UnityEngine.Rendering;
 
 public sealed partial class ApocalypseKingUnityGame
 {
-    private const float CastleVisualScale = 2.05f;
-    private const float CastleKenneyModuleSpacing = 3.35f;
+    // Layout: length = north-south (Z), width = east-west depth (X, gate on +X). Volume tuned via CastleVisualScale.
+    private const float CastleVisualScale = 1.7f;
+    private const int CastleLengthModules = 8;
+    private const int CastleWidthModules = 3;
+    private const float CastleKenneyTileSize = 2f;
     private const float CastleModuleSize = 2f;
 
     private const float GrassHalfWidthWorld = 75f;
@@ -45,10 +48,10 @@ public sealed partial class ApocalypseKingUnityGame
         humanCastleRoot = CreateFactionCastle("HumanCastle", HumanCastleWorldX, HumanCastleCenterZ, false).transform;
         beastCastleRoot = CreateFactionCastle("BeastCastle", BeastCastleWorldX, BeastCastleCenterZ, true).transform;
 
-        if (!HasKenneyCastleAssets() && !loggedCastleFallback)
+        if (!HasRealisticCastleFortress() && !HasMedievalCastleAssets() && !HasKenneyCastleAssets() && !loggedCastleFallback)
         {
             loggedCastleFallback = true;
-            Debug.LogWarning("[ApocalypseKing] Kenney Castle Kit missing; run .\\tools\\import-castle-environment.ps1 then bake prefabs.");
+            Debug.LogWarning("[ApocalypseKing] Castle assets missing; run .\\tools\\import-realistic-castle.ps1");
         }
 
         CreateCastleFlankPads();
@@ -58,8 +61,8 @@ public sealed partial class ApocalypseKingUnityGame
     private void CreateCastleFlankPads()
     {
         Material grassMaterial = GetTexturedOpaqueMaterial(GrassTextureResourcePath, new Color(0.66f, 0.78f, 0.50f, 1f), new Vector2(8f, 10f), 0.08f);
-        float padW = 15f * CastleVisualScale;
-        float padH = 18f * CastleVisualScale;
+        float padW = 11f * CastleVisualScale;
+        float padH = 22f * CastleVisualScale;
         CreateBattlefieldPlane("HumanCastlePad", CastleWorldPoint(HumanCastleWorldX, 0f, 0.034f), new Vector2(padW, padH), grassMaterial);
         CreateBattlefieldPlane("BeastCastlePad", CastleWorldPoint(BeastCastleWorldX, 0f, 0.034f), new Vector2(padW, padH), grassMaterial);
     }
@@ -85,9 +88,9 @@ public sealed partial class ApocalypseKingUnityGame
     private GameObject CreateFactionCastle(string name, float centerWorldX, float centerZ, bool beastFaction)
     {
         float centerLogicalX = WorldToLogicalX(centerWorldX);
-        if (HasKenneyCastleAssets())
+        if (HasRealisticCastleFortress() && IsRealisticCastlePrefabViable())
         {
-            return BuildKenneyCastleFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
+            return BuildRealisticCastleFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
         }
 
         if (HasMedievalCastleAssets())
@@ -95,7 +98,46 @@ public sealed partial class ApocalypseKingUnityGame
             return BuildMedievalGateFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
         }
 
+        if (HasKenneyCastleAssets())
+        {
+            return BuildKenneyCastleFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
+        }
+
         return BuildPrimitiveCastleFallback(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
+    }
+
+    private GameObject PlaceMedievalCastleModule(
+        string assetName,
+        Transform parent,
+        Vector3 localPosition,
+        Quaternion localRotation,
+        Vector3 localScale,
+        float floorLocalY = 0f)
+    {
+        GameObject instance = CreateMegaKitModule(assetName, parent, localPosition, localRotation, localScale);
+        if (instance != null)
+        {
+            AlignCastleKitModuleToFloor(instance, floorLocalY);
+        }
+
+        return instance;
+    }
+
+    private float StackMedievalCastleModule(
+        string assetName,
+        Transform parent,
+        Vector3 localPosition,
+        Quaternion localRotation,
+        Vector3 localScale,
+        float floorLocalY)
+    {
+        GameObject instance = PlaceMedievalCastleModule(assetName, parent, localPosition, localRotation, localScale, floorLocalY);
+        if (instance == null)
+        {
+            return floorLocalY;
+        }
+
+        return GetCastleModuleStackTopY(instance, floorLocalY);
     }
 
     private bool HasMedievalCastleAssets()
@@ -113,91 +155,113 @@ public sealed partial class ApocalypseKingUnityGame
         root.transform.localRotation = Quaternion.Euler(0f, beastFaction ? 180f : 0f, 0f);
         root.transform.localScale = Vector3.one * CastleVisualScale;
 
-        const int segmentsX = 8;
-        const int segmentsZ = 7;
-        float spacing = CastleKenneyModuleSpacing;
-        float halfW = segmentsX * spacing * 0.5f;
-        float halfD = segmentsZ * spacing * 0.5f;
+        float tile = CastleKenneyTileSize;
+        float halfW = CastleWidthModules * tile * 0.5f;
+        float halfD = CastleLengthModules * tile * 0.5f;
         float gateX = halfW;
 
-        for (int i = 0; i < segmentsX; i++)
-        {
-            float x = -halfW + spacing * 0.5f + i * spacing;
-            CreateCastleKitModule("wall", root.transform, new Vector3(x, 0f, -halfD), Quaternion.identity, Vector3.one);
-            CreateCastleKitModule("wall", root.transform, new Vector3(x, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
-        }
+        PlaceKenneyWallRun(root.transform, -halfW, halfW, -halfD, true, tile);
+        PlaceKenneyWallRun(root.transform, -halfW, halfW, halfD, true, tile);
+        PlaceKenneyWallRun(root.transform, -halfD, halfD, -halfW, false, tile);
+        PlaceKenneyEastGateWalls(root.transform, halfW, halfD, tile);
 
-        for (int i = 0; i < segmentsZ; i++)
-        {
-            float z = -halfD + spacing * 0.5f + i * spacing;
-            CreateCastleKitModule("wall", root.transform, new Vector3(-halfW, 0f, z), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
-            if (Mathf.Abs(z) > spacing * 0.55f)
-            {
-                CreateCastleKitModule("wall", root.transform, new Vector3(gateX, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-            }
-        }
-
-        CreateCastleKitModule("wall-corner", root.transform, new Vector3(-halfW, 0f, -halfD), Quaternion.identity, Vector3.one);
-        CreateCastleKitModule("wall-corner", root.transform, new Vector3(-halfW, 0f, halfD), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
-        CreateCastleKitModule("wall-corner", root.transform, new Vector3(gateX, 0f, -halfD), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-        CreateCastleKitModule("wall-corner", root.transform, new Vector3(gateX, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
-
-        BuildKenneyGatehouse(root.transform, new Vector3(gateX + 0.15f, 0f, 0f));
-        BuildKenneyCentralKeep(root.transform, Vector3.zero);
         BuildKenneyCornerTower(root.transform, new Vector3(-halfW, 0f, -halfD));
         BuildKenneyCornerTower(root.transform, new Vector3(-halfW, 0f, halfD));
-        BuildKenneyCornerTower(root.transform, new Vector3(gateX * 0.82f, 0f, -halfD * 0.9f));
-        BuildKenneyCornerTower(root.transform, new Vector3(gateX * 0.82f, 0f, halfD * 0.9f));
+        BuildKenneyCornerTower(root.transform, new Vector3(gateX, 0f, -halfD));
+        BuildKenneyCornerTower(root.transform, new Vector3(gateX, 0f, halfD));
 
-        CreateCastleKitModule("stairs-stone-square", root.transform, new Vector3(gateX - 2.2f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.9f);
-        CreateCastleKitModule("wall-pillar", root.transform, new Vector3(0f, 0f, 0f), Quaternion.identity, Vector3.one * 0.85f);
-        CreateCastleKitModule("rocks-small", root.transform, new Vector3(-2.5f, 0f, 2.2f), Quaternion.Euler(0f, 24f, 0f), Vector3.one * 1.4f);
-        CreateCastleKitModule("rocks-small", root.transform, new Vector3(1.8f, 0f, -2.4f), Quaternion.Euler(0f, -38f, 0f), Vector3.one * 1.2f);
-        CreateCastleKitModule("tree-trunk", root.transform, new Vector3(-3.8f, 0f, -1.2f), Quaternion.identity, Vector3.one * 0.75f);
+        BuildKenneyGatehouse(root.transform, new Vector3(gateX - tile * 0.15f, 0f, 0f));
 
-        float backdropZ = -halfD - 5.5f;
-        CreateCastleKitModule("ground-hills", root.transform, new Vector3(0f, -0.2f, backdropZ), Quaternion.identity, Vector3.one * 2.8f);
-        CreateCastleKitModule("rocks-large", root.transform, new Vector3(-5f, 0f, backdropZ - 1.5f), Quaternion.Euler(0f, 15f, 0f), Vector3.one * 1.6f);
-        CreateCastleKitModule("rocks-large", root.transform, new Vector3(5.5f, 0f, backdropZ - 2f), Quaternion.Euler(0f, -22f, 0f), Vector3.one * 1.4f);
+        PlaceCastleKitModuleOnFloor("stairs-stone-square", root.transform,
+            new Vector3(gateX - tile * 1.1f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.9f);
+        PlaceCastleKitModuleOnFloor("rocks-small", root.transform,
+            new Vector3(-halfW + tile * 0.6f, 0f, halfD - tile * 0.55f), Quaternion.Euler(0f, 24f, 0f), Vector3.one);
+        PlaceCastleKitModuleOnFloor("rocks-small", root.transform,
+            new Vector3(-halfW + tile * 0.55f, 0f, -halfD + tile * 0.5f), Quaternion.Euler(0f, -38f, 0f), Vector3.one * 0.9f);
 
+        float backdropZ = -halfD - tile * 2.2f;
+        PlaceCastleKitModuleOnFloor("ground-hills", root.transform,
+            new Vector3(-tile * 0.2f, 0f, backdropZ), Quaternion.identity, Vector3.one * 2.2f);
+        PlaceCastleKitModuleOnFloor("rocks-large", root.transform,
+            new Vector3(-halfW - tile * 0.35f, 0f, backdropZ - tile * 0.35f), Quaternion.Euler(0f, 15f, 0f), Vector3.one * 1.2f);
+
+        float bannerTop = BuildKenneyCentralKeepTopY(root.transform, new Vector3(-tile * 0.35f, 0f, 0f));
         string banner = beastFaction ? "flag-banner-short" : "flag-banner-long";
-        CreateCastleKitModule(banner, root.transform, new Vector3(0f, 9.8f, 0.5f), Quaternion.Euler(0f, beastFaction ? 180f : 0f, 0f), Vector3.one * 0.95f);
+        PlaceCastleKitModuleOnFloor(banner, root.transform,
+            new Vector3(-tile * 0.35f, 0f, tile * 0.15f), Quaternion.Euler(0f, beastFaction ? 180f : 0f, 0f), Vector3.one * 0.95f, bannerTop);
 
         ApplyKenneyCastleFactionTint(root, beastFaction);
-        AddBuildingObstacle(root, name, centerLogicalX, centerZ, 78f * CastleVisualScale, 92f * CastleVisualScale, 12f * CastleVisualScale, 18f, 520f);
+        float obstacleHalfWidth = 31f * CastleVisualScale;
+        float obstacleHalfLength = 68f * CastleVisualScale;
+        AddBuildingObstacle(root, name, centerLogicalX, centerZ, obstacleHalfWidth, obstacleHalfLength, 11f * CastleVisualScale, 18f, 520f);
         return root;
+    }
+
+    private void PlaceKenneyWallRun(Transform parent, float start, float end, float axis, bool alongX, float tile)
+    {
+        int segments = Mathf.Max(1, Mathf.RoundToInt((end - start) / tile));
+        for (int i = 0; i < segments; i++)
+        {
+            float t = start + tile * 0.5f + i * tile;
+            if (alongX)
+            {
+                PlaceCastleKitModuleOnFloor("wall", parent, new Vector3(t, 0f, axis), axis >= 0f ? Quaternion.Euler(0f, 180f, 0f) : Quaternion.identity, Vector3.one);
+            }
+            else
+            {
+                PlaceCastleKitModuleOnFloor("wall", parent, new Vector3(axis, 0f, t), Quaternion.Euler(0f, axis >= 0f ? 90f : -90f, 0f), Vector3.one);
+            }
+        }
+    }
+
+    private void PlaceKenneyEastGateWalls(Transform parent, float gateX, float halfD, float tile)
+    {
+        for (float z = -halfD + tile * 0.5f; z <= halfD - tile * 0.25f; z += tile)
+        {
+            if (Mathf.Abs(z) <= tile * 0.65f)
+            {
+                continue;
+            }
+
+            PlaceCastleKitModuleOnFloor("wall", parent, new Vector3(gateX, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        }
     }
 
     private void BuildKenneyGatehouse(Transform parent, Vector3 localPosition)
     {
-        float towerGap = 4.2f;
+        float towerGap = CastleKenneyTileSize * 2.1f;
         BuildKenneyGateTower(parent, localPosition + new Vector3(0f, 0f, -towerGap * 0.5f));
         BuildKenneyGateTower(parent, localPosition + new Vector3(0f, 0f, towerGap * 0.5f));
-        CreateCastleKitModule("metal-gate", parent, localPosition + new Vector3(0.35f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 1.05f);
-        CreateCastleKitModule("bridge-straight-pillar", parent, localPosition + new Vector3(0.9f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.75f);
+        PlaceCastleKitModuleOnFloor("metal-gate", parent,
+            localPosition + new Vector3(0.2f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
     }
 
     private void BuildKenneyGateTower(Transform parent, Vector3 localPosition)
     {
-        CreateCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, Vector3.one);
-        CreateCastleKitModule("tower-square-mid-door", parent, localPosition + new Vector3(0f, 2.75f, 0f), Quaternion.identity, Vector3.one);
-        CreateCastleKitModule("tower-square-top-roof-high", parent, localPosition + new Vector3(0f, 5.5f, 0f), Quaternion.identity, Vector3.one);
+        float floorY = 0f;
+        floorY = StackCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, Vector3.one, floorY);
+        floorY = StackCastleKitModule("tower-square-mid-door", parent, localPosition, Quaternion.identity, Vector3.one, floorY);
+        StackCastleKitModule("tower-square-top-roof-high", parent, localPosition, Quaternion.identity, Vector3.one, floorY);
     }
 
-    private void BuildKenneyCentralKeep(Transform parent, Vector3 localPosition)
+    private float BuildKenneyCentralKeepTopY(Transform parent, Vector3 localPosition)
     {
-        CreateCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, Vector3.one * 1.08f);
-        CreateCastleKitModule("tower-square-mid-windows", parent, localPosition + new Vector3(0f, 2.85f, 0f), Quaternion.identity, Vector3.one * 1.08f);
-        CreateCastleKitModule("tower-square-mid-door", parent, localPosition + new Vector3(0f, 5.7f, 0f), Quaternion.identity, Vector3.one * 1.08f);
-        CreateCastleKitModule("tower-square-top-roof-high-windows", parent, localPosition + new Vector3(0f, 8.55f, 0f), Quaternion.identity, Vector3.one * 1.12f);
-        CreateCastleKitModule("tower-square-roof", parent, localPosition + new Vector3(0f, 10.2f, 0f), Quaternion.identity, Vector3.one * 1.05f);
+        Vector3 scale = Vector3.one * 1.05f;
+        float floorY = 0f;
+        floorY = StackCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, scale, floorY);
+        floorY = StackCastleKitModule("tower-square-mid-windows", parent, localPosition, Quaternion.identity, scale, floorY);
+        floorY = StackCastleKitModule("tower-square-mid-door", parent, localPosition, Quaternion.identity, scale, floorY);
+        floorY = StackCastleKitModule("tower-square-top-roof-high-windows", parent, localPosition, Quaternion.identity, scale, floorY);
+        return StackCastleKitModule("tower-square-roof", parent, localPosition, Quaternion.identity, scale, floorY);
     }
 
     private void BuildKenneyCornerTower(Transform parent, Vector3 localPosition)
     {
-        CreateCastleKitModule("tower-square-base", parent, localPosition, Quaternion.identity, Vector3.one * 0.92f);
-        CreateCastleKitModule("tower-square-mid", parent, localPosition + new Vector3(0f, 2.5f, 0f), Quaternion.identity, Vector3.one * 0.92f);
-        CreateCastleKitModule("tower-square-top-roof", parent, localPosition + new Vector3(0f, 5f, 0f), Quaternion.identity, Vector3.one * 0.92f);
+        Vector3 scale = Vector3.one * 0.95f;
+        float floorY = 0f;
+        floorY = StackCastleKitModule("tower-square-base", parent, localPosition, Quaternion.identity, scale, floorY);
+        floorY = StackCastleKitModule("tower-square-mid", parent, localPosition, Quaternion.identity, scale, floorY);
+        StackCastleKitModule("tower-square-top-roof", parent, localPosition, Quaternion.identity, scale, floorY);
     }
 
     private void ApplyKenneyCastleFactionTint(GameObject root, bool beastFaction)
@@ -247,97 +311,115 @@ public sealed partial class ApocalypseKingUnityGame
         string door = brick ? "Wall_UnevenBrick_Door_Flat" : "Wall_Plaster_Door_Flat";
         string window = brick ? "Wall_UnevenBrick_Window_Wide_Flat" : "Wall_Plaster_Window_Wide_Flat";
         string corner = brick ? "Corner_Exterior_Brick" : "Corner_Exterior_Wood";
-        string roofMain = "Roof_RoundTiles_6x10";
-        string roofFront = brick ? "Roof_Front_Brick8" : "Roof_Front_Brick6";
-        string overhang = brick ? "Overhang_UnevenBrick_Long" : "Overhang_Plaster_Long";
 
-        const int widthModules = 5;
-        const int depthModules = 4;
-        float localWidth = widthModules * CastleModuleSize;
-        float localDepth = depthModules * CastleModuleSize;
-        float halfW = localWidth * 0.5f;
-        float halfD = localDepth * 0.5f;
+        int widthModules = CastleWidthModules;
+        int depthModules = CastleLengthModules;
+        const float wallLevelHeight = 3f;
         float module = CastleModuleSize;
+        float halfW = widthModules * module * 0.5f;
+        float halfD = depthModules * module * 0.5f;
         float gateX = halfW;
+        string roofCourtyard = depthModules >= 8 ? "Roof_RoundTiles_8x12" : "Roof_RoundTiles_6x10";
+
+        BuildMedievalCastleWallRing(root.transform, halfW, halfD, gateX, module, depthModules, widthModules, wall, door, window, 0f);
+        BuildMedievalCastleWallRing(root.transform, halfW, halfD, gateX, module, depthModules, widthModules, wall, door, window, wallLevelHeight);
+
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(-halfW, 0f, -halfD), Quaternion.identity, Vector3.one);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(gateX, 0f, -halfD), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(gateX, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(-halfW, 0f, halfD), Quaternion.Euler(0f, 270f, 0f), Vector3.one);
+
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(-halfW, 0f, -halfD), Quaternion.identity, Vector3.one, wallLevelHeight);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(gateX, 0f, -halfD), Quaternion.Euler(0f, 90f, 0f), Vector3.one, wallLevelHeight);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(gateX, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one, wallLevelHeight);
+        PlaceMedievalCastleModule(corner, root.transform, new Vector3(-halfW, 0f, halfD), Quaternion.Euler(0f, 270f, 0f), Vector3.one, wallLevelHeight);
+
+        if (LoadMedievalVillagePrefab(roofCourtyard) != null)
+        {
+            PlaceMedievalCastleModule(roofCourtyard, root.transform, new Vector3(0f, 0f, 0f), Quaternion.identity, Vector3.one, wallLevelHeight);
+        }
+
+        BuildMedievalCornerTowerRoom(root.transform, new Vector3(-halfW, 0f, -halfD), brick, 0f);
+        BuildMedievalCornerTowerRoom(root.transform, new Vector3(gateX, 0f, -halfD), brick, 90f);
+        BuildMedievalCornerTowerRoom(root.transform, new Vector3(gateX, 0f, halfD), brick, 180f);
+        BuildMedievalCornerTowerRoom(root.transform, new Vector3(-halfW, 0f, halfD), brick, 270f);
+
+        PlaceMedievalCastleModule("Wall_Arch", root.transform, new Vector3(gateX + 0.12f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        PlaceMedievalCastleModule("Door_8_Flat", root.transform, new Vector3(gateX + 0.16f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        PlaceMedievalCastleModule("Stairs_Exterior_Straight_Center", root.transform, new Vector3(gateX + 0.82f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.82f);
+
+        if (brick)
+        {
+            PlaceMedievalCastleModule("Prop_Brick3", root.transform, new Vector3(gateX + 1.1f, 0f, -1f), Quaternion.Euler(0f, 40f, 0f), Vector3.one * 0.85f);
+        }
+        else
+        {
+            PlaceMedievalCastleModule("Prop_Wagon", root.transform, new Vector3(gateX + 1f, 0f, 1.2f), Quaternion.Euler(0f, -70f, 0f), Vector3.one * 0.48f);
+        }
+
+        ApplyRealisticCastleStoneMaterials(root);
+        ApplyMedievalCastleFactionTint(root, beastFaction);
+        float obstacleHalfWidth = 31f * CastleVisualScale;
+        float obstacleHalfLength = 68f * CastleVisualScale;
+        AddBuildingObstacle(root, name, centerLogicalX, centerZ, obstacleHalfWidth, obstacleHalfLength, 11f * CastleVisualScale, 16f, 420f);
+        return root;
+    }
+
+    private void BuildMedievalCastleWallRing(
+        Transform parent,
+        float halfW,
+        float halfD,
+        float gateX,
+        float module,
+        int depthModules,
+        int widthModules,
+        string wall,
+        string door,
+        string window,
+        float floorY)
+    {
+        bool upper = floorY > 0.01f;
+        string northSouth = upper ? window : wall;
+        string eastWest = upper ? window : wall;
 
         for (int i = 0; i < depthModules; i++)
         {
             float z = -halfD + module * 0.5f + i * module;
-            CreateMegaKitModule(wall, root.transform, new Vector3(-halfW, 0f, z), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
-            string eastAsset = i == depthModules / 2 ? door : window;
-            CreateMegaKitModule(eastAsset, root.transform, new Vector3(halfW, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+            PlaceMedievalCastleModule(eastWest, parent, new Vector3(-halfW, 0f, z), Quaternion.Euler(0f, -90f, 0f), Vector3.one, floorY);
+            string eastAsset = !upper && i == depthModules / 2 ? door : northSouth;
+            PlaceMedievalCastleModule(eastAsset, parent, new Vector3(gateX, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one, floorY);
         }
 
         for (int i = 0; i < widthModules; i++)
         {
             float x = -halfW + module * 0.5f + i * module;
-            if (Mathf.Abs(x) < module * 0.6f)
-            {
-                continue;
-            }
-
-            CreateMegaKitModule(window, root.transform, new Vector3(x, 0f, -halfD), Quaternion.identity, Vector3.one);
-            CreateMegaKitModule(window, root.transform, new Vector3(x, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+            PlaceMedievalCastleModule(northSouth, parent, new Vector3(x, 0f, -halfD), Quaternion.identity, Vector3.one, floorY);
+            PlaceMedievalCastleModule(northSouth, parent, new Vector3(x, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one, floorY);
         }
-
-        CreateMegaKitModule(corner, root.transform, new Vector3(-halfW, 0f, -halfD), Quaternion.identity, Vector3.one);
-        CreateMegaKitModule(corner, root.transform, new Vector3(halfW, 0f, -halfD), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-        CreateMegaKitModule(corner, root.transform, new Vector3(halfW, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
-        CreateMegaKitModule(corner, root.transform, new Vector3(-halfW, 0f, halfD), Quaternion.Euler(0f, 270f, 0f), Vector3.one);
-
-        CreateMegaKitModule(roofMain, root.transform, new Vector3(0f, 3.05f, 0f), Quaternion.identity, Vector3.one);
-        CreateMegaKitModule(roofFront, root.transform, new Vector3(0f, 3.05f, gateX + 0.04f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-        CreateMegaKitModule(overhang, root.transform, new Vector3(gateX + 0.12f, 2.4f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-        CreateMegaKitModule("Wall_Arch", root.transform, new Vector3(gateX + 0.18f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 1.05f);
-        CreateMegaKitModule("Door_8_Flat", root.transform, new Vector3(gateX + 0.22f, 0.02f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
-        CreateMegaKitModule("Stairs_Exterior_Straight_Center", root.transform, new Vector3(gateX + 0.95f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.82f);
-
-        BuildMedievalCornerTower(root.transform, new Vector3(-halfW, 0f, -halfD), brick, false);
-        BuildMedievalCornerTower(root.transform, new Vector3(-halfW, 0f, halfD), brick, true);
-        BuildMedievalCornerTower(root.transform, new Vector3(halfW * 0.72f, 0f, -halfD * 0.82f), brick, false);
-        BuildMedievalCornerTower(root.transform, new Vector3(halfW * 0.72f, 0f, halfD * 0.82f), brick, true);
-
-        if (brick)
-        {
-            CreateMegaKitModule("Prop_Chimney", root.transform, new Vector3(-halfW * 0.35f, 3.5f, halfD * 0.2f), Quaternion.Euler(0f, -18f, 0f), Vector3.one);
-            CreateMegaKitModule("Prop_Brick3", root.transform, new Vector3(gateX + 1.35f, 0f, -1.1f), Quaternion.Euler(0f, 40f, 0f), Vector3.one * 0.9f);
-        }
-        else
-        {
-            CreateMegaKitModule("Prop_Wagon", root.transform, new Vector3(gateX + 1.2f, 0f, 1.4f), Quaternion.Euler(0f, -70f, 0f), Vector3.one * 0.5f);
-            CreateMegaKitModule("Prop_Crate", root.transform, new Vector3(gateX + 1.05f, 0f, -1.3f), Quaternion.identity, Vector3.one * 0.48f);
-        }
-
-        CreateMegaKitModule("Prop_MetalFence_Ornament", root.transform, new Vector3(0f, 0f, -halfD - 0.55f), Quaternion.identity, Vector3.one * 0.95f);
-        CreateMegaKitModule("Prop_MetalFence_Ornament", root.transform, new Vector3(0f, 0f, halfD + 0.55f), Quaternion.Euler(0f, 180f, 0f), Vector3.one * 0.95f);
-
-        ApplyMedievalCastleFactionTint(root, beastFaction);
-        AddBuildingObstacle(root, name, centerLogicalX, centerZ, 58f * CastleVisualScale, 72f * CastleVisualScale, 9.5f * CastleVisualScale, 16f, 420f);
-        return root;
     }
 
-    private void BuildMedievalCornerTower(Transform parent, Vector3 localPosition, bool brick, bool mirrorYaw)
+    private void BuildMedievalCornerTowerRoom(Transform parent, Vector3 center, bool brick, float yawDegrees)
     {
-        const float size = 3.2f;
-        float half = size * 0.5f;
-        float yawOffset = mirrorYaw ? 180f : 0f;
-        string front = brick ? "Wall_UnevenBrick_Window_Thin_Round" : "Wall_Plaster_Window_Thin_Round";
+        const float localSize = 3.6f;
+        float half = localSize * 0.5f;
+        Quaternion yaw = Quaternion.Euler(0f, yawDegrees, 0f);
+        string front0 = brick ? "Wall_UnevenBrick_Door_Round" : "Wall_Plaster_Door_Round";
+        string front1 = brick ? "Wall_UnevenBrick_Window_Thin_Round" : "Wall_Plaster_Window_Thin_Round";
         string side = brick ? "Wall_UnevenBrick_Straight" : "Wall_Plaster_Straight";
         string cornerAsset = brick ? "Corner_Exterior_Brick" : "Corner_Exterior_Wood";
 
         for (int level = 0; level < 2; level++)
         {
-            float y = level * 2.85f;
-            Quaternion baseYaw = Quaternion.Euler(0f, yawOffset, 0f);
-            CreateMegaKitModule(level == 0 ? (brick ? "Wall_UnevenBrick_Door_Round" : "Wall_Plaster_Door_Round") : front, parent,
-                localPosition + new Vector3(0f, y, -half), baseYaw, Vector3.one * 0.92f);
-            CreateMegaKitModule(side, parent, localPosition + new Vector3(-half, y, 0f), baseYaw * Quaternion.Euler(0f, -90f, 0f), Vector3.one * 0.92f);
-            CreateMegaKitModule(side, parent, localPosition + new Vector3(half, y, 0f), baseYaw * Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.92f);
-            CreateMegaKitModule(cornerAsset, parent, localPosition + new Vector3(-half, y, -half), baseYaw, Vector3.one * 0.92f);
-            CreateMegaKitModule(cornerAsset, parent, localPosition + new Vector3(half, y, -half), baseYaw * Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.92f);
+            float floorY = level * 3f;
+            string front = level == 0 ? front0 : front1;
+            PlaceMedievalCastleModule(front, parent, center + new Vector3(0f, 0f, -half), yaw, Vector3.one * 0.92f, floorY);
+            PlaceMedievalCastleModule(side, parent, center + new Vector3(-half, 0f, 0f), yaw * Quaternion.Euler(0f, -90f, 0f), Vector3.one * 0.92f, floorY);
+            PlaceMedievalCastleModule(side, parent, center + new Vector3(half, 0f, 0f), yaw * Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.92f, floorY);
+            PlaceMedievalCastleModule(cornerAsset, parent, center + new Vector3(-half, 0f, -half), yaw, Vector3.one * 0.92f, floorY);
+            PlaceMedievalCastleModule(cornerAsset, parent, center + new Vector3(half, 0f, -half), yaw * Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.92f, floorY);
         }
 
-        CreateMegaKitModule("Roof_Tower_RoundTiles", parent, localPosition + new Vector3(0f, 5.7f, 0f), Quaternion.Euler(0f, yawOffset, 0f), Vector3.one * 0.95f);
+        PlaceMedievalCastleModule("Roof_Tower_RoundTiles", parent, center, yaw, Vector3.one * 0.95f, 6f);
     }
 
     private void ApplyMedievalCastleFactionTint(GameObject root, bool beastFaction)
