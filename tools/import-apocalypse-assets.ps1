@@ -14,6 +14,9 @@ Write-Host "[Apocalypse] Importing US Army tactical soldier..."
 Write-Host "[Apocalypse] Importing M14 rifle for soldiers..."
 & "$PSScriptRoot\import-m14-weapon.ps1"
 
+Write-Host "[Apocalypse] Importing zombie unit models (Quaternius / Poly Pizza)..."
+& "$PSScriptRoot\import-zombie-units.ps1"
+
 $ThirdParty = Join-Path $Root "Assets\ThirdParty\Kenney"
 New-Item -ItemType Directory -Force -Path $ThirdParty | Out-Null
 
