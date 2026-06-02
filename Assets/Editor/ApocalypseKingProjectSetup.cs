@@ -302,7 +302,7 @@ public static class ApocalypseKingProjectSetup
         canvas.sortingOrder = sortingOrder;
         var scaler = canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(720f, 1280f);
+        scaler.referenceResolution = new Vector2(1170f, 2532f);
         scaler.matchWidthOrHeight = 0.5f;
         if (!raycaster)
         {

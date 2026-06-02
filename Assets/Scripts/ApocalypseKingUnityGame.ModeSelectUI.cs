@@ -275,19 +275,13 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void ApplyPortraitLiveDefaults()
     {
-        for (int i = 0; i < ResolutionPresets.Length; i++)
-        {
-            if (ResolutionPresets[i].Width == 1080 && ResolutionPresets[i].Height == 1920)
-            {
-                selectedResolutionIndex = i;
-                break;
-            }
-        }
-
+        selectedResolutionIndex = DefaultResolutionPresetIndex;
         if (!Application.isMobilePlatform)
         {
             Screen.fullScreenMode = FullScreenMode.Windowed;
-            Screen.SetResolution(1080, 1920, FullScreenMode.Windowed);
+            Screen.SetResolution(DefaultPortraitScreenWidth, DefaultPortraitScreenHeight, FullScreenMode.Windowed);
         }
+
+        RefreshResolutionControls();
     }
 }

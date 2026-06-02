@@ -69,8 +69,8 @@ public static class ApocalypseKingSceneBuilder
 
     private static void ConfigureMobilePlayerSettings()
     {
-        PlayerSettings.defaultScreenWidth = 720;
-        PlayerSettings.defaultScreenHeight = 1280;
+        PlayerSettings.defaultScreenWidth = 1170;
+        PlayerSettings.defaultScreenHeight = 2532;
         PlayerSettings.defaultIsNativeResolution = false;
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
         PlayerSettings.allowedAutorotateToPortrait = true;
