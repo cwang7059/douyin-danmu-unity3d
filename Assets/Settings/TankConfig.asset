@@ -16,7 +16,7 @@ MonoBehaviour:
   DisplayName: Tank
   MaxHp: 270
   Damage: 85
-  MoveSpeed: 34
+  MoveSpeed: 54
   Radius: 34
   AttackRange: 430
   AttackInterval: 1.2

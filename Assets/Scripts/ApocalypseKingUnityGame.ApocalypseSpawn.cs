@@ -192,7 +192,7 @@ public sealed partial class ApocalypseKingUnityGame
         ActivateUnit(unit, x, z,
             soldierConfig.MaxHp * hpMul,
             soldierConfig.Damage * dmgMul * globalAttackBuffMultiplier,
-            soldierConfig.MoveSpeed + Noise(processedDanmuCommandCount) * 12f,
+            soldierConfig.MoveSpeed + Noise(processedDanmuCommandCount) * 8f,
             soldierConfig.Radius,
             soldierConfig.AttackRange,
             soldierConfig.AttackInterval,

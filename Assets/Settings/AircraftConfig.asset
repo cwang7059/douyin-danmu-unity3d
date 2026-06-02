@@ -16,7 +16,7 @@ MonoBehaviour:
   DisplayName: Aircraft
   MaxHp: 180
   Damage: 76
-  MoveSpeed: 84
+  MoveSpeed: 100
   Radius: 54
   AttackRange: 520
   AttackInterval: 0.95

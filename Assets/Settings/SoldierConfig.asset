@@ -16,7 +16,7 @@ MonoBehaviour:
   DisplayName: Soldier
   MaxHp: 58
   Damage: 5
-  MoveSpeed: 68
+  MoveSpeed: 36
   Radius: 18
   AttackRange: 260
   AttackInterval: 0.62

@@ -34,8 +34,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     /// <summary>Quaternius tank GLB needs -90 degrees on Y to align mesh forward with game heading.</summary>
     private const float TankT55AYawOffset = -90f;
     private const float TankT55AkYawOffset = -90f;
+    private const float SoldierDefaultMoveSpeed = 36f;
+    private const float TankDefaultMoveSpeed = 54f;
+    private const float AircraftDefaultMoveSpeed = 100f;
     private const float SoldierModelTargetHeight = 0.86f;
-    private const float AircraftModelTargetHeight = 1.85f;
+    private const float AircraftModelTargetHeight = 1.58f;
     /// <summary>FBX 机身沿模型 Y 轴竖起；先绕 X 放平，再由 body 绕 Y 瞄向怪物（勿把 heading 再乘到模型上）。</summary>
     private const float AircraftBindPitch = -90f;
     private const float AircraftBindYaw = 0f;
@@ -1315,7 +1318,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             soldierConfig.Kind = UnitKind.Soldier;
             soldierConfig.MaxHp = 58f;
             soldierConfig.Damage = 5f;
-            soldierConfig.MoveSpeed = 68f;
+            soldierConfig.MoveSpeed = SoldierDefaultMoveSpeed;
             soldierConfig.Radius = 18f;
             soldierConfig.AttackRange = 260f;
             soldierConfig.AttackInterval = 0.62f;
@@ -1327,7 +1330,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             tankConfig.Kind = UnitKind.Tank;
             tankConfig.MaxHp = 270f;
             tankConfig.Damage = 85f;
-            tankConfig.MoveSpeed = 34f;
+            tankConfig.MoveSpeed = TankDefaultMoveSpeed;
             tankConfig.Radius = 34f;
             tankConfig.AttackRange = 430f;
             tankConfig.AttackInterval = 1.2f;
@@ -1339,7 +1342,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             aircraftConfig.Kind = UnitKind.Aircraft;
             aircraftConfig.MaxHp = 180f;
             aircraftConfig.Damage = 76f;
-            aircraftConfig.MoveSpeed = 84f;
+            aircraftConfig.MoveSpeed = AircraftDefaultMoveSpeed;
             aircraftConfig.Radius = 54f;
             aircraftConfig.AttackRange = 520f;
             aircraftConfig.AttackInterval = 0.95f;
@@ -3265,7 +3268,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             int rank = i / HumanFormationLanesPerRow;
             GetHumanFormationSpawn(UnitKind.Soldier, i, rank, i + rank * 17, out float x, out float z);
-            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 18f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
+            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 8f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
         }
     }
 
@@ -3281,7 +3284,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             int rank = i / HumanFormationTanksPerRow;
             GetHumanFormationSpawn(UnitKind.Tank, i, rank, i + rank * 23, out float x, out float z);
-            ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 8f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
+            ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 6f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
 
@@ -3297,7 +3300,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             GetHumanCastleSpawn(i + 401, out float x, out float z);
             z = AirLanes[i % AirLanes.Length] * 0.35f + z * 0.65f;
-            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 9f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
+            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
         }
     }
 
@@ -3403,7 +3406,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int soldierIndex = CountActive(soldiers);
         int rank = soldierIndex / HumanFormationLanesPerRow;
         GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, rank, processedDanmuCommandCount + rank * 19, out float x, out float z);
-        ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 8f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
+        ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 6f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
     }
@@ -3424,7 +3427,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int tankIndex = CountActive(tanks);
         int rank = tankIndex / HumanFormationTanksPerRow;
         GetHumanFormationSpawn(UnitKind.Tank, tankIndex, rank, processedDanmuCommandCount + rank * 5, out float x, out float z);
-        ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, rank, 1, 0f);
+        ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 5f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
     }
@@ -3441,7 +3444,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int rank = Mathf.Max(0, CountActive(aircraft) / AirLanes.Length);
         GetHumanCastleSpawn(processedDanmuCommandCount + rank * 11, out float x, out float z);
         z = AirLanes[lane] * 0.4f + z * 0.6f;
-        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 9f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
+        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 12f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, rank, 1, 2.5f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.05f);
         return true;
     }
