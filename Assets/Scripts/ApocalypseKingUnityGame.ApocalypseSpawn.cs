@@ -172,9 +172,21 @@ public sealed partial class ApocalypseKingUnityGame
             return false;
         }
 
-        int lane = processedDanmuCommandCount % CastleSpawnLanes.Length;
-        int rank = CountActiveFaction(soldiers, faction) / CastleSpawnLanes.Length;
-        GetFactionCastleSpawn(faction, processedDanmuCommandCount + rank * 19 + lane, out float x, out float z, out int facing);
+        int soldierIndex = CountActiveFaction(soldiers, faction);
+        int rank = soldierIndex / HumanFormationLanesPerRow;
+        int facing;
+        float x;
+        float z;
+        if (faction == FactionId.Blue)
+        {
+            GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, rank, processedDanmuCommandCount + rank * 19, out x, out z);
+            facing = 1;
+        }
+        else
+        {
+            GetFactionCastleSpawn(faction, processedDanmuCommandCount + rank * 19, out x, out z, out facing);
+        }
+
         float hpMul = role == ApocalypseUnitRole.MeleeGrunt ? 1.1f : role == ApocalypseUnitRole.RangedGrunt ? 0.95f : 1f;
         float dmgMul = role == ApocalypseUnitRole.RangedGrunt ? 1.2f : 1f;
         ActivateUnit(unit, x, z,
@@ -205,9 +217,21 @@ public sealed partial class ApocalypseKingUnityGame
             return ReviveApocalypseSoldier(faction, role);
         }
 
-        int tankLane = processedDanmuCommandCount % TankLanes.Length;
-        GetFactionCastleSpawn(faction, processedDanmuCommandCount + tankLane * 5, out float x, out float z, out int facing);
-        z += (TankLanes[tankLane] - CastleSpawnLanes[tankLane % CastleSpawnLanes.Length]) * 0.25f;
+        int tankIndex = CountActiveFaction(tanks, faction);
+        int rank = tankIndex / HumanFormationTanksPerRow;
+        int facing;
+        float x;
+        float z;
+        if (faction == FactionId.Blue)
+        {
+            GetHumanFormationSpawn(UnitKind.Tank, tankIndex, rank, processedDanmuCommandCount + rank * 5, out x, out z);
+            facing = 1;
+        }
+        else
+        {
+            GetFactionCastleSpawn(faction, processedDanmuCommandCount + rank * 5, out x, out z, out facing);
+        }
+
         float hpMul = role == ApocalypseUnitRole.ShieldTank ? 1.8f : role == ApocalypseUnitRole.Artillery ? 0.85f : 1.2f;
         ActivateUnit(unit, x, z,
             tankConfig.MaxHp * hpMul,
@@ -216,7 +240,7 @@ public sealed partial class ApocalypseKingUnityGame
             tankConfig.Radius,
             tankConfig.AttackRange + (role == ApocalypseUnitRole.Artillery ? 80f : 0f),
             tankConfig.AttackInterval,
-            0, facing, 0f);
+            rank, facing, 0f);
         unit.faction = faction;
         unit.apocalypseRole = role;
         unit.team = TeamKind.Human;
