@@ -324,9 +324,9 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "RifleSmoke", 0.22f, 0.10f, 0.16f, 0.4f, 1.1f, 0.06f, 0.14f, 4, new Color(0.62f, 0.64f, 0.62f, 0.45f), new Color(0.35f, 0.35f, 0.35f, 0f), ParticleSystemShapeType.Cone, 0.03f, 10f, -0.04f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.MuzzleTank:
-                AddBurst(root, "TankFlash", 0.16f, 0.06f, 0.13f, 4.5f, 7.8f, 0.48f, 0.86f, 4, Color.white, new Color(1f, 0.25f, 0.04f, 0f), ParticleSystemShapeType.Cone, 0.12f, 16f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleTank);
-                AddBurst(root, "TankSmoke", 0.75f, 0.42f, 0.95f, 1.0f, 2.3f, 0.28f, 0.68f, 24, new Color(0.58f, 0.56f, 0.50f, 0.78f), new Color(0.18f, 0.17f, 0.16f, 0f), ParticleSystemShapeType.Cone, 0.18f, 22f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
-                AddBurst(root, "TankSparks", 0.22f, 0.16f, 0.28f, 4.2f, 8.5f, 0.08f, 0.16f, 10, new Color(1f, 0.80f, 0.34f, 1f), new Color(1f, 0.20f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.08f, 26f, 0.1f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "TankFlash", 0.10f, 0.04f, 0.08f, 5.5f, 9.5f, 0.22f, 0.42f, 3, Color.white, new Color(0.95f, 0.88f, 0.72f, 0f), ParticleSystemShapeType.Cone, 0.08f, 18f, 0f, ParticleSystemRenderMode.Billboard, TextureMuzzleTank);
+                AddBurst(root, "TankSmoke", 0.42f, 0.22f, 0.52f, 1.4f, 3.2f, 0.14f, 0.32f, 10, new Color(0.62f, 0.60f, 0.56f, 0.55f), new Color(0.24f, 0.23f, 0.22f, 0f), ParticleSystemShapeType.Cone, 0.10f, 18f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+                AddBurst(root, "TankSparks", 0.14f, 0.10f, 0.18f, 5.0f, 9.0f, 0.06f, 0.12f, 6, new Color(1f, 0.86f, 0.55f, 1f), new Color(0.75f, 0.45f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.06f, 24f, 0.06f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 break;
             case BattleEffectId.MuzzleAircraft:
                 AddBurst(root, "AircraftDropFlash", 0.12f, 0.06f, 0.16f, 1.2f, 2.8f, 0.18f, 0.34f, 5, Color.white, new Color(1f, 0.50f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.10f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
@@ -704,9 +704,10 @@ public sealed class EffectManager : MonoBehaviour
         {
             case BattleEffectId.BulletHitMetal:
             case BattleEffectId.MuzzleRifle:
+                return new Color(1f, 0.82f, 0.32f, 1f);
             case BattleEffectId.MuzzleTank:
             case BattleEffectId.ShellLaunchSmoke:
-                return new Color(1f, 0.82f, 0.32f, 1f);
+                return new Color(0.72f, 0.70f, 0.66f, 1f);
             case BattleEffectId.HumanSummon:
             case BattleEffectId.HumanAirStrikeWarning:
                 return new Color(0.25f, 0.68f, 1f, 1f);

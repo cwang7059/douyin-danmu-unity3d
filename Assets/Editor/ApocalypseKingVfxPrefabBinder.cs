@@ -26,7 +26,7 @@ public static class ApocalypseKingVfxPrefabBinder
     private static readonly KenneyPrefabBinding[] KenneyPrefabBindings =
     {
         new KenneyPrefabBinding(BattleEffectId.MuzzleRifle, "Sparks.prefab", 0.52f),
-        new KenneyPrefabBinding(BattleEffectId.MuzzleTank, "Fire.prefab", 0.38f),
+        new KenneyPrefabBinding(BattleEffectId.MuzzleTank, "Sparks.prefab", 0.30f),
         new KenneyPrefabBinding(BattleEffectId.MuzzleAircraft, "Sparks.prefab", 0.48f),
         new KenneyPrefabBinding(BattleEffectId.ShellLaunchSmoke, "Smoke.prefab", 0.45f),
         new KenneyPrefabBinding(BattleEffectId.BombDropTrail, "Smoke.prefab", 0.35f),

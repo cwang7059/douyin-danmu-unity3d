@@ -385,28 +385,28 @@ public sealed partial class ApocalypseKingUnityGame
         switch (index)
         {
             case 0:
-                orbitCamera.yaw = -14f;
-                orbitCamera.pitch = 24f;
-                orbitCamera.distance = 84f;
-                cameraTarget.localPosition = Vector3.zero;
+                orbitCamera.yaw = -12f;
+                orbitCamera.pitch = 26f;
+                orbitCamera.distance = 92f;
+                cameraTarget.localPosition = new Vector3(0f, 0f, -2.4f);
                 break;
             case 1:
-                orbitCamera.yaw = -38f;
-                orbitCamera.pitch = 28f;
-                orbitCamera.distance = 72f;
-                cameraTarget.localPosition = new Vector3(HumanCastleWorldX + 6f, 0f, -1.5f);
+                orbitCamera.yaw = -34f;
+                orbitCamera.pitch = 30f;
+                orbitCamera.distance = 98f;
+                cameraTarget.localPosition = new Vector3(HumanCastleWorldX + 4f, 0f, -1.2f);
                 break;
             case 2:
-                orbitCamera.yaw = 18f;
-                orbitCamera.pitch = 26f;
-                orbitCamera.distance = 76f;
-                cameraTarget.localPosition = new Vector3(BeastCastleWorldX - 6f, 0f, -1.2f);
+                orbitCamera.yaw = 16f;
+                orbitCamera.pitch = 30f;
+                orbitCamera.distance = 98f;
+                cameraTarget.localPosition = new Vector3(BeastCastleWorldX - 4f, 0f, -1f);
                 break;
             default:
                 orbitCamera.yaw = -6f;
                 orbitCamera.pitch = 34f;
-                orbitCamera.distance = 58f;
-                cameraTarget.localPosition = new Vector3(0f, 0f, -3.8f);
+                orbitCamera.distance = 64f;
+                cameraTarget.localPosition = new Vector3(0f, 0f, -3.2f);
                 break;
         }
 

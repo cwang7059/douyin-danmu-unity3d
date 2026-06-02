@@ -26,16 +26,16 @@ public static class BattleEffectTuning
                 max = 0.58f;
                 return;
             case BattleEffectId.MuzzleTank:
-                min = 0.55f;
-                max = 0.95f;
+                min = 0.28f;
+                max = 0.48f;
                 return;
             case BattleEffectId.MuzzleAircraft:
                 min = 0.45f;
                 max = 0.78f;
                 return;
             case BattleEffectId.ShellLaunchSmoke:
-                min = 0.35f;
-                max = 0.62f;
+                min = 0.24f;
+                max = 0.42f;
                 return;
             case BattleEffectId.BombDropTrail:
                 min = 0.22f;

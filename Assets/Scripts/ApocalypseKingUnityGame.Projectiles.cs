@@ -174,23 +174,44 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (projectile.line != null)
             {
-                float startWidth = kind == ProjectileKind.Bullet ? 0.015f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
-                float endWidth = kind == ProjectileKind.Bullet ? 0.01f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
+                float startWidth;
+                float endWidth;
+                Color lineColor = color;
+                if (kind == ProjectileKind.Shell)
+                {
+                    startWidth = 0.028f;
+                    endWidth = 0.018f;
+                    lineColor = new Color(0.52f, 0.50f, 0.46f, 0.75f);
+                }
+                else
+                {
+                    startWidth = kind == ProjectileKind.Bullet ? 0.015f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
+                    endWidth = kind == ProjectileKind.Bullet ? 0.01f : kind == ProjectileKind.Bomb ? 0.12f : 0.06f;
+                }
+
                 projectile.line.startWidth = startWidth;
                 projectile.line.endWidth = endWidth;
-                projectile.line.material = game.GetOpaqueMaterial(color);
-                projectile.line.startColor = color;
-                projectile.line.endColor = color;
+                projectile.line.material = game.GetOpaqueMaterial(lineColor);
+                projectile.line.startColor = lineColor;
+                projectile.line.endColor = lineColor;
             }
 
             if (projectile.head != null)
             {
                 float scale = ProjectileHeadScale(kind);
-                projectile.head.localScale = new Vector3(scale * 0.7f, scale * 1.2f, scale * 0.7f);
+                if (kind == ProjectileKind.Shell)
+                {
+                    projectile.head.localScale = new Vector3(scale * 0.55f, scale * 0.55f, scale * 1.1f);
+                }
+                else
+                {
+                    projectile.head.localScale = new Vector3(scale * 0.7f, scale * 1.2f, scale * 0.7f);
+                }
                 var renderer = projectile.head.GetComponent<Renderer>();
                 if (renderer != null)
                 {
-                    renderer.sharedMaterial = game.GetOpaqueMaterial(color);
+                    Color headColor = kind == ProjectileKind.Shell ? new Color(0.42f, 0.40f, 0.36f, 1f) : color;
+                    renderer.sharedMaterial = game.GetOpaqueMaterial(headColor);
                 }
             }
         }
@@ -213,9 +234,18 @@ public sealed partial class ApocalypseKingUnityGame
 
             float pulse = shot.kind == ProjectileKind.Bullet ? 1f : 1f + Mathf.Sin(t * Mathf.PI) * 0.2f;
             float scale = ProjectileHeadScale(shot.kind) * pulse;
-            shot.head.localScale = shot.kind == ProjectileKind.Bomb
-                ? new Vector3(scale * 0.75f, scale * 1.55f, scale * 0.75f)
-                : Vector3.one * scale;
+            if (shot.kind == ProjectileKind.Bomb)
+            {
+                shot.head.localScale = new Vector3(scale * 0.75f, scale * 1.55f, scale * 0.75f);
+            }
+            else if (shot.kind == ProjectileKind.Shell)
+            {
+                shot.head.localScale = new Vector3(scale * 0.55f, scale * 0.55f, scale * 1.1f);
+            }
+            else
+            {
+                shot.head.localScale = Vector3.one * scale;
+            }
         }
 
         private void ResolveProjectileImpact(ProjectileView shot)
@@ -351,6 +381,8 @@ public sealed partial class ApocalypseKingUnityGame
                     return 0.24f;
                 case ProjectileKind.Rock:
                     return 0.26f;
+                case ProjectileKind.Shell:
+                    return 0.11f;
                 default:
                     return 0.18f;
             }
