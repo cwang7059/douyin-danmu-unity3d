@@ -676,7 +676,8 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
-        unit.runtimeState = unit.moveSpeed > 0.5f ? UnitRuntimeState.Moving : UnitRuntimeState.Idle;
+        float moveThreshold = unit.kind == UnitKind.Giant ? 0.12f : 0.5f;
+        unit.runtimeState = unit.moveSpeed > moveThreshold ? UnitRuntimeState.Moving : UnitRuntimeState.Idle;
     }
 }
 

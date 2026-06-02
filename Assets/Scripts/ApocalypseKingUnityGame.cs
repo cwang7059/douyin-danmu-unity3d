@@ -52,6 +52,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float SoldierM14TargetLength = 0.88f;
     /// <summary>Mixamo Vanguard mesh forward is opposite game heading after baked root rotation.</summary>
     private const float SoldierVanguardYawOffset = 180f;
+    /// <summary>Pixelhouse FBX 前向为 +X；与 heading 叠加 -90° 与战场方向一致（+90° 会背对移动方向）。</summary>
+    private const float GiantPixelhouseMeshYawOffset = -90f;
     private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
     private const string TankResourceModelPath = TankResourceFolderPath + "/TankA";
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
@@ -59,15 +61,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
     private const string AircraftResourceFolderPath = "KumaSousa/LowPolyHelicopter";
     private const string AircraftResourceModelPath = AircraftResourceFolderPath + "/helicopter";
-    private const string GiantSamResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
-    private const string GiantSamResourceFolderPath = "Quaternius/ZombieApocalypse";
+    private const string GiantRealisticFolderPath = "RealisticZombies";
+    private const string GiantPixelhouseResourceModelPath = GiantRealisticFolderPath + "/Pixelhouse/Zombie";
+    private const string GiantPixelhouseResourceFolderPath = GiantRealisticFolderPath + "/Pixelhouse";
     private const string GiantResourceFolderPath = "Kenney/ZombieCharacters";
     private const string GiantResourceModelPath = GiantResourceFolderPath + "/Model/characterMedium";
     private const string GiantQuaterniusResourceFolderPath = "Quaternius/ZombieUnits";
 
     private static readonly string[] GiantResourceModelCandidates =
     {
-        GiantSamResourceModelPath,
+        GiantPixelhouseResourceModelPath,
         GiantResourceModelPath,
     };
     private const string MedievalVillageResourceFolderPath = "Quaternius/MedievalVillageMegaKit";
@@ -149,7 +152,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
         // 直升机轴向绑定在 NormalizePrototype 中写入原型；运行时仅绕 Y 转向（headingDegrees）。
         { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 0f, 0f, 0.2f, true) },
-        { UnitKind.Giant, new ModelPose(2.55f, 0f, -90f, 0f, 0f, false) },
+        { UnitKind.Giant, new ModelPose(1.88f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
     };
@@ -1544,9 +1547,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] candidates =
         {
-            "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon.gltf",
-            "Kenney/ZombieCharacters/Model/characterMedium.fbx",
+            "RealisticZombies/Pixelhouse/Zombie.fbx",
             "Quaternius/ZombieUnits/ZombieA.glb",
+            "Kenney/ZombieCharacters/Model/characterMedium.fbx",
         };
 
         for (int i = 0; i < candidates.Length; i++)
@@ -1592,9 +1595,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             for (int i = 0; i < GiantResourceModelCandidates.Length; i++)
             {
                 string resourcePath = GiantResourceModelCandidates[i];
-                string clipFolder = resourcePath == GiantSamResourceModelPath
-                    ? GiantSamResourceFolderPath
-                    : GiantResourceFolderPath;
+                string clipFolder = ResolveGiantAnimationClipFolder(resourcePath);
                 string skinPath = resourcePath == GiantResourceModelPath ? GiantZombieSkinResourcePaths[0] : null;
                 var giantResourcePrototype = TryLoadGiantResourcePrototype(resourcePath, clipFolder, skinPath);
                 if (giantResourcePrototype != null)
@@ -1740,6 +1741,32 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return prototype;
     }
 
+    private static string ResolveGiantAnimationClipFolder(string resourcePath)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return GiantResourceFolderPath;
+        }
+
+        if (resourcePath.StartsWith(GiantPixelhouseResourceFolderPath, StringComparison.Ordinal))
+        {
+            return GiantPixelhouseResourceFolderPath;
+        }
+
+        if (resourcePath.StartsWith(GiantQuaterniusResourceFolderPath, StringComparison.Ordinal))
+        {
+            return GiantQuaterniusResourceFolderPath;
+        }
+
+        if (resourcePath.StartsWith(GiantResourceFolderPath, StringComparison.Ordinal))
+        {
+            return GiantResourceFolderPath;
+        }
+
+        int slash = resourcePath.LastIndexOf('/');
+        return slash > 0 ? resourcePath.Substring(0, slash) : resourcePath;
+    }
+
     private GameObject TryLoadGiantResourcePrototype(string resourcePath, string clipFolder, string skinTexturePath)
     {
         var prototype = LoadGiantResourcePrototype(resourcePath, clipFolder, skinTexturePath);
@@ -1768,9 +1795,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         var prototype = Instantiate(source, modelCacheRoot, false);
         prototype.name = $"{UnitKind.Giant}_Prototype_{SanitizeResourceToken(resourcePath)}";
         prototype.hideFlags = HideFlags.HideInHierarchy;
-        AttachResourceAnimationClips(prototype, resourcePath, clipFolder);
+        AttachGiantResourceAnimationClips(prototype, resourcePath, clipFolder);
         ConfigureImportedPrototype(prototype, UnitKind.Giant);
-        if (!string.IsNullOrEmpty(skinTexturePath))
+        if (resourcePath.StartsWith(GiantPixelhouseResourceFolderPath, StringComparison.Ordinal))
+        {
+            ApplyPixelhouseZombieMaterials(prototype);
+        }
+        else if (!string.IsNullOrEmpty(skinTexturePath))
         {
             ApplyKenneyZombieSkin(prototype, skinTexturePath);
         }
@@ -1826,6 +1857,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             string name = clip.name;
             if (name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0
                 || name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Fury", StringComparison.OrdinalIgnoreCase) >= 0
                 || name.IndexOf("idle", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;
@@ -1877,13 +1909,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < GiantQuaterniusResourceVariantPaths.Length; i++)
-        {
-            AddGiantVariantPrototype(TryLoadGiantResourcePrototype(
-                GiantQuaterniusResourceVariantPaths[i],
-                GiantQuaterniusResourceFolderPath,
-                null));
-        }
     }
 
     private void AddTankVariantPrototype(GameObject prototype)
@@ -1914,6 +1939,63 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         clipStore.Clips = clips;
         clipStore.AnimatorClips = CreateAnimatorCompatibleClips(clips);
         clipStore.AnimatorReady = clipStore.AnimatorClips.Length > 0;
+    }
+
+    private static void AttachGiantResourceAnimationClips(GameObject prototype, string resourceModelPath, string resourceFolderPath)
+    {
+        var clips = new List<AnimationClip>();
+        AppendEmbeddedModelAnimationClips(clips, prototype);
+        AppendResourceAnimationClips(clips, resourceModelPath);
+        if (resourceModelPath.StartsWith(GiantPixelhouseResourceFolderPath, StringComparison.Ordinal))
+        {
+            AppendResourceAnimationClips(clips, GiantPixelhouseResourceFolderPath + "/ZombieFury");
+            AppendResourceAnimationClips(clips, GiantPixelhouseResourceFolderPath + "/ZombieWalk");
+        }
+        else
+        {
+            AppendResourceAnimationClips(clips, resourceFolderPath);
+        }
+
+        if (clips.Count == 0)
+        {
+            return;
+        }
+
+        var clipStore = GetOrCreateAnimationClipStore(prototype);
+        clipStore.Clips = clips.ToArray();
+        clipStore.AnimatorClips = CreateAnimatorCompatibleClips(clipStore.Clips);
+        clipStore.AnimatorReady = clipStore.AnimatorClips.Length > 0;
+    }
+
+    private static void AppendEmbeddedModelAnimationClips(List<AnimationClip> clips, GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        Animation[] legacyAnimations = model.GetComponentsInChildren<Animation>(true);
+        for (int i = 0; i < legacyAnimations.Length; i++)
+        {
+            Animation animation = legacyAnimations[i];
+            if (animation == null)
+            {
+                continue;
+            }
+
+            if (animation.clip != null)
+            {
+                AddUniqueAnimatorCompatibleClip(clips, animation.clip);
+            }
+
+            foreach (AnimationState state in animation)
+            {
+                if (state != null && state.clip != null)
+                {
+                    AddUniqueAnimatorCompatibleClip(clips, state.clip);
+                }
+            }
+        }
     }
 
     private static AnimationClip[] CollectResourceAnimationClips(string resourceModelPath, string resourceFolderPath)
@@ -2036,6 +2118,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (kind == UnitKind.Tank)
         {
             RemoveTankDisplayGeometry(prototype);
+        }
+
+        if (kind == UnitKind.Giant)
+        {
+            RemoveGiantStrayGeometry(prototype);
         }
 
         if (kind == UnitKind.Soldier)
@@ -2267,6 +2354,40 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private static bool UnitModelUsesAuthoredTextures(GameObject model)
+    {
+        if (model == null)
+        {
+            return false;
+        }
+
+        var renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var materials = renderers[i].sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material material = materials[m];
+                if (material == null)
+                {
+                    continue;
+                }
+
+                if (material.mainTexture != null)
+                {
+                    return true;
+                }
+
+                if (material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static bool SoldierUsesBuiltInTextures(GameObject prototype)
     {
         if (prototype == null)
@@ -2301,6 +2422,203 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return false;
+    }
+
+    private void ApplyPixelhouseZombieMaterials(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        Material bodyMaterial = GetPixelhouseZombieMaterial();
+        if (bodyMaterial == null)
+        {
+            return;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null || IsGiantStrayRenderer(renderer))
+            {
+                continue;
+            }
+
+            var materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                materials[m] = bodyMaterial;
+            }
+
+            renderer.sharedMaterials = materials;
+        }
+    }
+
+    private Material GetPixelhouseZombieMaterial()
+    {
+        const string diffusePath = GiantPixelhouseResourceFolderPath + "/ZombieDiffuse";
+        const string normalPath = GiantPixelhouseResourceFolderPath + "/ZombieNormal";
+        const string specularPath = GiantPixelhouseResourceFolderPath + "/ZombieSpecular";
+        string key = $"pixelhouse-zombie:{diffusePath}:{normalPath}:{specularPath}";
+        Material material;
+        if (materialCache.TryGetValue(key, out material))
+        {
+            return material;
+        }
+
+        Texture diffuse = Resources.Load<Texture>(diffusePath);
+        if (diffuse == null)
+        {
+            return null;
+        }
+
+        Texture normal = Resources.Load<Texture>(normalPath);
+        Texture specular = Resources.Load<Texture>(specularPath);
+        diffuse.wrapMode = TextureWrapMode.Clamp;
+        diffuse.filterMode = FilterMode.Trilinear;
+        diffuse.anisoLevel = 4;
+
+        Shader shader = FindRuntimeShader(null, "Standard", "Legacy Shaders/Diffuse", "Unlit/Texture", "Sprites/Default");
+        material = new Material(shader);
+        Color tint = Color.white;
+        material.color = tint;
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture("_MainTex", diffuse);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTexture("_BaseMap", diffuse);
+            material.SetColor("_BaseColor", tint);
+        }
+
+        if (normal != null)
+        {
+            if (material.HasProperty("_BumpMap"))
+            {
+                material.SetTexture("_BumpMap", normal);
+                material.EnableKeyword("_NORMALMAP");
+            }
+
+            if (material.HasProperty("_NormalMap"))
+            {
+                material.SetTexture("_NormalMap", normal);
+            }
+        }
+
+        if (specular != null && material.HasProperty("_SpecGlossMap"))
+        {
+            material.SetTexture("_SpecGlossMap", specular);
+            material.EnableKeyword("_SPECGLOSSMAP");
+        }
+
+        if (material.HasProperty("_Glossiness"))
+        {
+            material.SetFloat("_Glossiness", 0.28f);
+        }
+
+        if (material.HasProperty("_Metallic"))
+        {
+            material.SetFloat("_Metallic", 0.04f);
+        }
+
+        ApplyOpaqueDoubleSided(material);
+        materialCache[key] = material;
+        return material;
+    }
+
+    private void RemoveGiantStrayGeometry(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        var cameras = prototype.GetComponentsInChildren<Camera>(true);
+        for (int i = cameras.Length - 1; i >= 0; i--)
+        {
+            DestroyImmediate(cameras[i].gameObject);
+        }
+
+        var lights = prototype.GetComponentsInChildren<Light>(true);
+        for (int i = lights.Length - 1; i >= 0; i--)
+        {
+            DestroyImmediate(lights[i].gameObject);
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        int removed = 0;
+        for (int i = renderers.Length - 1; i >= 0; i--)
+        {
+            Renderer renderer = renderers[i];
+            if (!IsGiantStrayRenderer(renderer))
+            {
+                continue;
+            }
+
+            DestroyImmediate(renderer.gameObject);
+            removed++;
+        }
+
+        if (removed > 0)
+        {
+            Debug.Log($"Removed {removed} stray renderer(s) from giant/zombie model.");
+        }
+    }
+
+    private static bool IsGiantStrayRenderer(Renderer renderer)
+    {
+        if (renderer == null)
+        {
+            return true;
+        }
+
+        string name = renderer.gameObject.name;
+        if (ContainsNameToken(name, "plane")
+            || ContainsNameToken(name, "ground")
+            || ContainsNameToken(name, "floor")
+            || ContainsNameToken(name, "shadow")
+            || ContainsNameToken(name, "quad")
+            || ContainsNameToken(name, "card"))
+        {
+            return true;
+        }
+
+        Mesh mesh = null;
+        var meshFilter = renderer.GetComponent<MeshFilter>();
+        if (meshFilter != null)
+        {
+            mesh = meshFilter.sharedMesh;
+        }
+        else
+        {
+            var skinned = renderer as SkinnedMeshRenderer;
+            if (skinned != null)
+            {
+                mesh = skinned.sharedMesh;
+            }
+        }
+
+        if (mesh == null)
+        {
+            return false;
+        }
+
+        Vector3 size = mesh.bounds.size;
+        float height = Mathf.Max(0.0001f, size.y);
+        float footprint = Mathf.Max(size.x, size.z);
+        if (footprint > height * 4.5f && height < footprint * 0.12f)
+        {
+            return true;
+        }
+
+        float maxSpan = Mathf.Max(size.x, size.y, size.z);
+        float minSpan = Mathf.Min(size.x, size.y, size.z);
+        return maxSpan > 6f && minSpan < 0.08f;
     }
 
     private static void ApplyKenneyZombieSkin(GameObject prototype, string textureResourcePath)
@@ -2520,6 +2838,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
+            var renderer = meshFilters[i].GetComponent<Renderer>();
+            if (renderer != null && IsGiantStrayRenderer(renderer))
+            {
+                continue;
+            }
+
             EncapsulateLocalMeshBounds(meshFilters[i].transform, mesh.bounds);
         }
 
@@ -2527,7 +2851,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         for (int i = 0; i < skinnedMeshes.Length; i++)
         {
             SkinnedMeshRenderer skinned = skinnedMeshes[i];
-            if (skinned.sharedMesh == null)
+            if (skinned.sharedMesh == null || IsGiantStrayRenderer(skinned))
             {
                 continue;
             }
@@ -2857,6 +3181,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
+        if (unit.kind == UnitKind.Giant)
+        {
+            ConfigureGiantAnimatorPlayback(unit, model, clips);
+            return;
+        }
+
         for (int i = 0; i < unit.animations.Length; i++)
         {
             if (unit.animations[i] != null)
@@ -2881,6 +3211,99 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         animator.updateMode = AnimatorUpdateMode.Normal;
 
         unit.animator = animator;
+        unit.animatorClips = clips;
+    }
+
+    private static bool GiantModelSupportsAnimatorPlayable(GameObject model)
+    {
+        Animator animator = model != null ? model.GetComponentInChildren<Animator>(true) : null;
+        return animator != null
+            && animator.avatar != null
+            && animator.avatar.isValid;
+    }
+
+    private static void ConfigureGiantAnimatorPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    {
+        AnimationClip[] resolvedClips = clips.Length > 0 ? clips : CollectRuntimeAnimationClips(model);
+        if (GiantModelSupportsAnimatorPlayable(model))
+        {
+            ConfigureGiantPlayableAnimator(unit, model, resolvedClips);
+            return;
+        }
+
+        ConfigureGiantLegacyAnimationPlayback(unit, model, resolvedClips);
+    }
+
+    private static void ConfigureGiantPlayableAnimator(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    {
+        Animation[] legacyAnimations = model.GetComponentsInChildren<Animation>(true);
+        for (int i = 0; i < legacyAnimations.Length; i++)
+        {
+            if (legacyAnimations[i] != null)
+            {
+                legacyAnimations[i].enabled = false;
+            }
+        }
+
+        Animator animator = model.GetComponentInChildren<Animator>(true);
+        if (animator == null)
+        {
+            animator = model.AddComponent<Animator>();
+        }
+
+        animator.enabled = true;
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.updateMode = AnimatorUpdateMode.Normal;
+
+        unit.animations = legacyAnimations;
+        unit.animator = animator;
+        unit.animatorClips = clips;
+    }
+
+    private static void ConfigureGiantLegacyAnimationPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    {
+        Animator[] animators = model.GetComponentsInChildren<Animator>(true);
+        for (int i = 0; i < animators.Length; i++)
+        {
+            if (animators[i] != null)
+            {
+                animators[i].enabled = false;
+            }
+        }
+
+        Animation animation = model.GetComponentInChildren<Animation>(true);
+        if (animation == null)
+        {
+            animation = model.AddComponent<Animation>();
+        }
+
+        animation.playAutomatically = false;
+        animation.cullingType = AnimationCullingType.AlwaysAnimate;
+        animation.animatePhysics = false;
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip == null)
+            {
+                continue;
+            }
+
+            string clipKey = clip.name;
+            if (animation.GetClip(clipKey) != null)
+            {
+                continue;
+            }
+
+            AnimationClip runtimeClip = Instantiate(clip);
+            runtimeClip.name = clipKey;
+            runtimeClip.legacy = true;
+            runtimeClip.wrapMode = WrapMode.Loop;
+            animation.AddClip(runtimeClip, clipKey);
+        }
+
+        unit.animations = new[] { animation };
+        unit.animator = null;
         unit.animatorClips = clips;
     }
 
@@ -4105,7 +4528,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static bool UsesEngagementHeading(UnitKind kind)
     {
-        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Aircraft;
+        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Aircraft || kind == UnitKind.Giant;
     }
 
     private void UpdateUnitTransform(BattleUnit unit, float dt)
@@ -4176,6 +4599,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             {
                 modelYaw += SoldierVanguardYawOffset;
             }
+            else if (unit.kind == UnitKind.Giant)
+            {
+                modelYaw += UnitModelUsesAuthoredTextures(unit.modelInstance)
+                    ? GiantPixelhouseMeshYawOffset
+                    : 180f;
+            }
 
             Vector3 modelLocalPosition = unit.baseModelLocalPosition;
             Quaternion facingRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
@@ -4189,6 +4618,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.modelInstance.transform.localRotation = modelRotation;
             UpdateProceduralMotionRig(unit, dt, moveFactor);
             PlayUnitAnimation(unit);
+            EnsureGiantLegacyAnimationPlaying(unit);
         }
         else if (unit.modelInstance == null)
         {
@@ -4366,7 +4796,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int presentationKey = ((int)unit.runtimeState << 4) | (int)unit.kind;
         if (unit.animationPresentationKey == presentationKey)
         {
-            return;
+            if (unit.kind != UnitKind.Giant || GiantAnimatorClipMatchesState(unit, attacking, moving))
+            {
+                return;
+            }
         }
 
         unit.animationPresentationKey = presentationKey;
@@ -4397,13 +4830,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
             if (!string.IsNullOrEmpty(desired) && animation.GetClip(desired) != null)
             {
-                animation.Play(desired);
+                animation.CrossFade(desired, 0.12f, PlayMode.StopSameLayer);
                 unit.currentAnimation = desired;
                 return;
             }
 
             // Fallback: substring matching
-            string[] keywords = attacking ? new[] { "Attack", "Shoot", "Fire" } : new[] { "Walk", "Run", "Forward" };
+            string[] keywords = unit.kind == UnitKind.Giant
+                ? attacking
+                    ? new[] { "Fury", "fury", "Attack", "Punch", "Bite" }
+                    : new[] { "Walk", "walk", "ZombieWalk", "Run", "Forward", "Fury", "fury" }
+                : attacking
+                    ? new[] { "Attack", "Shoot", "Fire" }
+                    : new[] { "Walk", "Run", "Forward" };
             foreach (AnimationState state in animation)
             {
                 if (state != null && state.clip != null)
@@ -4413,8 +4852,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                     {
                         if (clipName.IndexOf(kw, System.StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            animation.Play(clipName);
-                            unit.currentAnimation = desired;
+                            animation.CrossFade(clipName, 0.12f, PlayMode.StopSameLayer);
+                            unit.currentAnimation = clipName;
                             return;
                         }
                     }
@@ -4427,6 +4866,91 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 unit.currentAnimation = animation.clip.name;
             }
         }
+    }
+
+    private static bool GiantAnimatorClipMatchesState(BattleUnit unit, bool attacking, bool moving)
+    {
+        if (!UsesAnimatorPlayback(unit) || string.IsNullOrEmpty(unit.currentAnimatorClip))
+        {
+            return false;
+        }
+
+        string clip = unit.currentAnimatorClip;
+        if (attacking)
+        {
+            return ClipNameLooksLikeGiantAttack(clip);
+        }
+
+        return moving
+            ? ClipNameLooksLikeGiantWalk(clip)
+            : !ClipNameLooksLikeGiantWalk(clip);
+    }
+
+    private static bool ClipNameLooksLikeGiantWalk(string clipName)
+    {
+        return !string.IsNullOrEmpty(clipName)
+            && (clipName.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("walk", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("Forward", StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private void EnsureGiantLegacyAnimationPlaying(BattleUnit unit)
+    {
+        if (unit == null || unit.kind != UnitKind.Giant || !unit.active || UsesAnimatorPlayback(unit))
+        {
+            return;
+        }
+
+        if (unit.animations == null || unit.animations.Length == 0)
+        {
+            return;
+        }
+
+        bool moving = unit.runtimeState == UnitRuntimeState.Moving;
+        bool attacking = ShouldPresentUnitAsAttacking(unit);
+        for (int i = 0; i < unit.animations.Length; i++)
+        {
+            Animation animation = unit.animations[i];
+            if (animation == null || animation.isPlaying)
+            {
+                continue;
+            }
+
+            unit.animationPresentationKey = -1;
+            PlayUnitAnimation(unit);
+            break;
+        }
+
+        if (!moving && !attacking)
+        {
+            return;
+        }
+
+        for (int i = 0; i < unit.animations.Length; i++)
+        {
+            Animation animation = unit.animations[i];
+            if (animation == null || animation.isPlaying)
+            {
+                continue;
+            }
+
+            AnimationClip fallback = SelectGiantAnimatorClip(unit, attacking, moving);
+            if (fallback != null && animation.GetClip(fallback.name) != null)
+            {
+                animation.CrossFade(fallback.name, 0.08f, PlayMode.StopSameLayer);
+                unit.currentAnimation = fallback.name;
+            }
+        }
+    }
+
+    private static bool ClipNameLooksLikeGiantAttack(string clipName)
+    {
+        return !string.IsNullOrEmpty(clipName)
+            && (clipName.IndexOf("Fury", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("fury", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("Attack", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("Punch", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private bool TryPlayAnimatorAnimation(BattleUnit unit, bool attacking, bool moving)
@@ -4467,6 +4991,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (unit.animationPlayable.IsValid())
         {
             unit.animationPlayable.SetSpeed(GetAnimatorClipSpeed(unit, clip));
+            if (!unit.animationGraph.IsPlaying())
+            {
+                unit.animationGraph.Play();
+            }
         }
 
         return true;
@@ -4521,8 +5049,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         bool running = unit.moveSpeed > unit.speed * 1.12f;
         return running
-            ? FindAnimatorClip(unit, "Run", "Walk", "Idle")
-            : FindAnimatorClip(unit, "Walk", "Run", "Idle");
+            ? FindAnimatorClip(unit, "Run", "Walk", "walk", "ZombieWalk", "Fury", "fury", "Idle")
+            : FindAnimatorClip(unit, "Walk", "walk", "ZombieWalk", "Run", "Fury", "fury", "Idle");
     }
 
     private static AnimationClip FindAnimatorClip(BattleUnit unit, params string[] namesOrKeywords)
@@ -4635,10 +5163,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             case UnitKind.Giant:
                 if (attacking)
                 {
-                    return "EnemyArmature|EnemyArmature|EnemyArmature|Attack";
+                    return "Fury";
                 }
 
-                return moving ? "EnemyArmature|EnemyArmature|EnemyArmature|Walk" : "EnemyArmature|EnemyArmature|EnemyArmature|Idle";
+                return moving ? "walk" : "Fury";
             default:
                 return string.Empty;
         }

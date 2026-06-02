@@ -279,17 +279,21 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        bool authoredTextures = unit.kind == UnitKind.Giant && UnitModelUsesAuthoredTextures(unit.modelInstance);
+        float tintStrength = authoredTextures ? 0.1f : 0.35f;
         Color tint = faction == FactionId.Blue
             ? new Color(0.55f, 0.75f, 1f)
             : faction == FactionId.Green
                 ? new Color(0.55f, 1f, 0.65f)
-                : new Color(0.85f, 0.45f, 0.95f);
+                : authoredTextures
+                    ? new Color(0.72f, 0.58f, 0.52f)
+                    : new Color(0.85f, 0.45f, 0.95f);
         var renderers = unit.modelInstance.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
             if (renderers[i].material != null && renderers[i].material.HasProperty("_Color"))
             {
-                renderers[i].material.color = Color.Lerp(renderers[i].material.color, tint, 0.35f);
+                renderers[i].material.color = Color.Lerp(renderers[i].material.color, tint, tintStrength);
             }
         }
     }
