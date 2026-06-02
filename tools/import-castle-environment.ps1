@@ -27,6 +27,12 @@ if (-not $glbSrc) {
     $glbSrc = Get-ChildItem -Path $CastleExtract -Recurse -Filter "*.glb" -File
 }
 
+$colormapSrc = Get-ChildItem -Path $CastleExtract -Recurse -Filter "colormap.png" -File | Select-Object -First 1
+if ($colormapSrc) {
+    Copy-Item $colormapSrc.FullName (Join-Path $CastleResources "colormap.png") -Force
+    Write-Host "[Castle] Copied colormap.png -> $CastleResources"
+}
+
 $copied = 0
 foreach ($file in $glbSrc) {
     $dest = Join-Path $CastleResources $file.Name

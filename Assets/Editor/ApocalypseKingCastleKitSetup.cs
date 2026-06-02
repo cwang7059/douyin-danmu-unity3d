@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public static class ApocalypseKingCastleKitSetup
 {
@@ -69,6 +70,7 @@ public static class ApocalypseKingCastleKitSetup
             return false;
         }
 
+        ApplyCastleKitMaterialToHierarchy(source);
         GameObject prefabRoot = PrefabUtility.SaveAsPrefabAsset(source, prefabPath);
         return prefabRoot != null;
     }
@@ -103,6 +105,61 @@ public static class ApocalypseKingCastleKitSetup
         }
 
         return bestWithChildren;
+    }
+
+    private static void ApplyCastleKitMaterialToHierarchy(GameObject root)
+    {
+        Texture2D colormap = AssetDatabase.LoadAssetAtPath<Texture2D>(SourceFolder + "/colormap.png");
+        if (colormap == null)
+        {
+            colormap = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/ThirdParty/Kenney/CastleKit/Models/GLB format/Textures/colormap.png");
+        }
+
+        if (colormap == null)
+        {
+            return;
+        }
+
+        Shader shader = Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Diffuse")
+            ?? Shader.Find("Unlit/Texture");
+        if (shader == null)
+        {
+            return;
+        }
+
+        Material sharedMaterial = new Material(shader);
+        sharedMaterial.name = "CastleKit_Colormap";
+        sharedMaterial.mainTexture = colormap;
+        sharedMaterial.color = Color.white;
+        if (sharedMaterial.HasProperty("_Glossiness"))
+        {
+            sharedMaterial.SetFloat("_Glossiness", 0.08f);
+        }
+
+        if (sharedMaterial.HasProperty("_Cull"))
+        {
+            sharedMaterial.SetInt("_Cull", (int)CullMode.Off);
+        }
+
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                materials[m] = sharedMaterial;
+            }
+
+            renderer.sharedMaterials = materials;
+        }
     }
 
     private static void EnsureFolder(string path)
