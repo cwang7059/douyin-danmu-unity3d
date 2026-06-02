@@ -316,22 +316,9 @@ public sealed partial class ApocalypseKingUnityGame
         float previousX = giant.x;
         float previousZ = giant.z;
 
+        float dx = 0f;
+        float dz = 0f;
         var faceTarget = contactTarget ?? engagementTarget ?? chaseTarget;
-        if (faceTarget != null)
-        {
-            float targetYaw = DirectionYawDegrees(faceTarget.x - giant.x, faceTarget.z - giant.z, giant.headingDegrees);
-            giant.headingDegrees = Mathf.LerpAngle(giant.headingDegrees, targetYaw, Mathf.Clamp01(dt * 4.6f));
-        }
-        else
-        {
-            AimUnitTowardCastle(giant, dt);
-        }
-
-        if (engagementTarget != null && giant.attackCooldown <= 0f)
-        {
-            PerformGiantMeleeAttack(giant, engagementTarget);
-        }
-
         if (contactTarget == null)
         {
             float goalX = giant.x;
@@ -360,13 +347,50 @@ public sealed partial class ApocalypseKingUnityGame
             {
                 float formationZ = Mathf.Clamp(goalZ + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
                 Vector2 chase = DirectionTo(giant.x, giant.z, goalX, formationZ, giant.headingDegrees);
-                MoveUnitToAvoidingBuildings(giant, giant.x + chase.x * giant.speed * dt, giant.z + chase.y * giant.speed * dt);
+                float nextX = giant.x + chase.x * giant.speed * dt;
+                float nextZ = giant.z + chase.y * giant.speed * dt;
+                dx = nextX - giant.x;
+                dz = nextZ - giant.z;
+                MoveUnitToAvoidingBuildings(giant, nextX, nextZ);
             }
+        }
+
+        UpdateGiantHeadingTowardHumans(giant, faceTarget, dt);
+
+        if (engagementTarget != null && giant.attackCooldown <= 0f)
+        {
+            PerformGiantMeleeAttack(giant, engagementTarget);
         }
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
         RefreshRuntimeStateFromMovement(giant);
         UpdateUnitTransform(giant, dt);
+    }
+
+    private void UpdateGiantHeadingTowardHumans(BattleUnit giant, BattleUnit faceTarget, float dt)
+    {
+        if (giant == null)
+        {
+            return;
+        }
+
+        float aimYaw;
+        if (faceTarget != null && faceTarget.active)
+        {
+            aimYaw = DirectionYawDegrees(faceTarget.x - giant.x, faceTarget.z - giant.z, giant.headingDegrees);
+        }
+        else if (TryGetEnemyCastleSiegePoint(giant, out float siegeX, out float siegeZ))
+        {
+            aimYaw = DirectionYawDegrees(siegeX - giant.x, siegeZ - giant.z, giant.headingDegrees);
+        }
+        else
+        {
+            aimYaw = DirectionYawDegrees(HumanCastleGateX - giant.x, HumanCastleCenterZ - giant.z, giant.headingDegrees);
+        }
+
+        giant.headingDegrees = Mathf.LerpAngle(giant.headingDegrees, aimYaw, Mathf.Clamp01(dt * 9f));
+        Vector2 facingDir = DirectionFromYaw(giant.headingDegrees);
+        giant.facing = facingDir.x >= 0f ? 1 : -1;
     }
 
     private float GiantFormationZOffset(BattleUnit giant)

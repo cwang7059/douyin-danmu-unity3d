@@ -254,6 +254,12 @@ public sealed partial class ApocalypseKingUnityGame
         unit.faction = FactionId.Zombie;
         unit.apocalypseRole = ApocalypseUnitRole.SuperHeavy;
         unit.team = TeamKind.Giant;
+        unit.headingDegrees = DirectionYawDegrees(
+            HumanCastleGateX - unit.x,
+            HumanCastleCenterZ - unit.z,
+            unit.headingDegrees);
+        Vector2 spawnFacing = DirectionFromYaw(unit.headingDegrees);
+        unit.facing = spawnFacing.x >= 0f ? 1 : -1;
         TintUnitFaction(unit, FactionId.Zombie);
         return true;
     }

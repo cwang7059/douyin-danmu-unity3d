@@ -52,8 +52,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float SoldierM14TargetLength = 0.88f;
     /// <summary>Mixamo Vanguard mesh forward is opposite game heading after baked root rotation.</summary>
     private const float SoldierVanguardYawOffset = 180f;
-    /// <summary>Pixelhouse FBX 前向为 +X；与 heading 叠加 -90° 与战场方向一致（+90° 会背对移动方向）。</summary>
-    private const float GiantPixelhouseMeshYawOffset = -90f;
+    /// <summary>Pixelhouse 模型网格前向与 heading 相反，与士兵 Vanguard 一样补 180°。</summary>
+    private const float GiantPixelhouseMeshYawOffset = 180f;
     private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
     private const string TankResourceModelPath = TankResourceFolderPath + "/TankA";
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
@@ -1944,15 +1944,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private static void AttachGiantResourceAnimationClips(GameObject prototype, string resourceModelPath, string resourceFolderPath)
     {
         var clips = new List<AnimationClip>();
-        AppendEmbeddedModelAnimationClips(clips, prototype);
-        AppendResourceAnimationClips(clips, resourceModelPath);
-        if (resourceModelPath.StartsWith(GiantPixelhouseResourceFolderPath, StringComparison.Ordinal))
+        bool pixelhouse = resourceModelPath.StartsWith(GiantPixelhouseResourceFolderPath, StringComparison.Ordinal);
+        AppendEmbeddedModelAnimationClips(clips, prototype, legacyOnly: pixelhouse);
+        if (!pixelhouse)
         {
-            AppendResourceAnimationClips(clips, GiantPixelhouseResourceFolderPath + "/ZombieFury");
-            AppendResourceAnimationClips(clips, GiantPixelhouseResourceFolderPath + "/ZombieWalk");
-        }
-        else
-        {
+            AppendResourceAnimationClips(clips, resourceModelPath);
             AppendResourceAnimationClips(clips, resourceFolderPath);
         }
 
@@ -1963,39 +1959,136 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         var clipStore = GetOrCreateAnimationClipStore(prototype);
         clipStore.Clips = clips.ToArray();
-        clipStore.AnimatorClips = CreateAnimatorCompatibleClips(clipStore.Clips);
-        clipStore.AnimatorReady = clipStore.AnimatorClips.Length > 0;
+        clipStore.AnimatorClips = pixelhouse ? clipStore.Clips : CreateAnimatorCompatibleClips(clipStore.Clips);
+        clipStore.AnimatorReady = clipStore.Clips.Length > 0;
+        clipStore.UseLegacyBoneAnimation = pixelhouse;
     }
 
-    private static void AppendEmbeddedModelAnimationClips(List<AnimationClip> clips, GameObject model)
+    private static void AppendEmbeddedModelAnimationClips(List<AnimationClip> clips, GameObject model, bool legacyOnly = false)
     {
         if (model == null)
         {
             return;
         }
 
-        Animation[] legacyAnimations = model.GetComponentsInChildren<Animation>(true);
-        for (int i = 0; i < legacyAnimations.Length; i++)
+        Animation host = FindGiantAnimationHost(model);
+        if (host == null)
         {
-            Animation animation = legacyAnimations[i];
-            if (animation == null)
+            return;
+        }
+
+        if (host.clip != null)
+        {
+            AddUniqueGiantAnimationClip(clips, host.clip, legacyOnly);
+        }
+
+        foreach (AnimationState state in host)
+        {
+            if (state != null && state.clip != null)
+            {
+                AddUniqueGiantAnimationClip(clips, state.clip, legacyOnly);
+            }
+        }
+    }
+
+    private static void AddUniqueGiantAnimationClip(List<AnimationClip> clips, AnimationClip clip, bool legacyOnly)
+    {
+        if (clip == null || ContainsClip(clips, clip))
+        {
+            return;
+        }
+
+        if (legacyOnly)
+        {
+            clips.Add(clip);
+            return;
+        }
+
+        AddUniqueAnimatorCompatibleClip(clips, clip);
+    }
+
+    private static Animation FindGiantAnimationHost(GameObject model)
+    {
+        if (model == null)
+        {
+            return null;
+        }
+
+        Animation best = null;
+        int bestScore = -1;
+        Animation[] candidates = model.GetComponentsInChildren<Animation>(true);
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Animation candidate = candidates[i];
+            if (candidate == null)
             {
                 continue;
             }
 
-            if (animation.clip != null)
+            int score = 0;
+            if (candidate.clip != null)
             {
-                AddUniqueAnimatorCompatibleClip(clips, animation.clip);
+                score += 10;
             }
 
-            foreach (AnimationState state in animation)
+            foreach (AnimationState state in candidate)
             {
                 if (state != null && state.clip != null)
                 {
-                    AddUniqueAnimatorCompatibleClip(clips, state.clip);
+                    score++;
+                }
+            }
+
+            if (score > bestScore)
+            {
+                best = candidate;
+                bestScore = score;
+            }
+        }
+
+        return best;
+    }
+
+    private static AnimationClip SelectGiantLocomotionClip(AnimationClip[] clips, bool moving)
+    {
+        if (clips == null || clips.Length == 0)
+        {
+            return null;
+        }
+
+        string[] preferred = moving
+            ? new[] { "walk", "Walk", "ZombieWalk", "Run", "Forward", "fury", "Fury" }
+            : new[] { "fury", "Fury", "idle", "Idle", "walk", "Walk" };
+        for (int i = 0; i < preferred.Length; i++)
+        {
+            for (int c = 0; c < clips.Length; c++)
+            {
+                AnimationClip clip = clips[c];
+                if (clip != null && clip.name.IndexOf(preferred[i], StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return clip;
                 }
             }
         }
+
+        AnimationClip longest = null;
+        float longestLength = 0f;
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip == null || clip.length < 0.2f)
+            {
+                continue;
+            }
+
+            if (clip.length > longestLength)
+            {
+                longest = clip;
+                longestLength = clip.length;
+            }
+        }
+
+        return longest ?? clips[0];
     }
 
     private static AnimationClip[] CollectResourceAnimationClips(string resourceModelPath, string resourceFolderPath)
@@ -2352,6 +2445,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             Destroy(collider);
         }
+    }
+
+    private static bool UnitUsesGiantSkinnedLocomotion(BattleUnit unit)
+    {
+        if (unit == null || unit.kind != UnitKind.Giant)
+        {
+            return false;
+        }
+
+        if (UsesAnimatorPlayback(unit))
+        {
+            return true;
+        }
+
+        return unit.animator == null && unit.animations != null && unit.animations.Length > 0;
     }
 
     private static bool UnitModelUsesAuthoredTextures(GameObject model)
@@ -3225,13 +3333,22 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private static void ConfigureGiantAnimatorPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
     {
         AnimationClip[] resolvedClips = clips.Length > 0 ? clips : CollectRuntimeAnimationClips(model);
+        RuntimeAnimationClipStore clipStore = model.GetComponent<RuntimeAnimationClipStore>();
+        bool forceLegacy = clipStore != null && clipStore.UseLegacyBoneAnimation;
+        Animation host = FindGiantAnimationHost(model);
+        if (forceLegacy || host != null)
+        {
+            ConfigureGiantLegacyAnimationPlayback(unit, model, resolvedClips, host);
+            return;
+        }
+
         if (GiantModelSupportsAnimatorPlayable(model))
         {
             ConfigureGiantPlayableAnimator(unit, model, resolvedClips);
             return;
         }
 
-        ConfigureGiantLegacyAnimationPlayback(unit, model, resolvedClips);
+        ConfigureGiantLegacyAnimationPlayback(unit, model, resolvedClips, host);
     }
 
     private static void ConfigureGiantPlayableAnimator(BattleUnit unit, GameObject model, AnimationClip[] clips)
@@ -3261,7 +3378,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.animatorClips = clips;
     }
 
-    private static void ConfigureGiantLegacyAnimationPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    private static void ConfigureGiantLegacyAnimationPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips, Animation host = null)
     {
         Animator[] animators = model.GetComponentsInChildren<Animator>(true);
         for (int i = 0; i < animators.Length; i++)
@@ -3272,39 +3389,84 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        Animation animation = model.GetComponentInChildren<Animation>(true);
+        Animation animation = host ?? FindGiantAnimationHost(model);
         if (animation == null)
         {
             animation = model.AddComponent<Animation>();
         }
 
+        animation.enabled = true;
         animation.playAutomatically = false;
         animation.cullingType = AnimationCullingType.AlwaysAnimate;
         animation.animatePhysics = false;
-        for (int i = 0; i < clips.Length; i++)
+
+        bool hostHasStates = false;
+        foreach (AnimationState state in animation)
         {
-            AnimationClip clip = clips[i];
-            if (clip == null)
+            if (state != null && state.clip != null)
             {
-                continue;
+                hostHasStates = true;
+                state.wrapMode = WrapMode.Loop;
             }
+        }
 
-            string clipKey = clip.name;
-            if (animation.GetClip(clipKey) != null)
+        if (!hostHasStates)
+        {
+            for (int i = 0; i < clips.Length; i++)
             {
-                continue;
-            }
+                AnimationClip clip = clips[i];
+                if (clip == null)
+                {
+                    continue;
+                }
 
-            AnimationClip runtimeClip = Instantiate(clip);
-            runtimeClip.name = clipKey;
-            runtimeClip.legacy = true;
-            runtimeClip.wrapMode = WrapMode.Loop;
-            animation.AddClip(runtimeClip, clipKey);
+                string clipKey = clip.name;
+                if (animation.GetClip(clipKey) != null)
+                {
+                    continue;
+                }
+
+                AnimationClip runtimeClip = Instantiate(clip);
+                runtimeClip.name = clipKey;
+                runtimeClip.legacy = true;
+                runtimeClip.wrapMode = WrapMode.Loop;
+                animation.AddClip(runtimeClip, clipKey);
+            }
         }
 
         unit.animations = new[] { animation };
         unit.animator = null;
-        unit.animatorClips = clips;
+        unit.animatorClips = CollectGiantHostAnimationClips(animation, clips);
+    }
+
+    private static AnimationClip[] CollectGiantHostAnimationClips(Animation host, AnimationClip[] fallbackClips)
+    {
+        var clips = new List<AnimationClip>();
+        if (host != null)
+        {
+            if (host.clip != null)
+            {
+                clips.Add(host.clip);
+            }
+
+            foreach (AnimationState state in host)
+            {
+                if (state != null && state.clip != null && !ContainsClip(clips, state.clip))
+                {
+                    clips.Add(state.clip);
+                }
+            }
+        }
+
+        if (clips.Count == 0 && fallbackClips != null)
+        {
+            for (int i = 0; i < fallbackClips.Length; i++)
+            {
+                AddUniqueGiantAnimationClip(clips, fallbackClips[i], legacyOnly: true);
+            }
+        }
+
+        return clips.ToArray();
     }
 
     private static AnimationClip[] CollectRuntimeAnimationClips(GameObject model)
@@ -3318,7 +3480,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            var storeClips = stores[i].AnimatorClips;
+            var storeClips = stores[i].UseLegacyBoneAnimation
+                ? stores[i].Clips
+                : stores[i].AnimatorClips;
             if (storeClips == null || storeClips.Length == 0)
             {
                 storeClips = stores[i].Clips;
@@ -4547,8 +4711,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             ? Mathf.Sin(battleTime * 4.8f + unit.seed * 12f) * 0.16f
             : unit.kind == UnitKind.Soldier && !animatorMotion
                 ? Mathf.Abs(Mathf.Sin(cycle)) * 0.045f * moveFactor
-                : unit.kind == UnitKind.Giant
-                    ? Mathf.Abs(Mathf.Sin(cycle)) * 0.12f * moveFactor
+                : unit.kind == UnitKind.Giant && !UnitUsesGiantSkinnedLocomotion(unit)
+                    ? Mathf.Abs(Mathf.Sin(cycle)) * 0.04f * moveFactor
                     : unit.kind == UnitKind.Tank
                         ? Mathf.Sin(cycle * 0.45f) * 0.018f * moveFactor
                         : 0f;
@@ -4609,9 +4773,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             Vector3 modelLocalPosition = unit.baseModelLocalPosition;
             Quaternion facingRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
             Quaternion modelRotation = facingRotation * unit.baseModelLocalRotation;
-            if (!animatorMotion)
+            if (!animatorMotion && !UnitUsesGiantSkinnedLocomotion(unit))
             {
                 ApplyProceduralModelMotion(unit, cycle, moveFactor, ref modelLocalPosition, ref modelRotation);
+            }
+            else if (unit.kind == UnitKind.Giant)
+            {
+                modelLocalPosition = unit.baseModelLocalPosition;
             }
             unit.modelInstance.transform.localScale = unit.baseModelScale * hitBoost * attackBoost;
             unit.modelInstance.transform.localPosition = modelLocalPosition;
@@ -4812,6 +4980,33 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (unit.animations == null || unit.animations.Length == 0)
         {
             return;
+        }
+
+        if (unit.kind == UnitKind.Giant && unit.animator == null)
+        {
+            AnimationClip locomotionClip = SelectGiantLocomotionClip(unit.animatorClips, moving && !attacking);
+            if (locomotionClip != null)
+            {
+                for (int i = 0; i < unit.animations.Length; i++)
+                {
+                    Animation animation = unit.animations[i];
+                    if (animation == null)
+                    {
+                        continue;
+                    }
+
+                    if (animation.GetClip(locomotionClip.name) != null)
+                    {
+                        if (!string.Equals(unit.currentAnimation, locomotionClip.name, StringComparison.Ordinal))
+                        {
+                            animation.CrossFade(locomotionClip.name, 0.15f, PlayMode.StopSameLayer);
+                            unit.currentAnimation = locomotionClip.name;
+                        }
+
+                        return;
+                    }
+                }
+            }
         }
 
         string desired = GetAnimationName(unit.kind, attacking, moving);
@@ -5037,14 +5232,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking, bool moving)
     {
+        if (unit.animatorClips != null && unit.animator == null)
+        {
+            return SelectGiantLocomotionClip(unit.animatorClips, moving && !attacking);
+        }
+
         if (attacking)
         {
-            return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "Idle");
+            return FindAnimatorClip(unit, "Punch", "Headbutt", "Bite", "Attack", "Weapon", "Fury", "fury", "Idle");
         }
 
         if (!moving)
         {
-            return FindAnimatorClip(unit, "Idle", "Walk", "Run");
+            return FindAnimatorClip(unit, "Idle", "Fury", "fury", "Walk", "Run");
         }
 
         bool running = unit.moveSpeed > unit.speed * 1.12f;
