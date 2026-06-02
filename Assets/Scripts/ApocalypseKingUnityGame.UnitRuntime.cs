@@ -35,18 +35,6 @@ public sealed partial class ApocalypseKingUnityGame
 
         float previousX = unit.x;
         float previousZ = unit.z;
-        if (unit.kind == UnitKind.Tank)
-        {
-            UpdateTankAiming(unit, target, dt);
-        }
-        else if (unit.kind == UnitKind.Soldier)
-        {
-            UpdateSoldierAiming(unit, target, dt);
-        }
-        else if (unit.kind == UnitKind.Aircraft)
-        {
-            UpdateAircraftAiming(unit, target, dt);
-        }
 
         float dx = target.x - unit.x;
         float dz = target.z - unit.z;
@@ -86,17 +74,10 @@ public sealed partial class ApocalypseKingUnityGame
         float maxMoveStep = unit.speed * dt * 1.35f;
         MoveUnitToAvoidingBuildings(unit, nextX, nextZ, maxMoveStep);
         unit.x = Mathf.Clamp(unit.x, HumanCastleMinUnitX - 40f, BeastCastleMaxUnitX + 40f);
-        if (unit.kind == UnitKind.Tank)
-        {
-            float moveX = unit.x - previousX;
-            float moveZ = unit.z - previousZ;
-            if (Mathf.Abs(moveX) + Mathf.Abs(moveZ) > 0.01f)
-            {
-                unit.headingDegrees = DirectionYawDegrees(moveX, moveZ, unit.headingDegrees);
-            }
-        }
 
         RecordUnitMovement(unit, previousX, previousZ, dt);
+        UpdateHumanFacing(unit, target, dt);
+
         RefreshRuntimeStateFromMovement(unit);
         UpdateUnitTransform(unit, dt);
     }
@@ -124,7 +105,9 @@ public sealed partial class ApocalypseKingUnityGame
             case UnitKind.Aircraft:
                 return GiantMeleeOffset(kind);
             case UnitKind.Tank:
-                return GiantMeleeOffset(kind);
+                return 96f;
+            case UnitKind.Soldier:
+                return 142f;
             default:
                 return GiantMeleeOffset(kind);
         }
@@ -140,6 +123,27 @@ public sealed partial class ApocalypseKingUnityGame
         return unit.baseZ + Mathf.Sin(battleTime * 1.7f + unit.seed * 6f) * 5f;
     }
 
+    private void UpdateHumanFacing(BattleUnit unit, BattleUnit target, float dt)
+    {
+        if (unit == null || target == null)
+        {
+            return;
+        }
+
+        switch (unit.kind)
+        {
+            case UnitKind.Tank:
+                UpdateTankAiming(unit, target, dt);
+                break;
+            case UnitKind.Soldier:
+                UpdateSoldierAiming(unit, target, dt);
+                break;
+            case UnitKind.Aircraft:
+                UpdateAircraftAiming(unit, target, dt);
+                break;
+        }
+    }
+
     private void UpdateTankAiming(BattleUnit unit, BattleUnit target, float dt)
     {
         if (unit == null || target == null)
@@ -147,8 +151,13 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
-        float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.turretYawDegrees);
-        unit.turretYawDegrees = Mathf.LerpAngle(unit.turretYawDegrees, aimYaw, Mathf.Clamp01(dt * 7.2f));
+        float aimYaw = DirectionYawDegrees(target.x - unit.x, target.z - unit.z, unit.headingDegrees);
+        bool anchored = unit.moveSpeed < 0.45f;
+        float hullTurnRate = Mathf.Clamp01(dt * (anchored ? 10.5f : 7.2f));
+        float turretTurnRate = Mathf.Clamp01(dt * (anchored ? 11.5f : 8.4f));
+        unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, hullTurnRate);
+        unit.turretYawDegrees = Mathf.LerpAngle(unit.turretYawDegrees, aimYaw, turretTurnRate);
+        unit.facing = DirectionFromYaw(unit.headingDegrees).x >= 0f ? 1 : -1;
     }
 
     private void UpdateSoldierAiming(BattleUnit unit, BattleUnit target, float dt)
@@ -207,11 +216,11 @@ public sealed partial class ApocalypseKingUnityGame
         {
             Vector2 muzzle = TankMuzzlePoint(unit);
             Vector2 barrelAim = DirectionFromYaw(unit.turretYawDegrees);
-            PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 0.88f, RotationFromDirection(barrelAim));
-            PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 0.50f, RotationFromDirection(barrelAim));
+            PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 0.40f, RotationFromDirection(barrelAim));
+            PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 0.34f, RotationFromDirection(barrelAim));
             PlayBattleAudio(BattleAudioCueId.TankShot, muzzle.x, muzzle.y, 0.82f);
             TriggerCameraShake(0.08f, 0.035f);
-            SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, scaledDamage, 52f, 520f, new Color(1f, 0.76f, 0.42f, 1f));
+            SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, scaledDamage, 52f, 520f, new Color(0.58f, 0.56f, 0.52f, 0.9f));
             return;
         }
 

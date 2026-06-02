@@ -31,11 +31,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int PrewarmRockProjectiles = 10;
     private const int PrewarmFallbackEffects = MaxEffects;
     private const bool ShowResolutionDebugControls = false;
-    private const float TankT55AYawOffset = 0f;
-    private const float TankT55AkYawOffset = 0f;
-    private const float AircraftModelTargetHeight = 0.62f;
-    private const string SoldierResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
-    private const string SoldierResourceFolderPath = "Quaternius/ZombieApocalypse";
+    /// <summary>Quaternius tank GLB needs -90 degrees on Y to align mesh forward with game heading.</summary>
+    private const float TankT55AYawOffset = -90f;
+    private const float TankT55AkYawOffset = -90f;
+    private const float SoldierModelTargetHeight = 0.86f;
+    private const float AircraftModelTargetHeight = 1.18f;
+    private const string SoldierResourceModelPath = "Soldiers/USArmyTacticalVanguard/USArmySoldier";
+    private const string SoldierResourceFolderPath = "Soldiers/USArmyTacticalVanguard";
+    private const string SoldierAlternateResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
+    private const string SoldierAlternateResourceFolderPath = "Quaternius/ZombieApocalypse";
+    private const string SoldierM14ResourceModelPath = "Weapons/M14Rifle/M14Rifle";
+    private const float SoldierM14TargetLength = 0.88f;
+    /// <summary>Mixamo Vanguard mesh forward is opposite game heading after baked root rotation.</summary>
+    private const float SoldierVanguardYawOffset = 180f;
     private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
     private const string TankResourceModelPath = TankResourceFolderPath + "/TankA";
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
@@ -80,8 +88,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float GiantGroundY = -228f;
     private const float SeparationGridCellSize = 256f;
 
-    private static readonly float[] SoldierLanes = { -300f, -252f, -204f, -156f, -108f, -60f, -12f, 36f, 84f, 132f };
-    private static readonly float[] TankLanes = { -572f, -486f, -400f };
+    private const int HumanFormationLanesPerRow = 4;
+    private const int HumanFormationTanksPerRow = 3;
     private static readonly float[] AirLanes = { 250f, 370f, 490f };
     private static readonly HashSet<string> TankDisplayMaterialNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -92,12 +100,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         "smoke",
     };
 
+    private const int DefaultPortraitScreenWidth = 1170;
+    private const int DefaultPortraitScreenHeight = 2532;
+
     private static readonly ResolutionPreset[] ResolutionPresets =
     {
+        new ResolutionPreset("iPhone13", DefaultPortraitScreenWidth, DefaultPortraitScreenHeight),
         new ResolutionPreset("720x1280", 720, 1280),
         new ResolutionPreset("1080x1920", 1080, 1920),
         new ResolutionPreset("1080x2400", 1080, 2400),
-        new ResolutionPreset("1170x2532", 1170, 2532),
         new ResolutionPreset("1440x3200", 1440, 3200),
     };
 
@@ -109,9 +120,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static readonly Dictionary<UnitKind, ModelPose> Poses = new Dictionary<UnitKind, ModelPose>
     {
-        { UnitKind.Soldier, new ModelPose(1.05f, 0f, 90f, 0f, 0f, true) },
+        { UnitKind.Soldier, new ModelPose(SoldierModelTargetHeight, 0f, 0f, 0f, 0f, true) },
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
-        { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, -90f, 108f, 0f, 0.2f, true) },
+        { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 0f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
         { UnitKind.Smoke, new ModelPose(1.4f, 0f, 0f, 0f, 0f, false) },
@@ -164,6 +175,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private DanmuCommandQueue danmuQueue;
 
     private readonly Dictionary<UnitKind, GameObject> modelPrototypes = new Dictionary<UnitKind, GameObject>();
+    private GameObject soldierM14WeaponPrototype;
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
     private readonly List<GameObject> giantVariantPrototypes = new List<GameObject>();
@@ -209,6 +221,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private int processedDanmuCommandCount;
     private int medievalVillagePrefabCount;
     private int selectedResolutionIndex;
+    private static int DefaultResolutionPresetIndex => 0;
     private Rect lastSafeArea;
     private Vector2 lastScreenSize;
 
@@ -384,23 +397,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         mainCamera.nearClipPlane = 0.1f;
         mainCamera.farClipPlane = 320f;
         mainCamera.fieldOfView = 31f;
-        mainCamera.transform.position = new Vector3(0f, 22f, -20f);
-        mainCamera.transform.rotation = Quaternion.Euler(24f, -14f, 0f);
+        mainCamera.transform.position = new Vector3(0f, 24f, -22f);
+        mainCamera.transform.rotation = Quaternion.Euler(26f, -12f, 0f);
 
         orbitCamera = cameraObject.AddComponent<OrbitTouchCamera>();
-        orbitCamera.yaw = Mathf.Approximately(cameraYaw, 0f) ? -14f : cameraYaw;
-        orbitCamera.pitch = Mathf.Approximately(cameraPitch, 18f) ? 24f : cameraPitch;
-        orbitCamera.distance = Mathf.Approximately(cameraDistance, 88f) ? 84f : cameraDistance;
+        orbitCamera.yaw = Mathf.Approximately(cameraYaw, 0f) ? -12f : cameraYaw;
+        orbitCamera.pitch = Mathf.Approximately(cameraPitch, 18f) ? 26f : cameraPitch;
+        orbitCamera.distance = Mathf.Approximately(cameraDistance, 88f) ? 92f : cameraDistance;
         orbitCamera.minPitch = 16f;
-        orbitCamera.maxPitch = 64f;
-        orbitCamera.minDistance = 46f;
-        orbitCamera.maxDistance = 112f;
+        orbitCamera.maxPitch = 68f;
+        orbitCamera.minDistance = 26f;
+        orbitCamera.maxDistance = 132f;
+        orbitCamera.mouseZoomSensitivity = 3.6f;
         orbitCamera.clampPanX = false;
         orbitCamera.clampPanZ = true;
-        orbitCamera.panZBounds = new Vector2(-14f, 14f);
+        orbitCamera.panZBounds = new Vector2(-18f, 18f);
 
         cameraTarget = new GameObject("Camera Target").transform;
-        cameraTarget.position = new Vector3(0.55f, 1.45f, -4.9f);
+        cameraTarget.position = new Vector3(0.2f, 1.1f, -2.4f);
         orbitCamera.target = cameraTarget;
 
         var lightObject = new GameObject("Sun Light");
@@ -616,13 +630,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         CreateBattlefieldPlane("Battle_MainRoad", ToWorldPoint(0f, -120f, 0.032f), new Vector2(22f, 3.4f), roadMaterial, -3f);
         AddRoadCorridor("MainStreet", 0f, -120f, 440f, 70f, 0f);
-    }
-
-    private void CreateGround()
-    {
-        Material grassMaterial = GetTexturedOpaqueMaterial(GrassTextureResourcePath, new Color(0.66f, 0.78f, 0.50f, 1f), new Vector2(18f, 24f), 0.08f);
-        var ground = CreateBattlefieldPlane("GrasslandTerrain", Vector3.zero, new Vector2(150f, 210f), grassMaterial);
-        ground.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
     }
 
     private void CreateTerrainDepth()
@@ -1429,6 +1436,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             headingDegrees = kind == UnitKind.Giant ? -90f : 90f,
             turretYawDegrees = 90f,
             modelYawOffset = TankModelYawOffset(tankModel),
+            baseModelLocalRotation = Quaternion.identity,
+            soldierUsesVanguardMesh = false,
             tankAimRoot = tankAimRoot,
             tankTurretVisual = tankTurretVisual,
             tankBarrelVisual = tankBarrelVisual,
@@ -1504,6 +1513,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] candidates =
         {
+            "Soldiers/us_army_soldier.glb",
             "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon.gltf",
             "PolyPizza/soldier.glb",
         };
@@ -1663,7 +1673,18 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private GameObject LoadSoldierResourcePrototype()
     {
-        var source = Resources.Load<GameObject>(SoldierResourceModelPath);
+        var prototype = TryLoadSoldierResourcePrototype(SoldierResourceModelPath, SoldierResourceFolderPath);
+        if (prototype != null)
+        {
+            return prototype;
+        }
+
+        return TryLoadSoldierResourcePrototype(SoldierAlternateResourceModelPath, SoldierAlternateResourceFolderPath);
+    }
+
+    private GameObject TryLoadSoldierResourcePrototype(string resourceModelPath, string resourceFolderPath)
+    {
+        var source = Resources.Load<GameObject>(resourceModelPath);
         if (source == null)
         {
             return null;
@@ -1672,10 +1693,31 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         var prototype = Instantiate(source, modelCacheRoot, false);
         prototype.name = $"{UnitKind.Soldier}_Prototype";
         prototype.hideFlags = HideFlags.HideInHierarchy;
-        AttachResourceAnimationClips(prototype, SoldierResourceModelPath, SoldierResourceFolderPath);
+        AttachResourceAnimationClips(prototype, resourceModelPath, resourceFolderPath);
+        if (!HasSoldierRunAnimation(prototype))
+        {
+            Destroy(prototype);
+            return null;
+        }
+
         ConfigureImportedPrototype(prototype, UnitKind.Soldier);
         prototype.SetActive(false);
         return prototype;
+    }
+
+    private static bool HasSoldierRunAnimation(GameObject prototype)
+    {
+        AnimationClip[] clips = CollectRuntimeAnimationClips(prototype);
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip != null && clip.name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private GameObject LoadTankResourcePrototype(TankModelVariant tankModel)
@@ -1784,26 +1826,67 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static void AttachResourceAnimationClips(GameObject prototype, string resourceModelPath, string resourceFolderPath)
     {
-        var clips = Resources.LoadAll<AnimationClip>(resourceModelPath);
-        if (clips == null || clips.Length == 0)
-        {
-            clips = Resources.LoadAll<AnimationClip>(resourceFolderPath);
-        }
-
-        if (clips == null || clips.Length == 0)
+        var clips = CollectResourceAnimationClips(resourceModelPath, resourceFolderPath);
+        if (clips.Length == 0)
         {
             return;
         }
 
+        var clipStore = GetOrCreateAnimationClipStore(prototype);
+        clipStore.Clips = clips;
+        clipStore.AnimatorClips = CreateAnimatorCompatibleClips(clips);
+        clipStore.AnimatorReady = clipStore.AnimatorClips.Length > 0;
+    }
+
+    private static AnimationClip[] CollectResourceAnimationClips(string resourceModelPath, string resourceFolderPath)
+    {
+        var clips = new List<AnimationClip>();
+        AppendResourceAnimationClips(clips, resourceModelPath);
+        AppendResourceAnimationClips(clips, resourceFolderPath);
+        return clips.ToArray();
+    }
+
+    private static void AppendResourceAnimationClips(List<AnimationClip> clips, string resourcePath)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return;
+        }
+
+        var loadedClips = Resources.LoadAll<AnimationClip>(resourcePath);
+        if (loadedClips != null)
+        {
+            for (int i = 0; i < loadedClips.Length; i++)
+            {
+                AddUniqueAnimatorCompatibleClip(clips, loadedClips[i]);
+            }
+        }
+
+        var assets = Resources.LoadAll(resourcePath);
+        if (assets == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < assets.Length; i++)
+        {
+            var clip = assets[i] as AnimationClip;
+            if (clip != null)
+            {
+                AddUniqueAnimatorCompatibleClip(clips, clip);
+            }
+        }
+    }
+
+    private static RuntimeAnimationClipStore GetOrCreateAnimationClipStore(GameObject prototype)
+    {
         var clipStore = prototype.GetComponent<RuntimeAnimationClipStore>();
         if (clipStore == null)
         {
             clipStore = prototype.AddComponent<RuntimeAnimationClipStore>();
         }
 
-        clipStore.Clips = clips;
-        clipStore.AnimatorClips = clips;
-        clipStore.AnimatorReady = true;
+        return clipStore;
     }
 
     private static void AttachRuntimeAnimationClips(GameObject prototype, GLTFComponent gltf)
@@ -1813,15 +1896,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        var clipStore = prototype.GetComponent<RuntimeAnimationClipStore>();
-        if (clipStore == null)
-        {
-            clipStore = prototype.AddComponent<RuntimeAnimationClipStore>();
-        }
-
+        var clipStore = GetOrCreateAnimationClipStore(prototype);
         clipStore.Clips = gltf.CreatedAnimationClips;
-        clipStore.AnimatorClips = Array.Empty<AnimationClip>();
-        clipStore.AnimatorReady = false;
+        clipStore.AnimatorClips = CreateAnimatorCompatibleClips(gltf.CreatedAnimationClips);
+        clipStore.AnimatorReady = clipStore.AnimatorClips.Length > 0;
     }
 
     private static AnimationClip[] CreateAnimatorCompatibleClips(AnimationClip[] sourceClips)
@@ -1882,7 +1960,318 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             RemoveTankDisplayGeometry(prototype);
         }
 
+        if (kind == UnitKind.Soldier)
+        {
+            if (SoldierUsesBuiltInTextures(prototype))
+            {
+                AttachSoldierM14Weapon(prototype);
+            }
+            else
+            {
+                ApplySoldierMilitaryTint(prototype);
+            }
+        }
+        else if (kind == UnitKind.Aircraft)
+        {
+            ApplyAircraftFlightOrientation(prototype);
+        }
+
         NormalizePrototype(prototype, Poses[kind].TargetHeight);
+    }
+
+    private GameObject EnsureSoldierM14WeaponPrototype()
+    {
+        if (soldierM14WeaponPrototype != null)
+        {
+            return soldierM14WeaponPrototype;
+        }
+
+        var source = Resources.Load<GameObject>(SoldierM14ResourceModelPath);
+        if (source == null)
+        {
+            return null;
+        }
+
+        soldierM14WeaponPrototype = Instantiate(source, modelCacheRoot, false);
+        soldierM14WeaponPrototype.name = "M14Rifle_Prototype";
+        soldierM14WeaponPrototype.hideFlags = HideFlags.HideInHierarchy;
+        StripCollidersRecursive(soldierM14WeaponPrototype);
+        ApplySoldierM14Materials(soldierM14WeaponPrototype);
+        NormalizePrototype(soldierM14WeaponPrototype, SoldierM14TargetLength);
+        soldierM14WeaponPrototype.SetActive(false);
+        return soldierM14WeaponPrototype;
+    }
+
+    private void AttachSoldierM14Weapon(GameObject prototype)
+    {
+        Transform hand = FindSoldierWeaponHand(prototype.transform);
+        if (hand == null)
+        {
+            return;
+        }
+
+        GameObject m14Prototype = EnsureSoldierM14WeaponPrototype();
+        if (m14Prototype != null)
+        {
+            var weapon = Instantiate(m14Prototype, hand, false);
+            weapon.name = "SoldierWeapon_M14";
+            weapon.transform.localPosition = new Vector3(0.04f, 0.07f, 0.02f);
+            weapon.transform.localRotation = Quaternion.Euler(6f, 94f, -102f);
+            weapon.transform.localScale = Vector3.one;
+            weapon.SetActive(true);
+            return;
+        }
+
+        AttachSoldierM14FallbackPrimitives(hand);
+    }
+
+    private void AttachSoldierM14FallbackPrimitives(Transform hand)
+    {
+        var weaponRoot = new GameObject("SoldierWeapon_M14");
+        weaponRoot.transform.SetParent(hand, false);
+        weaponRoot.transform.localPosition = new Vector3(0.04f, 0.07f, 0.02f);
+        weaponRoot.transform.localRotation = Quaternion.Euler(6f, 94f, -102f);
+        weaponRoot.transform.localScale = Vector3.one;
+
+        Material metal = GetOpaqueMaterial(new Color(0.14f, 0.15f, 0.13f, 1f));
+        Material wood = GetOpaqueMaterial(new Color(0.34f, 0.22f, 0.12f, 1f));
+        Material grip = GetOpaqueMaterial(new Color(0.10f, 0.11f, 0.09f, 1f));
+
+        var receiver = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        receiver.name = "Receiver";
+        receiver.transform.SetParent(weaponRoot.transform, false);
+        receiver.transform.localPosition = new Vector3(0f, 0f, 0.02f);
+        receiver.transform.localScale = new Vector3(0.07f, 0.10f, 0.18f);
+        receiver.GetComponent<Renderer>().sharedMaterial = metal;
+        DestroyCollider(receiver);
+
+        var barrel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        barrel.name = "Barrel";
+        barrel.transform.SetParent(weaponRoot.transform, false);
+        barrel.transform.localPosition = new Vector3(0f, 0.01f, 0.36f);
+        barrel.transform.localScale = new Vector3(0.04f, 0.04f, 0.52f);
+        barrel.GetComponent<Renderer>().sharedMaterial = metal;
+        DestroyCollider(barrel);
+
+        var handguard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        handguard.name = "Handguard";
+        handguard.transform.SetParent(weaponRoot.transform, false);
+        handguard.transform.localPosition = new Vector3(0f, -0.01f, 0.18f);
+        handguard.transform.localScale = new Vector3(0.055f, 0.055f, 0.20f);
+        handguard.GetComponent<Renderer>().sharedMaterial = wood;
+        DestroyCollider(handguard);
+
+        var magazine = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        magazine.name = "Magazine";
+        magazine.transform.SetParent(weaponRoot.transform, false);
+        magazine.transform.localPosition = new Vector3(0f, -0.06f, 0.04f);
+        magazine.transform.localScale = new Vector3(0.05f, 0.13f, 0.11f);
+        magazine.GetComponent<Renderer>().sharedMaterial = grip;
+        DestroyCollider(magazine);
+
+        var stock = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        stock.name = "Stock";
+        stock.transform.SetParent(weaponRoot.transform, false);
+        stock.transform.localPosition = new Vector3(0f, 0.02f, -0.22f);
+        stock.transform.localScale = new Vector3(0.05f, 0.09f, 0.26f);
+        stock.GetComponent<Renderer>().sharedMaterial = wood;
+        DestroyCollider(stock);
+    }
+
+    private void ApplySoldierM14Materials(GameObject weaponRoot)
+    {
+        if (weaponRoot == null)
+        {
+            return;
+        }
+
+        Material metal = GetOpaqueMaterial(new Color(0.14f, 0.15f, 0.13f, 1f));
+        Material wood = GetOpaqueMaterial(new Color(0.34f, 0.22f, 0.12f, 1f));
+        Material grip = GetOpaqueMaterial(new Color(0.10f, 0.11f, 0.09f, 1f));
+
+        var renderers = weaponRoot.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            string partName = renderer.gameObject.name;
+            Material material = metal;
+            if (ContainsNameToken(partName, "stock") || ContainsNameToken(partName, "handguard"))
+            {
+                material = wood;
+            }
+            else if (ContainsNameToken(partName, "magazine"))
+            {
+                material = grip;
+            }
+
+            var materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                materials[m] = material;
+            }
+
+            renderer.sharedMaterials = materials;
+        }
+    }
+
+    private void StripCollidersRecursive(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        var colliders = root.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            if (colliders[i] != null)
+            {
+                Destroy(colliders[i]);
+            }
+        }
+    }
+
+    private Transform FindSoldierWeaponHand(Transform root)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        Transform best = null;
+        int bestScore = 0;
+        var transforms = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform part = transforms[i];
+            if (part == null)
+            {
+                continue;
+            }
+
+            int score = 0;
+            string name = part.name;
+            if (ContainsNameToken(name, "righthand"))
+            {
+                score += 120;
+            }
+            else if (ContainsNameToken(name, "right") && ContainsNameToken(name, "hand"))
+            {
+                score += 90;
+            }
+            else if (ContainsNameToken(name, "hand.r"))
+            {
+                score += 80;
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = part;
+            }
+        }
+
+        return best;
+    }
+
+    private void DestroyCollider(GameObject part)
+    {
+        if (part == null)
+        {
+            return;
+        }
+
+        var collider = part.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+    }
+
+    private static void ApplyAircraftFlightOrientation(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        // Mesh forward is +Z; -90 on Y maps it to game +X. Do not add X roll (that stands the heli on its nose).
+        prototype.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+    }
+
+    private static bool SoldierUsesBuiltInTextures(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return false;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            if (renderer.name.IndexOf("vanguard", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            var materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                var material = materials[m];
+                if (material != null
+                    && (material.HasProperty("_Metallic") || material.HasProperty("_MetallicGlossMap")))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static void ApplySoldierMilitaryTint(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            bool skin = renderer.name.IndexOf("skin", StringComparison.OrdinalIgnoreCase) >= 0
+                || renderer.name.IndexOf("face", StringComparison.OrdinalIgnoreCase) >= 0
+                || renderer.name.IndexOf("head", StringComparison.OrdinalIgnoreCase) >= 0;
+            Color target = skin
+                ? new Color(0.82f, 0.68f, 0.52f, 1f)
+                : new Color(0.42f, 0.48f, 0.34f, 1f);
+
+            var materials = renderer.materials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                if (materials[m] != null && materials[m].HasProperty("_Color"))
+                {
+                    materials[m].color = Color.Lerp(materials[m].color, target, skin ? 0.38f : 0.52f);
+                }
+            }
+        }
     }
 
     private void RemoveTankDisplayGeometry(GameObject prototype)
@@ -2024,7 +2413,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             {
                 var body = CreatePrimitive(PrimitiveType.Capsule, "Body", root.transform);
                 body.transform.localScale = new Vector3(0.36f, 0.72f, 0.36f);
-                body.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.38f, 0.88f, 0.4f, 1f));
+                body.GetComponent<Renderer>().sharedMaterial = GetOpaqueMaterial(new Color(0.42f, 0.48f, 0.34f, 1f));
                 break;
             }
             case UnitKind.Tank:
@@ -2239,6 +2628,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.animations = model.GetComponentsInChildren<Animation>(true);
         unit.baseModelScale = model.transform.localScale;
         unit.baseModelLocalPosition = model.transform.localPosition;
+        unit.baseModelLocalRotation = model.transform.localRotation;
+        unit.soldierUsesVanguardMesh = unit.kind == UnitKind.Soldier && SoldierUsesBuiltInTextures(model);
         unit.currentAnimation = string.Empty;
         ConfigureAnimatorPlayback(unit, model);
         ConfigureProceduralMotionRig(unit);
@@ -2291,7 +2682,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        var animator = model.GetComponent<Animator>();
+        var animator = model.GetComponentInChildren<Animator>(true);
+        if (animator == null)
+        {
+            animator = model.GetComponent<Animator>();
+        }
+
         if (animator == null)
         {
             animator = model.AddComponent<Animator>();
@@ -2299,6 +2695,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         animator.applyRootMotion = false;
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.updateMode = AnimatorUpdateMode.Normal;
 
         unit.animator = animator;
         unit.animatorClips = clips;
@@ -2850,7 +3247,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             deathVisuals[i].active = false;
         }
 
-        ResetUnitState(soldiers, SoldierLanes, 1, SoldierCount);
+        ResetSoldiers();
         ResetTanks();
         ResetAircraft();
         ResetGiants();
@@ -2858,21 +3255,20 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ShowBanner("Battle start", false, 1.8f);
     }
 
-    private void ResetUnitState(List<BattleUnit> units, float[] lanes, int facing, int activeCount)
+    private void ResetSoldiers()
     {
-        for (int i = 0; i < units.Count; i++)
+        for (int i = 0; i < soldiers.Count; i++)
         {
-            var unit = units[i];
-            if (i >= activeCount)
+            var unit = soldiers[i];
+            if (i >= SoldierCount)
             {
                 DeactivatePooledUnit(unit);
                 continue;
             }
 
-            int lane = i % lanes.Length;
-            int rank = i / lanes.Length;
-            GetHumanCastleSpawn(i + rank * 17, out float x, out float z);
-            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 18f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, facing, 0f);
+            int rank = i / HumanFormationLanesPerRow;
+            GetHumanFormationSpawn(UnitKind.Soldier, i, rank, i + rank * 17, out float x, out float z);
+            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 18f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
         }
     }
 
@@ -2886,10 +3282,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            int lane = i % TankLanes.Length;
-            int rank = i / TankLanes.Length;
-            GetHumanCastleSpawn(i + rank * 23 + lane * 3, out float x, out float z);
-            z += (TankLanes[lane] - CastleSpawnLanes[lane % CastleSpawnLanes.Length]) * 0.22f;
+            int rank = i / HumanFormationTanksPerRow;
+            GetHumanFormationSpawn(UnitKind.Tank, i, rank, i + rank * 23, out float x, out float z);
             ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 8f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
@@ -3009,9 +3403,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        int lane = processedDanmuCommandCount % SoldierLanes.Length;
-        int rank = Mathf.Max(0, CountActive(soldiers) / SoldierLanes.Length);
-        GetHumanCastleSpawn(processedDanmuCommandCount + rank * 19, out float x, out float z);
+        int soldierIndex = CountActive(soldiers);
+        int rank = soldierIndex / HumanFormationLanesPerRow;
+        GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, rank, processedDanmuCommandCount + rank * 19, out float x, out float z);
         ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 8f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
@@ -3030,10 +3424,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        int lane = processedDanmuCommandCount % TankLanes.Length;
-        GetHumanCastleSpawn(processedDanmuCommandCount + lane * 5, out float x, out float z);
-        z += (TankLanes[lane] - CastleSpawnLanes[lane % CastleSpawnLanes.Length]) * 0.25f;
-        ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, processedDanmuCommandCount, 1, 0f);
+        int tankIndex = CountActive(tanks);
+        int rank = tankIndex / HumanFormationTanksPerRow;
+        GetHumanFormationSpawn(UnitKind.Tank, tankIndex, rank, processedDanmuCommandCount + rank * 5, out float x, out float z);
+        ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 2f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
     }
@@ -3092,7 +3486,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         PrewarmProjectiles(ProjectileKind.Bullet, PrewarmBulletProjectiles, new Color(1f, 0.82f, 0.32f, 1f));
-        PrewarmProjectiles(ProjectileKind.Shell, PrewarmShellProjectiles, new Color(1f, 0.76f, 0.42f, 1f));
+        PrewarmProjectiles(ProjectileKind.Shell, PrewarmShellProjectiles, new Color(0.58f, 0.56f, 0.52f, 0.9f));
         PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, new Color(0.42f, 0.50f, 0.48f, 1f));
         PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
 
@@ -3535,6 +3929,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.moveSpeed = Mathf.Sqrt(dx * dx + dz * dz) / Mathf.Max(0.001f, dt);
     }
 
+    private static bool UsesEngagementHeading(UnitKind kind)
+    {
+        return kind == UnitKind.Soldier || kind == UnitKind.Tank || kind == UnitKind.Aircraft;
+    }
+
     private void UpdateUnitTransform(BattleUnit unit, float dt)
     {
         if (unit.root == null)
@@ -3558,10 +3957,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                         : 0f;
 
         unit.body.localPosition = new Vector3(0f, unit.altitude + bob, 0f);
+        if (unit.kind == UnitKind.Tank)
+        {
+            unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + unit.modelYawOffset, 0f);
+        }
+        else
+        {
+            unit.body.localRotation = Quaternion.identity;
+        }
 
         if (unit.tankAimRoot != null)
         {
-            unit.tankAimRoot.localRotation = Quaternion.Euler(0f, unit.turretYawDegrees, 0f);
+            float turretRelativeYaw = Mathf.DeltaAngle(unit.headingDegrees, unit.turretYawDegrees);
+            unit.tankAimRoot.localRotation = Quaternion.Euler(0f, turretRelativeYaw, 0f);
             float recoil = unit.attackVisualTimer > 0f ? -0.12f * Mathf.Sin(unit.attackVisualTimer * 24f) : 0f;
             if (unit.tankBarrelVisual != null)
             {
@@ -3581,16 +3989,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             float wobble = unit.kind == UnitKind.Aircraft ? Mathf.Sin(battleTime * 3.2f + unit.seed * 11f) * 3f : 0f;
             float hitBoost = unit.kind == UnitKind.Giant && unit.hitFlashTimer > 0f ? 1.08f : 1f;
             float attackBoost = unit.attackVisualTimer > 0f ? (unit.kind == UnitKind.Giant ? 1.04f : 1.02f) : 1f;
-            float modelYaw = UsesDynamicHeading(unit.kind)
-                ? pose.Yaw + (unit.headingDegrees - DefaultHeadingYaw(unit.kind)) + wobble
-                : pose.Yaw + mirrorYaw + wobble;
-            if (unit.kind == UnitKind.Tank)
+            float modelYaw = unit.kind == UnitKind.Tank
+                ? wobble
+                : UsesEngagementHeading(unit.kind)
+                    ? unit.headingDegrees + wobble
+                    : pose.Yaw + mirrorYaw + wobble;
+            if (unit.kind == UnitKind.Soldier && unit.soldierUsesVanguardMesh)
             {
-                modelYaw += unit.modelYawOffset;
+                modelYaw += SoldierVanguardYawOffset;
             }
 
             Vector3 modelLocalPosition = unit.baseModelLocalPosition;
-            Quaternion modelRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
+            Quaternion facingRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
+            Quaternion modelRotation = facingRotation * unit.baseModelLocalRotation;
             if (!animatorMotion)
             {
                 ApplyProceduralModelMotion(unit, cycle, moveFactor, ref modelLocalPosition, ref modelRotation);
@@ -3699,7 +4110,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (rig.helperRoot != null)
         {
-            rig.helperRoot.localRotation = Quaternion.Euler(0f, unit.headingDegrees - 90f, 0f);
+            rig.helperRoot.localRotation = Quaternion.identity;
         }
 
         float turretRelativeYaw = Mathf.DeltaAngle(unit.headingDegrees, unit.turretYawDegrees);
@@ -3886,7 +4297,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         if (unit.kind == UnitKind.Tank)
         {
-            return SelectTankAnimatorClip(unit, moving);
+            return SelectTankAnimatorClip(unit, attacking, moving);
         }
 
         if (unit.kind == UnitKind.Giant)
@@ -3896,28 +4307,25 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (attacking)
         {
-            return FindAnimatorClip(unit, "Idle_Gun", "Attack", "Shoot", "Fire", "Punch", "Idle");
+            return FindAnimatorClip(unit, "Firing Rifle", "Idle_Gun", "Idle_Aiming", "Idle Aiming", "Idle_Shoot", "Shoot", "Attack", "Fire", "Idle");
         }
 
         if (!moving)
         {
-            return FindAnimatorClip(unit, "Idle_Gun", "Idle", "Walk_Gun", "Walk");
+            return FindAnimatorClip(unit, "Idle_Gun", "Idle_Aiming", "Idle Aiming", "Idle");
         }
 
-        bool running = unit.moveSpeed > unit.speed * 1.08f;
-        return running
-            ? FindAnimatorClip(unit, "Run_Gun", "Run", "Walk_Gun", "Walk")
-            : FindAnimatorClip(unit, "Walk_Gun", "Walk", "Run_Gun", "Run");
+        return FindAnimatorClip(unit, "Run_Gun", "Run Forward", "Running", "Run", "Walk_Gun", "Walk");
     }
 
-    private AnimationClip SelectTankAnimatorClip(BattleUnit unit, bool moving)
+    private AnimationClip SelectTankAnimatorClip(BattleUnit unit, bool attacking, bool moving)
     {
-        if (!moving)
+        if (!moving || attacking)
         {
-            return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight");
+            return FindAnimatorClip(unit, "Tank_Idle", "Idle", "Tank_Forward", "Forward");
         }
 
-        return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_TurningRight", "TurningRight", "Tank_TurningLeft", "TurningLeft");
+        return FindAnimatorClip(unit, "Tank_Forward", "Forward", "Tank_Idle", "Idle");
     }
 
     private AnimationClip SelectGiantAnimatorClip(BattleUnit unit, bool attacking, bool moving)
@@ -4039,12 +4447,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             case UnitKind.Soldier:
                 if (attacking)
                 {
-                    return "CharacterArmature|Idle_Shoot";
+                    return "Idle";
                 }
 
-                return moving ? "CharacterArmature|Run_Gun" : "CharacterArmature|Idle_Gun";
+                return moving ? "Run" : "Idle";
             case UnitKind.Tank:
-                return attacking ? "TankArmature|Tank_TurningRight" : moving ? "TankArmature|Tank_Forward" : "TankArmature|Tank_Idle";
+                return moving && !attacking ? "TankArmature|Tank_Forward" : "TankArmature|Tank_Idle";
             case UnitKind.Giant:
                 if (attacking)
                 {
@@ -4550,10 +4958,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void ApplyDefaultMobilePresentation()
     {
+        selectedResolutionIndex = DefaultResolutionPresetIndex;
         if (!Application.isMobilePlatform)
         {
             Screen.fullScreenMode = FullScreenMode.Windowed;
-            Screen.SetResolution(720, 1280, FullScreenMode.Windowed);
+            Screen.SetResolution(DefaultPortraitScreenWidth, DefaultPortraitScreenHeight, FullScreenMode.Windowed);
         }
 
         Screen.orientation = ScreenOrientation.Portrait;
@@ -4723,7 +5132,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         var scaler = canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(720f, 1280f);
+        scaler.referenceResolution = new Vector2(DefaultPortraitScreenWidth, DefaultPortraitScreenHeight);
         scaler.matchWidthOrHeight = 0.55f;
 
         if (raycaster)
@@ -4783,7 +5192,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private Vector3 ToWorldPoint(float x, float z, float height)
     {
-        return new Vector3(x * LogicalToWorld, height, z * LogicalToWorld);
+        float worldX = x * LogicalToWorld;
+        float worldZ = z * LogicalToWorld;
+        return new Vector3(worldX, SampleBattlefieldGroundHeightWorld(worldX, worldZ) + height, worldZ);
     }
 
     private void PlayBattleEffect(BattleEffectId id, float x, float z, float height, float scale, Quaternion rotation)

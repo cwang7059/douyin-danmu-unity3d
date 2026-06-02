@@ -139,6 +139,8 @@ public sealed partial class ApocalypseKingUnityGame
         public float trackScroll;
         public Vector3 baseModelScale;
         public Vector3 baseModelLocalPosition;
+        public Quaternion baseModelLocalRotation;
+        public bool soldierUsesVanguardMesh;
         public Transform aircraftRotorRoot;
         public Quaternion aircraftRotorBaseLocalRotation;
         public readonly List<AircraftRotorRig> aircraftRotorRigs = new List<AircraftRotorRig>(2);
