@@ -17,8 +17,11 @@ Write-Host "[Apocalypse] Importing M14 rifle for soldiers..."
 Write-Host "[Apocalypse] Importing zombie unit models (Quaternius / Poly Pizza)..."
 & "$PSScriptRoot\import-zombie-units.ps1"
 
-Write-Host "[Apocalypse] Installing Kenney Castle Kit (faction bases)..."
+Write-Host "[Apocalypse] Installing Kenney Castle Kit (legacy fallback)..."
 & "$PSScriptRoot\import-castle-environment.ps1"
+
+Write-Host "[Apocalypse] Installing realistic castle (fortress GLB + stone PBR)..."
+& "$PSScriptRoot\import-realistic-castle.ps1"
 
 Write-Host "[Apocalypse] Installing realistic tank (optional; needs Sketchfab GLB — see doc/坦克写实素材选型与导入.md)..."
 $ErrorActionPreference = "Continue"
