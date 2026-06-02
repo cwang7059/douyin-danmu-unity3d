@@ -35,6 +35,9 @@ public sealed partial class ApocalypseKingUnityGame
                 changed |= ResolveWithinGroup(game.giants, 1.05f);
                 changed |= ResolveWithinGroup(game.tanks, 1.18f);
                 changed |= ResolveBetweenGroups(game.tanks, game.soldiers, 1.10f);
+                changed |= ResolveWithinGroup(game.aircraft, 1.08f);
+                changed |= ResolveBetweenGroups(game.aircraft, game.soldiers, 1.16f);
+                changed |= ResolveBetweenGroups(game.aircraft, game.tanks, 1.08f);
                 changed |= ResolveAwayFromGiant(game.soldiers, 1.02f);
                 changed |= ResolveAwayFromBuildings(game.soldiers);
                 changed |= ResolveAwayFromBuildings(game.tanks);
@@ -63,6 +66,8 @@ public sealed partial class ApocalypseKingUnityGame
                     return 96f;
                 case UnitKind.Soldier:
                     return 18f;
+                case UnitKind.Aircraft:
+                    return Mathf.Max(44f, unit.radius * 0.82f);
                 default:
                     return unit.radius;
             }
@@ -294,11 +299,6 @@ public sealed partial class ApocalypseKingUnityGame
                 return false;
             }
 
-            if (first.kind == UnitKind.Aircraft || second.kind == UnitKind.Aircraft)
-            {
-                return false;
-            }
-
             float dx = first.x - second.x;
             float dz = first.z - second.z;
             float distanceSq = dx * dx + dz * dz;
@@ -322,6 +322,7 @@ public sealed partial class ApocalypseKingUnityGame
             float push = (minimum - distance) + 0.25f;
             float firstWeight = PushWeight(first);
             float secondWeight = PushWeight(second);
+            ApplyAircraftSeparationWeights(first, second, ref firstWeight, ref secondWeight);
             float totalWeight = firstWeight + secondWeight;
             if (totalWeight <= 0.001f)
             {
@@ -338,6 +339,16 @@ public sealed partial class ApocalypseKingUnityGame
             if (second.kind == UnitKind.Tank)
             {
                 secondPush = Mathf.Min(secondPush, 20f);
+            }
+
+            if (first.kind == UnitKind.Aircraft)
+            {
+                firstPush = Mathf.Min(firstPush, 18f);
+            }
+
+            if (second.kind == UnitKind.Aircraft)
+            {
+                secondPush = Mathf.Min(secondPush, 18f);
             }
 
             first.x += nx * firstPush;
@@ -359,8 +370,53 @@ public sealed partial class ApocalypseKingUnityGame
                     return 0.55f;
                 case UnitKind.Soldier:
                     return 1.4f;
+                case UnitKind.Aircraft:
+                    return 0.42f;
                 default:
                     return 1f;
+            }
+        }
+
+        private static void ApplyAircraftSeparationWeights(
+            BattleUnit first,
+            BattleUnit second,
+            ref float firstWeight,
+            ref float secondWeight)
+        {
+            bool involvesAircraft = first.kind == UnitKind.Aircraft || second.kind == UnitKind.Aircraft;
+            if (!involvesAircraft)
+            {
+                return;
+            }
+
+            if (first.kind == UnitKind.Soldier)
+            {
+                firstWeight = 1.55f;
+            }
+
+            if (second.kind == UnitKind.Soldier)
+            {
+                secondWeight = 1.55f;
+            }
+
+            if (first.kind == UnitKind.Tank)
+            {
+                firstWeight = 0.72f;
+            }
+
+            if (second.kind == UnitKind.Tank)
+            {
+                secondWeight = 0.72f;
+            }
+
+            if (first.kind == UnitKind.Aircraft)
+            {
+                firstWeight = 0.4f;
+            }
+
+            if (second.kind == UnitKind.Aircraft)
+            {
+                secondWeight = 0.4f;
             }
         }
 
@@ -377,7 +433,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         private static bool CanResolveSeparation(BattleUnit unit)
         {
-            return unit != null && unit.active && unit.kind != UnitKind.Aircraft;
+            return unit != null && unit.active;
         }
 
         private static int SeparationCell(float value)
