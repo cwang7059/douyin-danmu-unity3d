@@ -35,7 +35,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float TankT55AYawOffset = -90f;
     private const float TankT55AkYawOffset = -90f;
     private const float SoldierModelTargetHeight = 0.86f;
-    private const float AircraftModelTargetHeight = 1.18f;
+    private const float AircraftModelTargetHeight = 1.85f;
+    /// <summary>FBX 机身沿模型 Y 轴竖起；先绕 X 放平，再由 body 绕 Y 瞄向怪物（勿把 heading 再乘到模型上）。</summary>
+    private const float AircraftBindPitch = -90f;
+    private const float AircraftBindYaw = 0f;
+    private const float AircraftBindRoll = 0f;
+    private const float AircraftEngagementYawOffset = 0f;
     private const string SoldierResourceModelPath = "Soldiers/USArmyTacticalVanguard/USArmySoldier";
     private const string SoldierResourceFolderPath = "Soldiers/USArmyTacticalVanguard";
     private const string SoldierAlternateResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
@@ -122,6 +127,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         { UnitKind.Soldier, new ModelPose(SoldierModelTargetHeight, 0f, 0f, 0f, 0f, true) },
         { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
+        // 直升机轴向绑定在 NormalizePrototype 中写入原型；运行时仅绕 Y 转向（headingDegrees）。
         { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 0f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(3.35f, 0f, -90f, 0f, 0f, false) },
         { UnitKind.Fireball, new ModelPose(1.2f, 0f, 0f, 0f, 0f, false) },
@@ -1971,12 +1977,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 ApplySoldierMilitaryTint(prototype);
             }
         }
-        else if (kind == UnitKind.Aircraft)
-        {
-            ApplyAircraftFlightOrientation(prototype);
-        }
-
-        NormalizePrototype(prototype, Poses[kind].TargetHeight);
+        NormalizePrototype(prototype, Poses[kind].TargetHeight, kind);
     }
 
     private GameObject EnsureSoldierM14WeaponPrototype()
@@ -2193,17 +2194,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
-    private static void ApplyAircraftFlightOrientation(GameObject prototype)
-    {
-        if (prototype == null)
-        {
-            return;
-        }
-
-        // Mesh forward is +Z; -90 on Y maps it to game +X. Do not add X roll (that stands the heli on its nose).
-        prototype.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
-    }
-
     private static bool SoldierUsesBuiltInTextures(GameObject prototype)
     {
         if (prototype == null)
@@ -2372,12 +2362,17 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
-    private void NormalizePrototype(GameObject prototype, float targetHeight)
+    private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
         var renderers = prototype.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length == 0)
         {
             return;
+        }
+
+        if (kind == UnitKind.Aircraft)
+        {
+            prototype.transform.localRotation = Quaternion.Euler(AircraftBindPitch, AircraftBindYaw, AircraftBindRoll);
         }
 
         var bounds = renderers[0].bounds;
@@ -2386,7 +2381,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             bounds.Encapsulate(renderers[i].bounds);
         }
 
-        float currentHeight = Mathf.Max(0.001f, bounds.size.y);
+        float currentHeight = kind == UnitKind.Aircraft
+            ? Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f))
+            : Mathf.Max(0.001f, bounds.size.y);
         float uniformScale = targetHeight / currentHeight;
         prototype.transform.localScale = prototype.transform.localScale * uniformScale;
 
@@ -2464,7 +2461,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        NormalizePrototype(root, pose.TargetHeight);
+        NormalizePrototype(root, pose.TargetHeight, kind);
         root.SetActive(false);
         return root;
     }
@@ -3961,6 +3958,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + unit.modelYawOffset, 0f);
         }
+        else if (unit.kind == UnitKind.Aircraft)
+        {
+            unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + AircraftEngagementYawOffset, 0f);
+        }
         else
         {
             unit.body.localRotation = Quaternion.identity;
@@ -3989,7 +3990,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             float wobble = unit.kind == UnitKind.Aircraft ? Mathf.Sin(battleTime * 3.2f + unit.seed * 11f) * 3f : 0f;
             float hitBoost = unit.kind == UnitKind.Giant && unit.hitFlashTimer > 0f ? 1.08f : 1f;
             float attackBoost = unit.attackVisualTimer > 0f ? (unit.kind == UnitKind.Giant ? 1.04f : 1.02f) : 1f;
-            float modelYaw = unit.kind == UnitKind.Tank
+            float modelYaw = unit.kind == UnitKind.Tank || unit.kind == UnitKind.Aircraft
                 ? wobble
                 : UsesEngagementHeading(unit.kind)
                     ? unit.headingDegrees + wobble
@@ -4071,9 +4072,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
             case UnitKind.Aircraft:
             {
+                // 轴向已在原型绑定；巡航只做水平面内轻微偏航/滚转，避免再绕 X 俯仰把机头扎向地面。
                 localRotation *= Quaternion.Euler(
-                    Mathf.Sin(battleTime * 2.8f + unit.seed * 6f) * 1.4f,
                     0f,
+                    Mathf.Sin(battleTime * 2.8f + unit.seed * 6f) * 1.4f,
                     Mathf.Sin(battleTime * 3.5f + unit.seed * 5f) * 3.4f);
                 break;
             }
