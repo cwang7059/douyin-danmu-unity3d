@@ -93,6 +93,45 @@ public sealed partial class ApocalypseKingUnityGame
         return best;
     }
 
+    private static bool IsHumanGroundUnit(BattleUnit unit)
+    {
+        return unit != null && unit.active && (unit.kind == UnitKind.Soldier || unit.kind == UnitKind.Tank);
+    }
+
+    private BattleUnit FindNearestHumanGroundEnemy(BattleUnit origin)
+    {
+        if (origin == null || !origin.active)
+        {
+            return null;
+        }
+
+        BattleUnit best = null;
+        float bestScore = float.PositiveInfinity;
+        ConsiderEnemyPool(soldiers, origin, false, ref best, ref bestScore);
+        ConsiderEnemyPool(tanks, origin, false, ref best, ref bestScore);
+        return best;
+    }
+
+    private static BattleUnit ResolveGiantFaceTarget(BattleUnit contact, BattleUnit engagement, BattleUnit chase)
+    {
+        if (IsHumanGroundUnit(contact))
+        {
+            return contact;
+        }
+
+        if (IsHumanGroundUnit(engagement))
+        {
+            return engagement;
+        }
+
+        if (IsHumanGroundUnit(chase))
+        {
+            return chase;
+        }
+
+        return null;
+    }
+
     private void ConsiderEnemyPool(List<BattleUnit> units, BattleUnit origin, bool includeAircraft, ref BattleUnit best, ref float bestScore)
     {
         for (int i = 0; i < units.Count; i++)

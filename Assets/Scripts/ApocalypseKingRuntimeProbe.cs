@@ -16,8 +16,16 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
 
         var game = GetComponent<ApocalypseKingUnityGame>();
         float startedAt = Time.realtimeSinceStartup;
-        while ((game == null || !game.DiagnosticsAssetsReady) && Time.realtimeSinceStartup - startedAt < TimeoutSeconds)
+        while (Time.realtimeSinceStartup - startedAt < TimeoutSeconds)
         {
+            if (game != null
+                && game.DiagnosticsAssetsReady
+                && game.DiagnosticsActiveUnitCount >= 120
+                && game.DiagnosticsAverageTankRenderHeight > 0.2f)
+            {
+                break;
+            }
+
             yield return null;
         }
 
@@ -61,6 +69,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             tankTrackMotionDistance = distance;
         });
         yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
 
         string outputPath = GetArgumentValue("-probeOutput");
         if (string.IsNullOrEmpty(outputPath))
@@ -69,9 +78,10 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         }
 
         bool captured = CaptureScreen(outputPath);
-        LogDiagnostics(game, captured, outputPath, soldierBoneMotionAngle, soldierBoneMotionDistance, giantBoneMotionAngle, giantBoneMotionDistance, tankTrackMotionAngle, tankTrackMotionDistance);
+        bool tankVisualOk = EvaluateTankVisualOk(game);
+        LogDiagnostics(game, captured, outputPath, tankVisualOk, soldierBoneMotionAngle, soldierBoneMotionDistance, giantBoneMotionAngle, giantBoneMotionDistance, tankTrackMotionAngle, tankTrackMotionDistance);
 
-        bool ok = game != null && game.DiagnosticsAssetsReady && game.DiagnosticsPrototypeCount >= 6 && captured;
+        bool ok = game != null && game.DiagnosticsAssetsReady && game.DiagnosticsPrototypeCount >= 6 && captured && tankVisualOk;
         Application.Quit(ok ? 0 : 1);
     }
 
@@ -199,7 +209,18 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
         return false;
     }
 
-    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float giantBoneMotionAngle, float giantBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
+    private static bool EvaluateTankVisualOk(ApocalypseKingUnityGame game)
+    {
+        return game != null
+            && game.DiagnosticsRealisticTankActive
+            && game.DiagnosticsMainTankPrototypeName.IndexOf("Realistic", StringComparison.OrdinalIgnoreCase) >= 0
+            && !game.DiagnosticsTankUsingFallback
+            && game.DiagnosticsTankHelperRigCount == 0
+            && game.DiagnosticsTankToSoldierHeightRatio >= 1.65f
+            && game.DiagnosticsTankToSoldierHeightRatio <= 3.2f;
+    }
+
+    private static void LogDiagnostics(ApocalypseKingUnityGame game, bool captured, string outputPath, bool tankVisualOk, float soldierBoneMotionAngle, float soldierBoneMotionDistance, float giantBoneMotionAngle, float giantBoneMotionDistance, float tankTrackMotionAngle, float tankTrackMotionDistance)
     {
         var gateway = game != null ? game.GetComponent<DanmuHttpGateway>() : null;
         var wsGateway = game != null ? game.GetComponent<DanmuWebSocketGateway>() : null;
@@ -258,6 +279,7 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"wsReceived={(wsGateway != null ? wsGateway.ReceivedMessageCount : 0)} " +
             $"wsAccepted={(wsGateway != null ? wsGateway.AcceptedMessageCount : 0)} " +
             $"fallback={(game != null && game.DiagnosticsUsingFallback)} " +
+            $"tankFallback={(game != null && game.DiagnosticsTankUsingFallback)} " +
             $"battleTime={(game != null ? game.DiagnosticsBattleTime : 0f):0.0} " +
             $"giantX={(game != null ? game.DiagnosticsGiantX : 0f):0.0} " +
             $"giantZ={(game != null ? game.DiagnosticsGiantZ : 0f):0.0} " +
@@ -272,6 +294,13 @@ public sealed class ApocalypseKingRuntimeProbe : MonoBehaviour
             $"buildingOverlaps={(game != null ? game.DiagnosticsBuildingOverlapCount : 0)} " +
             $"tankAnimators={(game != null ? game.DiagnosticsTankAnimatorCount : 0)} " +
             $"tankAnimation={(game != null ? game.DiagnosticsFirstTankAnimation : string.Empty)} " +
+            $"realisticTank={(game != null && game.DiagnosticsRealisticTankActive)} " +
+            $"tankPrototype={(game != null ? game.DiagnosticsMainTankPrototypeName : string.Empty)} " +
+            $"tankHelperRigs={(game != null ? game.DiagnosticsTankHelperRigCount : 0)} " +
+            $"tankRenderH={(game != null ? game.DiagnosticsAverageTankRenderHeight : 0f):0.00} " +
+            $"soldierRenderH={(game != null ? game.DiagnosticsAverageSoldierRenderHeight : 0f):0.00} " +
+            $"tankSoldierRatio={(game != null ? game.DiagnosticsTankToSoldierHeightRatio : 0f):0.00} " +
+            $"tankVisualOk={tankVisualOk} " +
             $"tankTrackMotionAngle={tankTrackMotionAngle:0.00} " +
             $"tankTrackMotionDistance={tankTrackMotionDistance:0.0000} " +
             $"soldierAnimators={(game != null ? game.DiagnosticsSoldierAnimatorCount : 0)} " +

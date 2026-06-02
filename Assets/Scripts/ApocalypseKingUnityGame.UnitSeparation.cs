@@ -30,10 +30,16 @@ public sealed partial class ApocalypseKingUnityGame
         public void ResolveUnitOverlaps()
         {
             bool changed = false;
+            for (int pass = 0; pass < 6; pass++)
+            {
+                changed |= ResolveWithinGroup(game.soldiers, 1.16f);
+            }
+
             for (int pass = 0; pass < 4; pass++)
             {
                 changed |= ResolveWithinGroup(game.giants, 1.05f);
                 changed |= ResolveWithinGroup(game.tanks, 1.18f);
+                changed |= ResolveWithinGroup(game.soldiers, 1.12f);
                 changed |= ResolveBetweenGroups(game.tanks, game.soldiers, 1.10f);
                 changed |= ResolveWithinGroup(game.aircraft, 1.08f);
                 changed |= ResolveBetweenGroups(game.aircraft, game.soldiers, 1.16f);
@@ -61,11 +67,11 @@ public sealed partial class ApocalypseKingUnityGame
             switch (unit.kind)
             {
                 case UnitKind.Tank:
-                    return 56f;
+                    return 48f;
                 case UnitKind.Giant:
-                    return 96f;
+                    return 38f;
                 case UnitKind.Soldier:
-                    return 18f;
+                    return 24f;
                 case UnitKind.Aircraft:
                     return Mathf.Max(44f, unit.radius * 0.82f);
                 default:

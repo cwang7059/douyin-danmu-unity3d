@@ -4,6 +4,7 @@ param(
     [switch]$DisableDanmuHttp,
     [string]$DanmuWsUrl = "",
     [switch]$DisableDanmuWs,
+    [switch]$BuildOnly,
     [switch]$KeepBuildLog,
     [switch]$KeepRunLog,
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -122,6 +123,11 @@ try {
 
     if (-not (Test-Path -LiteralPath $GameExe)) {
         throw "Build succeeded, but game executable was not found: $GameExe"
+    }
+
+    if ($BuildOnly) {
+        Write-Host "[OK] Build only. Executable: $GameExe"
+        return
     }
 
     $arguments = @()

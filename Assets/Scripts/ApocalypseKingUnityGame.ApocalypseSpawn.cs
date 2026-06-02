@@ -217,8 +217,19 @@ public sealed partial class ApocalypseKingUnityGame
             return ReviveApocalypseTank(faction, ApocalypseUnitRole.AirUnit);
         }
 
-        int airLane = CountActiveFaction(aircraft, faction) % AirLanes.Length;
-        GetFactionCastleSpawn(faction, UnitKind.Aircraft, airLane, out float x, out float z, out int facing);
+        int airIndex = CountActiveFaction(aircraft, faction);
+        float x;
+        float z;
+        int facing = 1;
+        if (faction == FactionId.Blue)
+        {
+            GetHumanAircraftMassSpawn(airIndex, out x, out z);
+        }
+        else
+        {
+            GetFactionCastleSpawn(faction, UnitKind.Aircraft, airIndex, out x, out z, out facing);
+        }
+
         ActivateUnit(unit, x, z,
             aircraftConfig.MaxHp,
             aircraftConfig.Damage * globalAttackBuffMultiplier,
@@ -226,7 +237,7 @@ public sealed partial class ApocalypseKingUnityGame
             aircraftConfig.Radius,
             aircraftConfig.AttackRange,
             aircraftConfig.AttackInterval,
-            0, facing, 2.5f);
+            0, faction == FactionId.Blue ? 1 : facing, AircraftDefaultAltitude);
         unit.faction = faction;
         unit.apocalypseRole = ApocalypseUnitRole.AirUnit;
         unit.team = TeamKind.Human;
@@ -242,7 +253,7 @@ public sealed partial class ApocalypseKingUnityGame
             return false;
         }
 
-        GetBeastFormationSpawn(UnitKind.Giant, CountActiveFaction(giants, FactionId.Zombie), out float x, out float z);
+        GetGiantMassSpawn(CountActiveFaction(giants, FactionId.Zombie), out float x, out float z);
         ActivateUnit(unit, x, z,
             giantConfig.MaxHp * 1.4f,
             giantConfig.Damage * globalAttackBuffMultiplier,

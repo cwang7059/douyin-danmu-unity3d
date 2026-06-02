@@ -82,6 +82,7 @@ public static class ApocalypseKingProjectSetup
         ApocalypseKingBattleContentSetup.CreateOrUpdateBattleContentAssets();
         ApocalypseKingVfxTextureBake.BakeAll();
         ApocalypseKingVfxPrefabBinder.TryBindAllEffectConfigs();
+        ApocalypseKingCastleKitSetup.EnsureCastleKitPrefabsForBatchMode();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log("[ApocalypseKing] Created/updated DanmuSpawnMappingConfig, HUD prefab, and battle effect/audio assets.");

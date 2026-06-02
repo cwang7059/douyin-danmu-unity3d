@@ -282,8 +282,9 @@ public sealed partial class ApocalypseKingUnityGame
 
         float bombX = unit.x + aim.x * 22f;
         float bombZ = unit.z + aim.y * 22f;
-        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, 2.35f, 0.62f, RotationFromDirection(aim));
-        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, 2.35f, target.x, target.z, 0.18f, scaledDamage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
+        float airFxHeight = Mathf.Max(2.8f, unit.altitude - 0.12f);
+        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, airFxHeight, 0.62f, RotationFromDirection(aim));
+        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, airFxHeight, target.x, target.z, 0.18f, scaledDamage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
     }
 
     private void UpdateGiants(float dt)
@@ -306,7 +307,7 @@ public sealed partial class ApocalypseKingUnityGame
         giant.attackVisualTimer = Mathf.Max(0f, giant.attackVisualTimer - dt);
         giant.hitFlashTimer = Mathf.Max(0f, giant.hitFlashTimer - dt);
 
-        var chaseTarget = FindNearestEnemy(giant, true);
+        var chaseTarget = FindNearestHumanGroundEnemy(giant);
         var contactTarget = FindGiantContactTarget(giant);
         var engagementTarget = contactTarget ?? FindGiantEngagementTarget(giant);
         float rage = giant.hp / giant.maxHp < 0.45f ? 1.22f : 1f;
@@ -318,7 +319,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         float dx = 0f;
         float dz = 0f;
-        var faceTarget = contactTarget ?? engagementTarget ?? chaseTarget;
+        var faceTarget = ResolveGiantFaceTarget(contactTarget, engagementTarget, chaseTarget);
         if (contactTarget == null)
         {
             float goalX = giant.x;
@@ -345,7 +346,9 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (marchCastle || chaseTarget != null)
             {
-                float formationZ = Mathf.Clamp(goalZ + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
+                float formationZ = marchCastle
+                    ? Mathf.Clamp(goalZ, Bottom + 62f, Top - 88f)
+                    : Mathf.Clamp(goalZ + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
                 Vector2 chase = DirectionTo(giant.x, giant.z, goalX, formationZ, giant.headingDegrees);
                 float nextX = giant.x + chase.x * giant.speed * dt;
                 float nextZ = giant.z + chase.y * giant.speed * dt;
@@ -375,7 +378,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         float aimYaw;
-        if (faceTarget != null && faceTarget.active)
+        if (faceTarget != null)
         {
             aimYaw = DirectionYawDegrees(faceTarget.x - giant.x, faceTarget.z - giant.z, giant.headingDegrees);
         }
@@ -400,9 +403,9 @@ public sealed partial class ApocalypseKingUnityGame
             return 0f;
         }
 
-        int lane = giant.rank % 5;
-        int rank = giant.rank / 5;
-        return (lane - 2) * 42f + rank * 18f;
+        int lane = giant.rank % BeastGiantLanesPerRow;
+        int rank = giant.rank / BeastGiantLanesPerRow;
+        return (lane - 1) * 12f + rank * 8f;
     }
 
     private float GiantMeleeOffset(UnitKind kind)
@@ -637,6 +640,7 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        giant.hp = 0f;
         giant.active = false;
         giant.runtimeState = UnitRuntimeState.Dead;
         giant.root.SetActive(false);

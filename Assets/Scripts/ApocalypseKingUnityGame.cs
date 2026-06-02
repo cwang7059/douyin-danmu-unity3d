@@ -12,16 +12,16 @@ using UnityGLTF;
 
 public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 {
-    private const int SoldierCount = 100;
-    private const int TankT55ACount = 6;
-    private const int TankT55AkCount = 10;
-    private const int TankCount = TankT55ACount + TankT55AkCount;
-    private const int AircraftCount = 3;
-    private const int GiantCount = 10;
-    private const int MaxSoldierCount = 180;
-    private const int MaxTankCount = 36;
-    private const int MaxAircraftCount = 12;
-    private const int MaxGiantCount = 24;
+    private const int SoldierCount = 500;
+    private const int TankT55ACount = 100;
+    private const int TankT55AkCount = 100;
+    private const int TankCount = 200;
+    private const int AircraftCount = 50;
+    private const int GiantCount = 500;
+    private const int MaxSoldierCount = 500;
+    private const int MaxTankCount = 200;
+    private const int MaxAircraftCount = 50;
+    private const int MaxGiantCount = 500;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
@@ -32,13 +32,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int PrewarmFallbackEffects = MaxEffects;
     private const bool ShowResolutionDebugControls = false;
     /// <summary>Quaternius tank GLB needs -90 degrees on Y to align mesh forward with game heading.</summary>
-    private const float TankT55AYawOffset = -90f;
-    private const float TankT55AkYawOffset = -90f;
+    /// <summary>Mesh forward vs game heading; realistic T-55 OBJ needs +90° from legacy Quaternius (-90).</summary>
+    private const float TankT55AYawOffset = 0f;
+    private const float TankT55AkYawOffset = 0f;
+    private const float TankLowPolyYawOffset = -90f;
     private const float SoldierDefaultMoveSpeed = 36f;
     private const float TankDefaultMoveSpeed = 54f;
     private const float AircraftDefaultMoveSpeed = 100f;
-    private const float SoldierModelTargetHeight = 0.86f;
-    private const float AircraftModelTargetHeight = 1.58f;
+    private const float TankModelTargetHeight = 4.2f;
+    /// <summary>Soldier display height as a fraction of tank (lower = infantry looks smaller vs armor).</summary>
+    private const float SoldierToTankDisplayRatio = 0.50f / 1.5f;
+    private const float SoldierModelTargetHeight = TankModelTargetHeight * SoldierToTankDisplayRatio;
+    private const float AircraftModelTargetHeight = 1.58f / (1.5f * 1.4f);
+    private const float AircraftDefaultAltitude = 4.2f;
+    private const float AircraftVisualScale = 0.95f / (1.5f * 1.4f);
+    private const float TankHarmonizeDisplayBoost = 1.1f;
     /// <summary>FBX 机身沿模型 Y 轴竖起；先绕 X 放平，再由 body 绕 Y 瞄向怪物（勿把 heading 再乘到模型上）。</summary>
     private const float AircraftBindPitch = -90f;
     private const float AircraftBindYaw = 0f;
@@ -52,8 +60,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float SoldierM14TargetLength = 0.88f;
     /// <summary>Mixamo Vanguard mesh forward is opposite game heading after baked root rotation.</summary>
     private const float SoldierVanguardYawOffset = 180f;
-    /// <summary>Pixelhouse 模型网格前向与 heading 相反，与士兵 Vanguard 一样补 180°。</summary>
-    private const float GiantPixelhouseMeshYawOffset = 180f;
+    /// <summary>Pixelhouse 导入朝向比 body heading 多 90°（朝屏幕下），左转 90° 后对人族。</summary>
+    private const float GiantPixelhouseMeshYawOffset = -90f;
+    private const float GiantKenneyMeshYawOffset = 180f;
+    private const string RealisticTankFolderPath = "RealisticTanks";
+    private const string RealisticTankT55AResourcePath = RealisticTankFolderPath + "/T55A";
+    private const string RealisticTankT55AkResourcePath = RealisticTankFolderPath + "/T55AK";
     private const string TankResourceFolderPath = "Quaternius/AnimatedTankPack";
     private const string TankResourceModelPath = TankResourceFolderPath + "/TankA";
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
@@ -78,7 +90,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const string GrassTextureResourcePath = EnvironmentResourceFolderPath + "/grass_meadow";
     private const string GrassDetailTextureResourcePath = EnvironmentResourceFolderPath + "/grass_detail";
     private const string CoastSandTextureResourcePath = EnvironmentResourceFolderPath + "/coast_sand";
-    private const string SunsetSkyboxResourcePath = EnvironmentResourceFolderPath + "/cape_hill_sunset";
+    private const string DaySkyboxResourcePath = EnvironmentResourceFolderPath + "/cape_hill_sunset";
 
     private static readonly string[] GiantZombieSkinResourcePaths =
     {
@@ -118,7 +130,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private const int HumanFormationLanesPerRow = 4;
     private const int HumanFormationTanksPerRow = 3;
-    private static readonly float[] AirLanes = { 250f, 370f, 490f };
+    private static readonly float[] AirLanes =
+    {
+        80f, 140f, 200f, 260f, 320f, 380f, 440f, 500f, 560f, 620f
+    };
     private static readonly HashSet<string> TankDisplayMaterialNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "display",
@@ -126,7 +141,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         "ground",
         "shadow",
         "smoke",
+        "logo",
+        "default_material",
     };
+    private const float RealisticTankBoundsMaxAxis = 5.5f;
 
     private const int DefaultPortraitScreenWidth = 1170;
     private const int DefaultPortraitScreenHeight = 2532;
@@ -149,7 +167,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private static readonly Dictionary<UnitKind, ModelPose> Poses = new Dictionary<UnitKind, ModelPose>
     {
         { UnitKind.Soldier, new ModelPose(SoldierModelTargetHeight, 0f, 0f, 0f, 0f, true) },
-        { UnitKind.Tank, new ModelPose(1.08f, 0f, 0f, 0f, 0f, true) },
+        { UnitKind.Tank, new ModelPose(TankModelTargetHeight, 0f, 0f, 0f, 0f, true) },
         // 直升机轴向绑定在 NormalizePrototype 中写入原型；运行时仅绕 Y 转向（headingDegrees）。
         { UnitKind.Aircraft, new ModelPose(AircraftModelTargetHeight, 0f, 0f, 0f, 0.2f, true) },
         { UnitKind.Giant, new ModelPose(1.88f, 0f, 0f, 0f, 0f, false) },
@@ -212,6 +230,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<BattleUnit> tanks = new List<BattleUnit>(MaxTankCount);
     private readonly List<BattleUnit> aircraft = new List<BattleUnit>(MaxAircraftCount);
     private readonly List<BattleUnit> giants = new List<BattleUnit>(MaxGiantCount);
+    private int pendingGiantBattleActivation;
+    private const int GiantBattleActivationBatchSize = 200;
     private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
     private readonly List<RoadCorridor> roadCorridors = new List<RoadCorridor>();
     private readonly List<ProjectileView> projectiles = new List<ProjectileView>(MaxProjectiles);
@@ -265,6 +285,26 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     public float DiagnosticsAverageTankMoveSpeed => GetAverageMoveSpeed(tanks);
     public int DiagnosticsTankAnimatorCount => CountAnimatorUnits(tanks);
     public string DiagnosticsFirstTankAnimation => GetFirstAnimatorClipName(tanks);
+    public bool DiagnosticsRealisticTankActive => HasRealisticTankInResources();
+    public string DiagnosticsMainTankPrototypeName =>
+        modelPrototypes.TryGetValue(UnitKind.Tank, out GameObject mainTank) && mainTank != null
+            ? mainTank.name
+            : string.Empty;
+    public bool DiagnosticsTankUsingFallback =>
+        !modelPrototypes.TryGetValue(UnitKind.Tank, out GameObject mainTank)
+        || mainTank == null
+        || mainTank.name.IndexOf("Fallback", StringComparison.OrdinalIgnoreCase) >= 0;
+    public int DiagnosticsTankHelperRigCount => CountTankHelperRigs();
+    public float DiagnosticsAverageTankRenderHeight => GetAverageActiveUnitRenderMetric(tanks);
+    public float DiagnosticsAverageSoldierRenderHeight => GetAverageActiveUnitRenderMetric(soldiers);
+    public float DiagnosticsTankToSoldierHeightRatio
+    {
+        get
+        {
+            float soldier = DiagnosticsAverageSoldierRenderHeight;
+            return soldier > 0.01f ? DiagnosticsAverageTankRenderHeight / soldier : 0f;
+        }
+    }
     public int DiagnosticsMedievalVillagePrefabCount => medievalVillagePrefabCount;
     public int DiagnosticsBuildingObstacleCount => buildingObstacles.Count;
     public int DiagnosticsBuildingOverlapCount => CountBuildingOverlaps();
@@ -347,6 +387,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
+        UpdateBattlefieldEnvironment(battleTime);
+
+        if (pendingGiantBattleActivation > 0)
+        {
+            ProcessPendingGiantBattleActivation();
+        }
+
         if (Input.GetKeyDown(KeyCode.P) && !ended)
         {
             paused = !paused;
@@ -380,7 +427,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float dt = Mathf.Min(Time.deltaTime, 0.045f);
         battleTime += dt;
-        UpdateBattlefieldEnvironment(battleTime);
         TickGiftFeedDisplay(dt);
         UpdateApocalypseMatch(dt);
         DrainPendingSpawns();
@@ -423,7 +469,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         cameraObject.tag = "MainCamera";
         mainCamera = cameraObject.AddComponent<Camera>();
         mainCamera.clearFlags = CameraClearFlags.Skybox;
-        mainCamera.backgroundColor = new Color(0.78f, 0.55f, 0.38f, 1f);
+        mainCamera.backgroundColor = new Color(0.74f, 0.84f, 0.92f, 1f);
         mainCamera.nearClipPlane = 0.1f;
         mainCamera.farClipPlane = 320f;
         mainCamera.fieldOfView = 31f;
@@ -448,21 +494,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         orbitCamera.target = cameraTarget;
 
         var lightObject = new GameObject("Sun Light");
-        lightObject.transform.rotation = Quaternion.Euler(38f, -62f, 0f);
+        lightObject.transform.rotation = Quaternion.Euler(52f, -58f, 0f);
         var light = lightObject.AddComponent<Light>();
         light.type = LightType.Directional;
-        light.color = new Color(1f, 0.72f, 0.48f, 1f);
-        light.intensity = 1.18f;
+        light.color = new Color(1f, 0.98f, 0.92f, 1f);
+        light.intensity = 1.28f;
         light.shadows = LightShadows.Soft;
         RegisterSunLight(light, lightObject.transform);
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.48f, 0.42f, 0.37f, 1f);
+        RenderSettings.ambientLight = new Color(0.62f, 0.66f, 0.60f, 1f);
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
-        RenderSettings.fogColor = new Color(0.56f, 0.44f, 0.34f, 1f);
-        RenderSettings.fogDensity = 0.0075f;
-        ApplySunsetSkybox();
+        RenderSettings.fogColor = new Color(0.74f, 0.84f, 0.92f, 1f);
+        RenderSettings.fogDensity = 0.0052f;
+        ApplyDaySkybox();
 
         worldRoot = new GameObject("WorldRoot").transform;
         decorRoot = new GameObject("DecorRoot").transform;
@@ -481,10 +527,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         cameraObject.transform.SetParent(transform, false);
     }
 
-    private void ApplySunsetSkybox()
+    private void ApplyDaySkybox()
     {
-        Cubemap skyCubemap = Resources.Load<Cubemap>(SunsetSkyboxResourcePath);
-        Texture skyTexture = skyCubemap != null ? skyCubemap : Resources.Load<Texture>(SunsetSkyboxResourcePath);
+        Cubemap skyCubemap = Resources.Load<Cubemap>(DaySkyboxResourcePath);
+        Texture skyTexture = skyCubemap != null ? skyCubemap : Resources.Load<Texture>(DaySkyboxResourcePath);
         Shader skyShader = skyCubemap != null
             ? Shader.Find("Skybox/Cubemap") ?? Shader.Find("Skybox/Panoramic")
             : Shader.Find("Skybox/Panoramic") ?? Shader.Find("Skybox/Cubemap");
@@ -506,17 +552,17 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (skybox.HasProperty("_Tint"))
         {
-            skybox.SetColor("_Tint", new Color(1f, 0.74f, 0.54f, 1f));
+            skybox.SetColor("_Tint", new Color(0.90f, 0.95f, 1f, 1f));
         }
 
         if (skybox.HasProperty("_Exposure"))
         {
-            skybox.SetFloat("_Exposure", 0.88f);
+            skybox.SetFloat("_Exposure", 1.08f);
         }
 
         if (skybox.HasProperty("_Rotation"))
         {
-            skybox.SetFloat("_Rotation", 118f);
+            skybox.SetFloat("_Rotation", 42f);
         }
 
         RenderSettings.skybox = skybox;
@@ -1372,7 +1418,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             x = 0f,
             z = 0f,
             baseZ = 0f,
-            altitude = kind == UnitKind.Aircraft ? 2.5f : 0f,
+            altitude = kind == UnitKind.Aircraft ? AircraftDefaultAltitude : 0f,
             hp = 1f,
             maxHp = 1f,
             damage = 1f,
@@ -1399,6 +1445,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static float TankModelYawOffset(TankModelVariant tankModel)
     {
+        if (!HasRealisticTankInResources())
+        {
+            return TankLowPolyYawOffset;
+        }
+
         switch (tankModel)
         {
             case TankModelVariant.T55A:
@@ -1496,6 +1547,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] candidates =
         {
+            "RealisticTanks/T55A.glb",
+            "RealisticTanks/T55AK.glb",
             "Sketchfab/tank_t-55a.glb",
             "Sketchfab/t55a-tank.glb",
             "Sketchfab/abrams-tank.glb",
@@ -1576,6 +1629,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
         else if (kind == UnitKind.Tank)
         {
+            var realisticTankPrototype = LoadRealisticTankResourcePrototype(tankModel);
+            if (realisticTankPrototype != null)
+            {
+                return realisticTankPrototype;
+            }
+
             var tankResourcePrototype = LoadTankResourcePrototype(tankModel);
             if (tankResourcePrototype != null)
             {
@@ -1701,27 +1760,89 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
+    private static bool HasRealisticTankInResources()
+    {
+        return LoadTankResourceModelRoot(RealisticTankT55AResourcePath) != null
+            || LoadTankResourceModelRoot(RealisticTankT55AkResourcePath) != null;
+    }
+
+    private GameObject LoadRealisticTankResourcePrototype(TankModelVariant tankModel)
+    {
+        string resourcePath = tankModel == TankModelVariant.T55AK
+            ? RealisticTankT55AkResourcePath
+            : RealisticTankT55AResourcePath;
+        var prototype = LoadTankResourcePrototype(resourcePath);
+        if (prototype != null)
+        {
+            prototype.name = $"{UnitKind.Tank}_Realistic_{tankModel}";
+            return prototype;
+        }
+
+        if (tankModel == TankModelVariant.T55AK)
+        {
+            return LoadTankResourcePrototype(RealisticTankT55AResourcePath);
+        }
+
+        return null;
+    }
+
     private GameObject LoadTankResourcePrototype(TankModelVariant tankModel)
     {
+        if (HasRealisticTankInResources())
+        {
+            return LoadRealisticTankResourcePrototype(tankModel);
+        }
+
         string resourcePath = tankModel == TankModelVariant.T55AK ? TankHeavyResourceModelPath : TankResourceModelPath;
         return LoadTankResourcePrototype(resourcePath);
     }
 
     private GameObject LoadTankResourcePrototype(string resourcePath)
     {
-        var source = Resources.Load<GameObject>(resourcePath);
+        bool realistic = resourcePath.StartsWith(RealisticTankFolderPath, StringComparison.Ordinal);
+        var source = LoadTankResourceModelRoot(resourcePath);
         if (source == null)
         {
             return null;
         }
 
         var prototype = Instantiate(source, modelCacheRoot, false);
-        prototype.name = $"{UnitKind.Tank}_Prototype";
+        prototype.name = realistic ? $"{UnitKind.Tank}_Realistic_Prototype" : $"{UnitKind.Tank}_Prototype";
         prototype.hideFlags = HideFlags.HideInHierarchy;
-        AttachResourceAnimationClips(prototype, resourcePath, TankResourceFolderPath);
+        string clipFolder = realistic ? RealisticTankFolderPath : TankResourceFolderPath;
+        AttachResourceAnimationClips(prototype, resourcePath, clipFolder);
         ConfigureImportedPrototype(prototype, UnitKind.Tank);
         prototype.SetActive(false);
         return prototype;
+    }
+
+    private static GameObject LoadTankResourceModelRoot(string resourcePath)
+    {
+        var source = Resources.Load<GameObject>(resourcePath);
+        if (source != null)
+        {
+            return source;
+        }
+
+        var assets = Resources.LoadAll(resourcePath, typeof(GameObject));
+        GameObject best = null;
+        int bestRendererCount = 0;
+        for (int i = 0; i < assets.Length; i++)
+        {
+            if (assets[i] is not GameObject gameObject)
+            {
+                continue;
+            }
+
+            int rendererCount = gameObject.GetComponentsInChildren<Renderer>(true).Length;
+            if (rendererCount > bestRendererCount)
+            {
+                best = gameObject;
+                bestRendererCount = rendererCount;
+            }
+        }
+
+        return best;
     }
 
     private GameObject LoadAircraftResourcePrototype()
@@ -1871,15 +1992,100 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         tankVariantPrototypes.Clear();
 
+        if (HasRealisticTankInResources())
+        {
+            AddTankVariantPrototype(LoadRealisticTankResourcePrototype(TankModelVariant.T55A));
+            AddTankVariantPrototype(LoadRealisticTankResourcePrototype(TankModelVariant.T55AK));
+            HarmonizeTankPrototypeScales();
+            return;
+        }
+
         GameObject standardPrototype;
         if (modelPrototypes.TryGetValue(UnitKind.Tank, out standardPrototype))
         {
             AddTankVariantPrototype(standardPrototype);
         }
 
+        AddTankVariantPrototype(LoadTankResourcePrototype(TankResourceModelPath));
         AddTankVariantPrototype(LoadTankResourcePrototype(TankScoutResourceModelPath));
         AddTankVariantPrototype(LoadTankResourcePrototype(TankAssaultResourceModelPath));
+        AddTankVariantPrototype(LoadTankResourcePrototype(TankHeavyResourceModelPath));
         AddTankVariantPrototype(tankT55AkPrototype);
+        HarmonizeTankPrototypeScales();
+    }
+
+    private static float GetTankBoundsMetric(Bounds bounds)
+    {
+        return Mathf.Max(0.001f, bounds.size.x, bounds.size.z, bounds.size.y);
+    }
+
+    private void HarmonizeTankPrototypeScales()
+    {
+        bool includeTankDisplayGeometry = !HasRealisticTankInResources();
+        var prototypes = new List<GameObject>(tankVariantPrototypes.Count + 1);
+        for (int i = 0; i < tankVariantPrototypes.Count; i++)
+        {
+            prototypes.Add(tankVariantPrototypes[i]);
+        }
+
+        GameObject mainTankPrototype;
+        if (modelPrototypes.TryGetValue(UnitKind.Tank, out mainTankPrototype)
+            && mainTankPrototype != null
+            && !prototypes.Contains(mainTankPrototype))
+        {
+            prototypes.Add(mainTankPrototype);
+        }
+
+        float minMetric = float.PositiveInfinity;
+        for (int i = 0; i < prototypes.Count; i++)
+        {
+            if (!TryComputeModelBounds(prototypes[i], out Bounds bounds, includeTankDisplayGeometry))
+            {
+                continue;
+            }
+
+            minMetric = Mathf.Min(minMetric, GetTankBoundsMetric(bounds));
+        }
+
+        if (minMetric >= float.PositiveInfinity)
+        {
+            return;
+        }
+
+        for (int i = 0; i < prototypes.Count; i++)
+        {
+            GameObject prototype = prototypes[i];
+            if (!TryComputeModelBounds(prototype, out Bounds bounds, includeTankDisplayGeometry))
+            {
+                continue;
+            }
+
+            float metric = GetTankBoundsMetric(bounds);
+            float ratio = minMetric / metric;
+            if (ratio >= 0.999f)
+            {
+                continue;
+            }
+
+            prototype.transform.localScale *= ratio;
+            if (TryComputeModelBounds(prototype, out bounds, includeTankDisplayGeometry))
+            {
+                prototype.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+            }
+        }
+
+        if (TankHarmonizeDisplayBoost > 1.001f)
+        {
+            for (int i = 0; i < prototypes.Count; i++)
+            {
+                GameObject prototype = prototypes[i];
+                prototype.transform.localScale *= TankHarmonizeDisplayBoost;
+                if (TryComputeModelBounds(prototype, out Bounds bounds, includeTankDisplayGeometry))
+                {
+                    prototype.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+                }
+            }
+        }
     }
 
     private void ConfigureGiantVariantPrototypes()
@@ -2211,6 +2417,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (kind == UnitKind.Tank)
         {
             RemoveTankDisplayGeometry(prototype);
+            if (HasRealisticTankInResources())
+            {
+                ApplyRealisticTankMaterials(prototype);
+            }
         }
 
         if (kind == UnitKind.Giant)
@@ -2819,7 +3029,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            DestroyImmediate(renderer.gameObject);
+            if (Application.isPlaying)
+            {
+                Destroy(renderer.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(renderer.gameObject);
+            }
+
             removed++;
         }
 
@@ -2905,7 +3123,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
-    private static bool TryComputeModelBounds(GameObject root, out Bounds bounds)
+    private static bool TryComputeModelBounds(GameObject root, out Bounds bounds, bool includeTankDisplayGeometry = true)
     {
         Bounds combinedBounds = default;
         bool hasBounds = false;
@@ -2952,6 +3170,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
+            if (renderer != null && ShouldSkipTankBoundsRenderer(renderer, mesh.bounds, includeTankDisplayGeometry))
+            {
+                continue;
+            }
+
             EncapsulateLocalMeshBounds(meshFilters[i].transform, mesh.bounds);
         }
 
@@ -2981,18 +3204,159 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        bool started = false;
+        bounds = default;
+        for (int i = 0; i < renderers.Length; i++)
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            var renderer = renderers[i];
+            if (renderer == null || ShouldSkipTankBoundsRenderer(renderer, renderer.bounds, includeTankDisplayGeometry))
+            {
+                continue;
+            }
+
+            if (!started)
+            {
+                bounds = renderer.bounds;
+                started = true;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
         }
 
-        return true;
+        return started;
+    }
+
+    private static bool ShouldSkipTankBoundsRenderer(Renderer renderer, Bounds localOrWorldBounds, bool includeTankDisplayGeometry)
+    {
+        if (!HasRealisticTankInResources())
+        {
+            return false;
+        }
+
+        if (!includeTankDisplayGeometry && IsTankDisplayRenderer(renderer))
+        {
+            return true;
+        }
+
+        if (!includeTankDisplayGeometry)
+        {
+            return false;
+        }
+
+        if (IsTankDisplayRenderer(renderer))
+        {
+            return true;
+        }
+
+        Vector3 size = localOrWorldBounds.size;
+        float maxAxis = Mathf.Max(size.x, size.y, size.z);
+        return maxAxis > RealisticTankBoundsMaxAxis;
+    }
+
+    private void ApplyRealisticTankMaterials(GameObject prototype)
+    {
+        var bodyAlbedo = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex1");
+        var bodyNormal = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex1 - nrm");
+        var detailAlbedo = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex2");
+        var detailNormal = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex2 - nrm");
+        var rubberAlbedo = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex3");
+        var rubberNormal = Resources.Load<Texture2D>(RealisticTankFolderPath + "/tex3 - nrm");
+        if (bodyAlbedo == null)
+        {
+            return;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null || IsTankDisplayRenderer(renderer))
+            {
+                continue;
+            }
+
+            var materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material material = materials[m];
+                if (material == null)
+                {
+                    continue;
+                }
+
+                string materialName = material.name;
+                int instanceSuffix = materialName.IndexOf(" (", StringComparison.Ordinal);
+                if (instanceSuffix >= 0)
+                {
+                    materialName = materialName.Substring(0, instanceSuffix);
+                }
+
+                Texture2D albedo = bodyAlbedo;
+                Texture2D normal = bodyNormal;
+                if (ContainsNameToken(materialName, "tyre") || ContainsNameToken(materialName, "tire"))
+                {
+                    albedo = rubberAlbedo ?? bodyAlbedo;
+                    normal = rubberNormal ?? bodyNormal;
+                }
+                else if (ContainsNameToken(materialName, "tex3"))
+                {
+                    albedo = rubberAlbedo ?? bodyAlbedo;
+                    normal = rubberNormal ?? bodyNormal;
+                }
+                else if (ContainsNameToken(materialName, "tex2"))
+                {
+                    albedo = detailAlbedo ?? bodyAlbedo;
+                    normal = detailNormal ?? bodyNormal;
+                }
+
+                ApplyTankMaterialMaps(material, albedo, normal);
+                materials[m] = material;
+            }
+
+            renderer.sharedMaterials = materials;
+        }
+    }
+
+    private static void ApplyTankMaterialMaps(Material material, Texture2D albedo, Texture2D normal)
+    {
+        if (material == null || albedo == null)
+        {
+            return;
+        }
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture("_MainTex", albedo);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTexture("_BaseMap", albedo);
+        }
+
+        if (normal != null && material.HasProperty("_BumpMap"))
+        {
+            material.SetTexture("_BumpMap", normal);
+            material.EnableKeyword("_NORMALMAP");
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.color = Color.white;
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", Color.white);
+        }
     }
 
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
-        if (!TryComputeModelBounds(prototype, out Bounds bounds))
+        bool includeTankDisplayGeometry = !(HasRealisticTankInResources() && kind == UnitKind.Tank);
+        if (!TryComputeModelBounds(prototype, out Bounds bounds, includeTankDisplayGeometry))
         {
             return;
         }
@@ -3008,11 +3372,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float currentHeight = kind == UnitKind.Aircraft
             ? Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f))
-            : Mathf.Max(0.001f, bounds.size.y);
+            : kind == UnitKind.Tank
+                ? GetTankBoundsMetric(bounds)
+                : Mathf.Max(0.001f, bounds.size.y);
         float uniformScale = targetHeight / currentHeight;
         prototype.transform.localScale = prototype.transform.localScale * uniformScale;
 
-        if (!TryComputeModelBounds(prototype, out bounds))
+        if (!TryComputeModelBounds(prototype, out bounds, includeTankDisplayGeometry))
         {
             return;
         }
@@ -3086,25 +3452,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void AttachPrototypesToUnits()
     {
-        for (int i = 0; i < soldiers.Count; i++)
-        {
-            AttachUnitModel(soldiers[i]);
-        }
-
-        for (int i = 0; i < tanks.Count; i++)
-        {
-            AttachUnitModel(tanks[i]);
-        }
-
-        for (int i = 0; i < aircraft.Count; i++)
-        {
-            AttachUnitModel(aircraft[i]);
-        }
-
-        for (int i = 0; i < giants.Count; i++)
-        {
-            AttachUnitModel(giants[i]);
-        }
+        // Units attach on first ActivateUnit (lazy) — keeps load fast with large armies.
     }
 
     private void AttachFallbackPrototypes()
@@ -3740,7 +4088,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         var rig = new TankMotionRig();
         CollectTankAimParts(unit, rig);
 
-        if (!animatorDrivenTracks)
+        if (!animatorDrivenTracks && !HasRealisticTankInResources())
         {
             CollectTankMotionParts(unit, rig);
 
@@ -3908,10 +4256,35 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private GameObject ResolvePrototypeForUnit(BattleUnit unit)
     {
-        if (unit.kind == UnitKind.Tank && tankVariantPrototypes.Count > 0)
+        if (unit.kind == UnitKind.Tank)
         {
-            int variantIndex = Mathf.Abs(unit.rank) % tankVariantPrototypes.Count;
-            return tankVariantPrototypes[variantIndex];
+            if (HasRealisticTankInResources())
+            {
+                if (unit.tankModel == TankModelVariant.T55AK && tankT55AkPrototype != null)
+                {
+                    return tankT55AkPrototype;
+                }
+
+                if (modelPrototypes.TryGetValue(UnitKind.Tank, out GameObject realisticT55a) && realisticT55a != null)
+                {
+                    return realisticT55a;
+                }
+            }
+            else if (unit.tankModel == TankModelVariant.T55AK && tankT55AkPrototype != null)
+            {
+                return tankT55AkPrototype;
+            }
+            else if (unit.tankModel == TankModelVariant.T55A
+                && modelPrototypes.TryGetValue(UnitKind.Tank, out GameObject t55aPrototype)
+                && t55aPrototype != null)
+            {
+                return t55aPrototype;
+            }
+            else if (tankVariantPrototypes.Count > 0)
+            {
+                int variantIndex = Mathf.Abs(unit.id) % tankVariantPrototypes.Count;
+                return tankVariantPrototypes[variantIndex];
+            }
         }
 
         if (unit.kind == UnitKind.Giant && giantVariantPrototypes.Count > 0)
@@ -3920,17 +4293,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return giantVariantPrototypes[variantIndex];
         }
 
-        if (unit.kind == UnitKind.Tank && unit.tankModel == TankModelVariant.T55AK && tankT55AkPrototype != null)
-        {
-            return tankT55AkPrototype;
-        }
-
         GameObject prototype;
         return modelPrototypes.TryGetValue(unit.kind, out prototype) ? prototype : null;
     }
 
     private void ConfigureRuntimeModel(GameObject model, UnitKind kind)
     {
+        if (kind == UnitKind.Tank)
+        {
+            RemoveTankDisplayGeometry(model);
+            if (HasRealisticTankInResources())
+            {
+                ApplyRealisticTankMaterials(model);
+            }
+        }
+
         var renderers = model.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
@@ -3945,18 +4322,36 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        if (kind == UnitKind.Tank && HasRealisticTankInResources())
+        {
+            GroundTankModelOnTerrain(model);
+            return;
+        }
+
         var pose = Poses[kind];
-        FitModelToHeight(model, pose.TargetHeight);
+        FitModelToHeight(model, pose.TargetHeight, kind);
     }
 
-    private void FitModelToHeight(GameObject model, float targetHeight)
+    private void GroundTankModelOnTerrain(GameObject model)
+    {
+        if (!TryComputeModelBounds(model, out Bounds bounds, includeTankDisplayGeometry: false))
+        {
+            return;
+        }
+
+        model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+    }
+
+    private void FitModelToHeight(GameObject model, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
         if (!TryComputeModelBounds(model, out Bounds bounds))
         {
             return;
         }
 
-        float currentHeight = Mathf.Max(0.001f, bounds.size.y);
+        float currentHeight = kind == UnitKind.Tank
+            ? GetTankBoundsMetric(bounds)
+            : Mathf.Max(0.001f, bounds.size.y);
         if (Mathf.Abs(currentHeight - targetHeight) < 0.08f)
         {
             model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
@@ -4034,7 +4429,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             int rank = i / HumanFormationLanesPerRow;
-            GetHumanFormationSpawn(UnitKind.Soldier, i, out float x, out float z);
+            GetHumanSoldierMassSpawn(i, out float x, out float z);
             ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 8f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
         }
     }
@@ -4050,7 +4445,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             int rank = i / HumanFormationTanksPerRow;
-            GetHumanFormationSpawn(UnitKind.Tank, i, out float x, out float z);
+            GetHumanTankMassSpawn(i, out float x, out float z);
             ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 6f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
         }
     }
@@ -4065,25 +4460,46 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            GetHumanAircraftFormationSpawn(i, out float x, out float z);
-            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, 2.5f);
+            GetHumanAircraftMassSpawn(i, out float x, out float z);
+            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, AircraftDefaultAltitude);
         }
     }
 
     private void ResetGiants()
     {
+        pendingGiantBattleActivation = 0;
         for (int i = 0; i < giants.Count; i++)
         {
-            if (i >= GiantCount)
+            DeactivatePooledUnit(giants[i]);
+        }
+
+        pendingGiantBattleActivation = GiantCount;
+    }
+
+    private void ProcessPendingGiantBattleActivation()
+    {
+        if (pendingGiantBattleActivation <= 0)
+        {
+            return;
+        }
+
+        int start = GiantCount - pendingGiantBattleActivation;
+        int batch = Mathf.Min(GiantBattleActivationBatchSize, pendingGiantBattleActivation);
+        for (int b = 0; b < batch; b++)
+        {
+            int i = start + b;
+            if (i >= giants.Count)
             {
-                DeactivatePooledUnit(giants[i]);
-                continue;
+                pendingGiantBattleActivation = 0;
+                return;
             }
 
-            GetBeastFormationSpawn(UnitKind.Giant, i, out float x, out float z);
+            GetGiantMassSpawn(i, out float x, out float z);
             ActivateUnit(giants[i], x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
             giants[i].attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
         }
+
+        pendingGiantBattleActivation -= batch;
     }
 
     private void ActivateUnit(BattleUnit unit, float x, float z, float hp, float damage, float speed, float radius, float range, float interval, int rank, int facing, float altitude)
@@ -4162,14 +4578,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        if (unit.modelInstance == null && !TryAttachCachedUnitModel(unit))
-        {
-            return false;
-        }
-
         int soldierIndex = CountActive(soldiers);
         int rank = soldierIndex / HumanFormationLanesPerRow;
-        GetHumanFormationSpawn(UnitKind.Soldier, soldierIndex, out float x, out float z);
+        GetHumanSoldierMassSpawn(soldierIndex, out float x, out float z);
         ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 6f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
@@ -4183,14 +4594,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return false;
         }
 
-        if (unit.modelInstance == null && !TryAttachCachedUnitModel(unit))
-        {
-            return false;
-        }
-
         int tankIndex = CountActive(tanks);
         int rank = tankIndex / HumanFormationTanksPerRow;
-        GetHumanFormationSpawn(UnitKind.Tank, tankIndex, out float x, out float z);
+        GetHumanTankMassSpawn(tankIndex, out float x, out float z);
         ActivateUnit(unit, x, z, tankConfig.MaxHp + 40f, tankConfig.Damage + 7f, tankConfig.MoveSpeed + 5f, tankConfig.Radius, tankConfig.AttackRange + 20f, tankConfig.AttackInterval - 0.1f, rank, 1, 0f);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.0f);
         return true;
@@ -4199,14 +4605,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveAircraftFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(aircraft);
-        if (unit == null || unit.modelInstance == null)
+        if (unit == null)
         {
             return false;
         }
 
-        int lane = CountActive(aircraft) % AirLanes.Length;
-        GetHumanAircraftFormationSpawn(lane, out float x, out float z);
-        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 12f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, lane, 1, 2.5f);
+        int airIndex = CountActive(aircraft);
+        GetHumanAircraftMassSpawn(airIndex, out float x, out float z);
+        ActivateUnit(unit, x, z, aircraftConfig.MaxHp + 24f, aircraftConfig.Damage + 5f, aircraftConfig.MoveSpeed + 12f, aircraftConfig.Radius, aircraftConfig.AttackRange + 26f, aircraftConfig.AttackInterval - 0.08f, airIndex, 1, AircraftDefaultAltitude);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 1.05f);
         return true;
     }
@@ -4214,12 +4620,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private bool ReviveGiantFromDanmu(DanmuCommand command)
     {
         var unit = FindInactiveUnit(giants);
-        if (unit == null || unit.modelInstance == null)
+        if (unit == null)
         {
             return false;
         }
 
-        GetBeastFormationSpawn(UnitKind.Giant, CountActive(giants), out float x, out float z);
+        GetGiantMassSpawn(CountActive(giants), out float x, out float z);
         ActivateUnit(unit, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + 5f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval, processedDanmuCommandCount, -1, 0f);
         unit.attackCooldown = 0.3f;
         PlayDanmuSpawnEffect(BattleEffectId.OrcSummon, x, z, 1.15f);
@@ -4487,7 +4893,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 break;
             case UnitKind.Aircraft:
                 visual.root.transform.rotation = Quaternion.Euler(-12f, yaw, 28f);
-                visual.root.transform.localScale = Vector3.one * 0.95f;
+                visual.root.transform.localScale = Vector3.one * AircraftVisualScale;
                 visual.velocity = new Vector3(unit.facing * 0.9f, -2.6f, -0.35f + Noise(unit.id + 71f) * 0.7f);
                 break;
             case UnitKind.Giant:
@@ -4726,6 +5132,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + AircraftEngagementYawOffset, 0f);
         }
+        else if (unit.kind == UnitKind.Giant)
+        {
+            unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees, 0f);
+        }
         else
         {
             unit.body.localRotation = Quaternion.identity;
@@ -4756,18 +5166,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             float attackBoost = unit.attackVisualTimer > 0f ? (unit.kind == UnitKind.Giant ? 1.04f : 1.02f) : 1f;
             float modelYaw = unit.kind == UnitKind.Tank || unit.kind == UnitKind.Aircraft
                 ? wobble
-                : UsesEngagementHeading(unit.kind)
-                    ? unit.headingDegrees + wobble
-                    : pose.Yaw + mirrorYaw + wobble;
+                : unit.kind == UnitKind.Giant
+                    ? (UnitModelUsesAuthoredTextures(unit.modelInstance)
+                        ? GiantPixelhouseMeshYawOffset
+                        : GiantKenneyMeshYawOffset) + wobble
+                    : UsesEngagementHeading(unit.kind)
+                        ? unit.headingDegrees + wobble
+                        : pose.Yaw + mirrorYaw + wobble;
             if (unit.kind == UnitKind.Soldier && unit.soldierUsesVanguardMesh)
             {
                 modelYaw += SoldierVanguardYawOffset;
-            }
-            else if (unit.kind == UnitKind.Giant)
-            {
-                modelYaw += UnitModelUsesAuthoredTextures(unit.modelInstance)
-                    ? GiantPixelhouseMeshYawOffset
-                    : 180f;
             }
 
             Vector3 modelLocalPosition = unit.baseModelLocalPosition;
@@ -5400,6 +5808,54 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return overlaps;
+    }
+
+    private int CountTankHelperRigs()
+    {
+        int count = 0;
+        for (int i = 0; i < tanks.Count; i++)
+        {
+            var unit = tanks[i];
+            if (!unit.active || unit.motionAccessoryRoot == null)
+            {
+                continue;
+            }
+
+            if (unit.motionAccessoryRoot.name.IndexOf("TankTrackMotionRig", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private float GetAverageActiveUnitRenderMetric(List<BattleUnit> units)
+    {
+        float total = 0f;
+        int samples = 0;
+        int maxSamples = 12;
+        for (int i = 0; i < units.Count && samples < maxSamples; i++)
+        {
+            var unit = units[i];
+            if (!unit.active || unit.modelInstance == null)
+            {
+                continue;
+            }
+
+            if (!TryComputeModelBounds(unit.modelInstance, out Bounds bounds, unit.kind != UnitKind.Tank))
+            {
+                continue;
+            }
+
+            float metric = unit.kind == UnitKind.Tank
+                ? GetTankBoundsMetric(bounds)
+                : Mathf.Max(0.001f, bounds.size.y);
+            total += metric;
+            samples++;
+        }
+
+        return samples > 0 ? total / samples : 0f;
     }
 
     private float GetMinimumTankGap()

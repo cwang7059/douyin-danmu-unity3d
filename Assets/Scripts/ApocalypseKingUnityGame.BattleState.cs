@@ -124,7 +124,7 @@ public sealed partial class ApocalypseKingUnityGame
             for (int i = 0; i < game.giants.Count; i++)
             {
                 var unit = game.giants[i];
-                if (unit != null && unit.maxHp > 0f)
+                if (unit != null && unit.active && unit.maxHp > 0f)
                 {
                     total += Mathf.Max(0f, unit.hp);
                 }
@@ -139,7 +139,7 @@ public sealed partial class ApocalypseKingUnityGame
             for (int i = 0; i < game.giants.Count; i++)
             {
                 var unit = game.giants[i];
-                if (unit != null && unit.maxHp > 0f)
+                if (unit != null && unit.active && unit.maxHp > 0f)
                 {
                     total += Mathf.Max(0f, unit.maxHp);
                 }

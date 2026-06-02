@@ -3,9 +3,11 @@ using UnityEngine;
 public sealed partial class ApocalypseKingUnityGame
 {
     private const float NuclearCountdownStrikeDelaySeconds = 1.35f;
-    private const float NuclearStrikeRadius = 520f;
+    private const float NuclearStrikeRadius = 620f;
     private const float NuclearStrikeUnitDamage = 680f;
-    private const float NuclearStrikeGiantDamage = 920f;
+    private const float NuclearStrikeGiantDamage = 1200f;
+    private const float NuclearStrikeGiantMinHpFraction = 0.38f;
+    private const float NuclearStrikeGiantMaxHpFraction = 0.92f;
 
     private static readonly float[] NuclearRingOffsetX = { 0f, -200f, 200f, -120f, 120f };
     private static readonly float[] NuclearRingOffsetZ = { 0f, 140f, -140f, -95f, 95f };
@@ -51,9 +53,12 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void DetonateScheduledNuclearStrike()
     {
-        ExecuteNuclearDetonation(nuclearStrikeCenterX, nuclearStrikeCenterZ, 1f, true);
+        Vector2 center = GetNuclearStrikeCenter();
+        nuclearStrikeCenterX = center.x;
+        nuclearStrikeCenterZ = center.y;
+        int defeated = ExecuteNuclearDetonation(nuclearStrikeCenterX, nuclearStrikeCenterZ, 1f, true);
         ResetNuclearCountdown();
-        ShowBanner("核武降临 — 战场震颤", true, 3.2f);
+        ShowBanner(defeated > 0 ? $"核武降临 — 重创丧尸 {defeated} 只" : "核武降临 — 战场震颤", true, 3.2f);
     }
 
     private void ResetNuclearCountdown()
@@ -80,7 +85,7 @@ public sealed partial class ApocalypseKingUnityGame
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, center.x, center.y, 0.35f);
         TriggerCameraShake(0.85f, 0.22f);
 
-        DamageGiantsInArea(center.x, center.y, 320f, 380f);
+        DamageGiantsInNuclearStrike(center.x, center.y, 360f, 520f);
         if (zombieBase != null)
         {
             zombieBase.ApplyDamage(8000f);
@@ -97,7 +102,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
     }
 
-    private void ExecuteNuclearDetonation(float centerX, float centerZ, float intensity, bool fullStrike)
+    private int ExecuteNuclearDetonation(float centerX, float centerZ, float intensity, bool fullStrike)
     {
         float effectScale = Mathf.Lerp(2.2f, 3.1f, Mathf.Clamp01(intensity));
         TriggerNuclearFlash(2.4f);
@@ -119,12 +124,66 @@ public sealed partial class ApocalypseKingUnityGame
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, centerX, centerZ, 0.45f);
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, centerX + 40f, centerZ, 0.35f);
 
-        float radius = fullStrike ? NuclearStrikeRadius : 320f;
+        float radius = fullStrike ? NuclearStrikeRadius : 360f;
         float unitDamage = fullStrike ? NuclearStrikeUnitDamage : 380f;
-        float giantDamage = fullStrike ? NuclearStrikeGiantDamage : 380f;
-        DamageGiantsInArea(centerX, centerZ, radius, giantDamage);
+        float giantDamage = fullStrike ? NuclearStrikeGiantDamage : 520f;
+        int defeatedGiants = 0;
+        defeatedGiants += DamageGiantsInNuclearStrike(centerX, centerZ, radius, giantDamage);
+        for (int i = 1; i < NuclearRingOffsetX.Length; i++)
+        {
+            defeatedGiants += DamageGiantsInNuclearStrike(
+                centerX + NuclearRingOffsetX[i],
+                centerZ + NuclearRingOffsetZ[i],
+                radius * 0.72f,
+                giantDamage * 0.82f);
+        }
+
         DamageResolver.DamageAllUnitsInArea(centerX, centerZ, radius, unitDamage);
         ApplyNuclearBaseDamage(centerX, centerZ, fullStrike);
+        RefreshHud();
+        return defeatedGiants;
+    }
+
+    private int DamageGiantsInNuclearStrike(float centerX, float centerZ, float radius, float baseDamage)
+    {
+        if (radius <= 0f || baseDamage <= 0f)
+        {
+            return 0;
+        }
+
+        int defeated = 0;
+        float radiusSq = radius * radius;
+        for (int i = 0; i < giants.Count; i++)
+        {
+            var unit = giants[i];
+            if (unit == null || !unit.active)
+            {
+                continue;
+            }
+
+            float distanceSq = DistanceSq(centerX, centerZ, unit.x, unit.z);
+            if (distanceSq > radiusSq)
+            {
+                continue;
+            }
+
+            float distance = Mathf.Sqrt(distanceSq);
+            float pct = 1f - Mathf.Clamp01(distance / Mathf.Max(1f, radius));
+            float hpFraction = Mathf.Lerp(NuclearStrikeGiantMinHpFraction, NuclearStrikeGiantMaxHpFraction, pct);
+            float scaled = Mathf.Max(baseDamage * (0.55f + pct * 0.65f), unit.maxHp * hpFraction);
+            float previousHp = unit.hp;
+            unit.hp = Mathf.Max(0f, previousHp - scaled);
+            unit.hitFlashTimer = Mathf.Max(unit.hitFlashTimer, 0.14f);
+            if (unit.hp > 0f)
+            {
+                continue;
+            }
+
+            DefeatGiant(unit);
+            defeated++;
+        }
+
+        return defeated;
     }
 
     private void ApplyNuclearBaseDamage(float centerX, float centerZ, bool fullStrike)

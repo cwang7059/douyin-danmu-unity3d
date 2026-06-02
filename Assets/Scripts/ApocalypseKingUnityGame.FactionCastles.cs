@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 public sealed partial class ApocalypseKingUnityGame
 {
-    private const float CastleVisualScale = 1.55f;
+    private const float CastleVisualScale = 2.05f;
+    private const float CastleKenneyModuleSpacing = 3.35f;
     private const float CastleModuleSize = 2f;
 
     private const float GrassHalfWidthWorld = 75f;
@@ -39,14 +41,14 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void CreateFactionCastles()
     {
-        CacheMedievalVillagePrefabs();
+        CacheCastleKitPrefabs();
         humanCastleRoot = CreateFactionCastle("HumanCastle", HumanCastleWorldX, HumanCastleCenterZ, false).transform;
         beastCastleRoot = CreateFactionCastle("BeastCastle", BeastCastleWorldX, BeastCastleCenterZ, true).transform;
 
-        if (!HasMedievalCastleAssets() && !loggedCastleFallback)
+        if (!HasKenneyCastleAssets() && !loggedCastleFallback)
         {
             loggedCastleFallback = true;
-            Debug.LogWarning("[ApocalypseKing] Medieval village castle modules missing; using simple placeholder forts.");
+            Debug.LogWarning("[ApocalypseKing] Kenney Castle Kit missing; run .\\tools\\import-castle-environment.ps1 then bake prefabs.");
         }
 
         CreateCastleFlankPads();
@@ -83,6 +85,11 @@ public sealed partial class ApocalypseKingUnityGame
     private GameObject CreateFactionCastle(string name, float centerWorldX, float centerZ, bool beastFaction)
     {
         float centerLogicalX = WorldToLogicalX(centerWorldX);
+        if (HasKenneyCastleAssets())
+        {
+            return BuildKenneyCastleFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
+        }
+
         if (HasMedievalCastleAssets())
         {
             return BuildMedievalGateFortress(name, centerWorldX, centerZ, centerLogicalX, beastFaction);
@@ -96,6 +103,135 @@ public sealed partial class ApocalypseKingUnityGame
         return LoadMedievalVillagePrefab("Wall_Plaster_Straight") != null
             && LoadMedievalVillagePrefab("Roof_RoundTiles_6x6") != null
             && LoadMedievalVillagePrefab("Wall_UnevenBrick_Door_Flat") != null;
+    }
+
+    private GameObject BuildKenneyCastleFortress(string name, float centerWorldX, float centerZ, float centerLogicalX, bool beastFaction)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(decorRoot, false);
+        root.transform.localPosition = CastleWorldPoint(centerWorldX, centerZ, 0f);
+        root.transform.localRotation = Quaternion.Euler(0f, beastFaction ? 180f : 0f, 0f);
+        root.transform.localScale = Vector3.one * CastleVisualScale;
+
+        const int segmentsX = 8;
+        const int segmentsZ = 7;
+        float spacing = CastleKenneyModuleSpacing;
+        float halfW = segmentsX * spacing * 0.5f;
+        float halfD = segmentsZ * spacing * 0.5f;
+        float gateX = halfW;
+
+        for (int i = 0; i < segmentsX; i++)
+        {
+            float x = -halfW + spacing * 0.5f + i * spacing;
+            CreateCastleKitModule("wall", root.transform, new Vector3(x, 0f, -halfD), Quaternion.identity, Vector3.one);
+            CreateCastleKitModule("wall", root.transform, new Vector3(x, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+        }
+
+        for (int i = 0; i < segmentsZ; i++)
+        {
+            float z = -halfD + spacing * 0.5f + i * spacing;
+            CreateCastleKitModule("wall", root.transform, new Vector3(-halfW, 0f, z), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
+            if (Mathf.Abs(z) > spacing * 0.55f)
+            {
+                CreateCastleKitModule("wall", root.transform, new Vector3(gateX, 0f, z), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+            }
+        }
+
+        CreateCastleKitModule("wall-corner", root.transform, new Vector3(-halfW, 0f, -halfD), Quaternion.identity, Vector3.one);
+        CreateCastleKitModule("wall-corner", root.transform, new Vector3(-halfW, 0f, halfD), Quaternion.Euler(0f, -90f, 0f), Vector3.one);
+        CreateCastleKitModule("wall-corner", root.transform, new Vector3(gateX, 0f, -halfD), Quaternion.Euler(0f, 90f, 0f), Vector3.one);
+        CreateCastleKitModule("wall-corner", root.transform, new Vector3(gateX, 0f, halfD), Quaternion.Euler(0f, 180f, 0f), Vector3.one);
+
+        BuildKenneyGatehouse(root.transform, new Vector3(gateX + 0.15f, 0f, 0f));
+        BuildKenneyCentralKeep(root.transform, Vector3.zero);
+        BuildKenneyCornerTower(root.transform, new Vector3(-halfW, 0f, -halfD));
+        BuildKenneyCornerTower(root.transform, new Vector3(-halfW, 0f, halfD));
+        BuildKenneyCornerTower(root.transform, new Vector3(gateX * 0.82f, 0f, -halfD * 0.9f));
+        BuildKenneyCornerTower(root.transform, new Vector3(gateX * 0.82f, 0f, halfD * 0.9f));
+
+        CreateCastleKitModule("stairs-stone-square", root.transform, new Vector3(gateX - 2.2f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.9f);
+        CreateCastleKitModule("wall-pillar", root.transform, new Vector3(0f, 0f, 0f), Quaternion.identity, Vector3.one * 0.85f);
+        CreateCastleKitModule("rocks-small", root.transform, new Vector3(-2.5f, 0f, 2.2f), Quaternion.Euler(0f, 24f, 0f), Vector3.one * 1.4f);
+        CreateCastleKitModule("rocks-small", root.transform, new Vector3(1.8f, 0f, -2.4f), Quaternion.Euler(0f, -38f, 0f), Vector3.one * 1.2f);
+        CreateCastleKitModule("tree-trunk", root.transform, new Vector3(-3.8f, 0f, -1.2f), Quaternion.identity, Vector3.one * 0.75f);
+
+        float backdropZ = -halfD - 5.5f;
+        CreateCastleKitModule("ground-hills", root.transform, new Vector3(0f, -0.2f, backdropZ), Quaternion.identity, Vector3.one * 2.8f);
+        CreateCastleKitModule("rocks-large", root.transform, new Vector3(-5f, 0f, backdropZ - 1.5f), Quaternion.Euler(0f, 15f, 0f), Vector3.one * 1.6f);
+        CreateCastleKitModule("rocks-large", root.transform, new Vector3(5.5f, 0f, backdropZ - 2f), Quaternion.Euler(0f, -22f, 0f), Vector3.one * 1.4f);
+
+        string banner = beastFaction ? "flag-banner-short" : "flag-banner-long";
+        CreateCastleKitModule(banner, root.transform, new Vector3(0f, 9.8f, 0.5f), Quaternion.Euler(0f, beastFaction ? 180f : 0f, 0f), Vector3.one * 0.95f);
+
+        ApplyKenneyCastleFactionTint(root, beastFaction);
+        AddBuildingObstacle(root, name, centerLogicalX, centerZ, 78f * CastleVisualScale, 92f * CastleVisualScale, 12f * CastleVisualScale, 18f, 520f);
+        return root;
+    }
+
+    private void BuildKenneyGatehouse(Transform parent, Vector3 localPosition)
+    {
+        float towerGap = 4.2f;
+        BuildKenneyGateTower(parent, localPosition + new Vector3(0f, 0f, -towerGap * 0.5f));
+        BuildKenneyGateTower(parent, localPosition + new Vector3(0f, 0f, towerGap * 0.5f));
+        CreateCastleKitModule("metal-gate", parent, localPosition + new Vector3(0.35f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 1.05f);
+        CreateCastleKitModule("bridge-straight-pillar", parent, localPosition + new Vector3(0.9f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f), Vector3.one * 0.75f);
+    }
+
+    private void BuildKenneyGateTower(Transform parent, Vector3 localPosition)
+    {
+        CreateCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, Vector3.one);
+        CreateCastleKitModule("tower-square-mid-door", parent, localPosition + new Vector3(0f, 2.75f, 0f), Quaternion.identity, Vector3.one);
+        CreateCastleKitModule("tower-square-top-roof-high", parent, localPosition + new Vector3(0f, 5.5f, 0f), Quaternion.identity, Vector3.one);
+    }
+
+    private void BuildKenneyCentralKeep(Transform parent, Vector3 localPosition)
+    {
+        CreateCastleKitModule("tower-square-base-border", parent, localPosition, Quaternion.identity, Vector3.one * 1.08f);
+        CreateCastleKitModule("tower-square-mid-windows", parent, localPosition + new Vector3(0f, 2.85f, 0f), Quaternion.identity, Vector3.one * 1.08f);
+        CreateCastleKitModule("tower-square-mid-door", parent, localPosition + new Vector3(0f, 5.7f, 0f), Quaternion.identity, Vector3.one * 1.08f);
+        CreateCastleKitModule("tower-square-top-roof-high-windows", parent, localPosition + new Vector3(0f, 8.55f, 0f), Quaternion.identity, Vector3.one * 1.12f);
+        CreateCastleKitModule("tower-square-roof", parent, localPosition + new Vector3(0f, 10.2f, 0f), Quaternion.identity, Vector3.one * 1.05f);
+    }
+
+    private void BuildKenneyCornerTower(Transform parent, Vector3 localPosition)
+    {
+        CreateCastleKitModule("tower-square-base", parent, localPosition, Quaternion.identity, Vector3.one * 0.92f);
+        CreateCastleKitModule("tower-square-mid", parent, localPosition + new Vector3(0f, 2.5f, 0f), Quaternion.identity, Vector3.one * 0.92f);
+        CreateCastleKitModule("tower-square-top-roof", parent, localPosition + new Vector3(0f, 5f, 0f), Quaternion.identity, Vector3.one * 0.92f);
+    }
+
+    private void ApplyKenneyCastleFactionTint(GameObject root, bool beastFaction)
+    {
+        Color accent = beastFaction
+            ? new Color(0.86f, 0.38f, 0.28f, 1f)
+            : new Color(0.34f, 0.56f, 0.82f, 1f);
+
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            var renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            bool tintable = renderer.name.IndexOf("flag", StringComparison.OrdinalIgnoreCase) >= 0
+                || renderer.name.IndexOf("banner", StringComparison.OrdinalIgnoreCase) >= 0
+                || renderer.name.IndexOf("door", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!tintable)
+            {
+                continue;
+            }
+
+            var materials = renderer.materials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                if (materials[m] != null && materials[m].HasProperty("_Color"))
+                {
+                    materials[m].color = Color.Lerp(materials[m].color, accent, 0.35f);
+                }
+            }
+        }
     }
 
     private GameObject BuildMedievalGateFortress(string name, float centerWorldX, float centerZ, float centerLogicalX, bool beastFaction)
@@ -276,8 +412,9 @@ public sealed partial class ApocalypseKingUnityGame
     private const float SoldierFormationLaneSpacingZ = 44f;
     private const float TankFormationRankSpacingX = 80f;
     private const float TankFormationLaneSpacingZ = 82f;
-    private const float GiantFormationRankSpacingX = 176f;
-    private const float GiantFormationLaneSpacingZ = 176f;
+    private const float GiantFormationRankSpacingX = 48f;
+    private const float GiantFormationLaneSpacingZ = 34f;
+    private const int BeastGiantLanesPerRow = 3;
     private const int BeastFormationLanesPerRow = 4;
 
     private static int FormationRowCount(int unitCount, int lanesPerRow)
@@ -298,9 +435,20 @@ public sealed partial class ApocalypseKingUnityGame
         return -span * 0.5f + col * laneSpacing;
     }
 
+    private const int HumanFormationLayoutCap = 16;
+    private const int HumanSoldierMassSpawnColumns = 25;
+    private const int HumanTankMassSpawnColumns = 20;
+    private const float HumanSoldierMassSpawnSpacingX = 20f;
+    private const float HumanSoldierMassSpawnSpacingZ = 22f;
+    private const float HumanTankMassSpawnSpacingX = 24f;
+    private const float HumanTankMassSpawnSpacingZ = 26f;
+    private const int HumanAircraftMassSpawnColumns = 10;
+    private const float HumanAircraftMassSpawnSpacingX = 26f;
+    private const float HumanAircraftMassSpawnSpacingZ = 28f;
+
     private static float HumanSoldierBlockFrontX()
     {
-        int rows = FormationRowCount(SoldierCount, HumanFormationLanesPerRow);
+        int rows = FormationRowCount(HumanFormationLayoutCap, HumanFormationLanesPerRow);
         return HumanCastleGateX + HumanSoldierFormationOffsetX + Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
     }
 
@@ -311,7 +459,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private static float HumanTankBlockFrontX()
     {
-        int rows = FormationRowCount(TankCount, HumanFormationTanksPerRow);
+        int rows = FormationRowCount(HumanFormationLayoutCap, HumanFormationTanksPerRow);
         return HumanTankFormationBaseX() + Mathf.Max(0, rows - 1) * TankFormationRankSpacingX;
     }
 
@@ -322,7 +470,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private static float BeastSoldierBlockFrontX()
     {
-        int rows = FormationRowCount(SoldierCount, BeastFormationLanesPerRow);
+        int rows = FormationRowCount(HumanFormationLayoutCap, BeastFormationLanesPerRow);
         return BeastCastleGateX - BeastSoldierFormationOffsetX - Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
     }
 
@@ -331,16 +479,31 @@ public sealed partial class ApocalypseKingUnityGame
         return BeastSoldierBlockFrontX() - FormationBlockGapX;
     }
 
+    private const int GiantFormationLayoutCap = 12;
+    private const int GiantMassSpawnColumns = 100;
+    private const float GiantMassSpawnSpacingX = 5.5f;
+    private const float GiantMassSpawnSpacingZ = 6f;
+
     private static float BeastTankFormationBaseX()
     {
-        int giantRows = FormationRowCount(GiantCount, BeastFormationLanesPerRow);
+        int giantRows = FormationRowCount(GiantFormationLayoutCap, BeastGiantLanesPerRow);
         float giantFront = BeastGiantFormationBaseX() - Mathf.Max(0, giantRows - 1) * GiantFormationRankSpacingX;
         return giantFront - FormationBlockGapX;
     }
 
+    private void GetGiantMassSpawn(int unitIndex, out float x, out float z)
+    {
+        unitIndex = Mathf.Max(0, unitIndex);
+        int col = unitIndex % GiantMassSpawnColumns;
+        int row = unitIndex / GiantMassSpawnColumns;
+        float anchorX = BeastGiantFormationBaseX() - 8f;
+        z = (col - (GiantMassSpawnColumns - 1) * 0.5f) * GiantMassSpawnSpacingZ;
+        x = anchorX - row * GiantMassSpawnSpacingX;
+    }
+
     private static float BeastTankBlockFrontX()
     {
-        int rows = FormationRowCount(TankCount, HumanFormationTanksPerRow);
+        int rows = FormationRowCount(HumanFormationLayoutCap, HumanFormationTanksPerRow);
         return BeastTankFormationBaseX() - Mathf.Max(0, rows - 1) * TankFormationRankSpacingX;
     }
 
@@ -349,35 +512,70 @@ public sealed partial class ApocalypseKingUnityGame
         return BeastTankBlockFrontX() - FormationBlockGapX;
     }
 
-    private void GetHumanFormationSpawn(UnitKind kind, int unitIndex, out float x, out float z)
+    private void GetHumanSoldierMassSpawn(int unitIndex, out float x, out float z)
     {
         unitIndex = Mathf.Max(0, unitIndex);
-        int lanesPerRow = kind == UnitKind.Tank ? HumanFormationTanksPerRow : HumanFormationLanesPerRow;
-        float laneSpacing = kind == UnitKind.Tank ? TankFormationLaneSpacingZ : SoldierFormationLaneSpacingZ;
+        int col = unitIndex % HumanSoldierMassSpawnColumns;
+        int row = unitIndex / HumanSoldierMassSpawnColumns;
+        float anchorX = HumanCastleGateX + HumanSoldierFormationOffsetX + 6f;
+        z = (col - (HumanSoldierMassSpawnColumns - 1) * 0.5f) * HumanSoldierMassSpawnSpacingZ;
+        x = anchorX + row * HumanSoldierMassSpawnSpacingX;
+    }
+
+    private void GetHumanTankMassSpawn(int unitIndex, out float x, out float z)
+    {
+        unitIndex = Mathf.Max(0, unitIndex);
+        int col = unitIndex % HumanTankMassSpawnColumns;
+        int row = unitIndex / HumanTankMassSpawnColumns;
+        float anchorX = HumanTankFormationBaseX() + 10f;
+        z = (col - (HumanTankMassSpawnColumns - 1) * 0.5f) * HumanTankMassSpawnSpacingZ;
+        x = anchorX + row * HumanTankMassSpawnSpacingX;
+    }
+
+    private void GetHumanFormationSpawn(UnitKind kind, int unitIndex, out float x, out float z)
+    {
+        if (kind == UnitKind.Tank)
+        {
+            GetHumanTankMassSpawn(unitIndex, out x, out z);
+            return;
+        }
+
+        if (kind == UnitKind.Soldier)
+        {
+            GetHumanSoldierMassSpawn(unitIndex, out x, out z);
+            return;
+        }
+
+        unitIndex = Mathf.Max(0, unitIndex);
+        int lanesPerRow = HumanFormationLanesPerRow;
+        float laneSpacing = SoldierFormationLaneSpacingZ;
         int col = unitIndex % lanesPerRow;
         int rank = unitIndex / lanesPerRow;
         z = FormationLaneZ(col, lanesPerRow, laneSpacing);
-        if (kind == UnitKind.Tank)
-        {
-            x = HumanTankFormationBaseX() + rank * TankFormationRankSpacingX;
-        }
-        else
-        {
-            x = HumanCastleGateX + HumanSoldierFormationOffsetX + rank * SoldierFormationRankSpacingX;
-        }
+        x = HumanCastleGateX + HumanSoldierFormationOffsetX + rank * SoldierFormationRankSpacingX;
     }
 
-    private void GetHumanAircraftFormationSpawn(int laneIndex, out float x, out float z)
+    private void GetHumanAircraftMassSpawn(int unitIndex, out float x, out float z)
     {
-        laneIndex = Mathf.Clamp(laneIndex, 0, AirLanes.Length - 1);
-        x = HumanAircraftFormationX();
-        z = AirLanes[laneIndex];
+        unitIndex = Mathf.Max(0, unitIndex);
+        int col = unitIndex % HumanAircraftMassSpawnColumns;
+        int row = unitIndex / HumanAircraftMassSpawnColumns;
+        float anchorX = HumanAircraftFormationX() + 12f;
+        z = (col - (HumanAircraftMassSpawnColumns - 1) * 0.5f) * HumanAircraftMassSpawnSpacingZ;
+        x = anchorX + row * HumanAircraftMassSpawnSpacingX;
+    }
+
+    private void GetHumanAircraftFormationSpawn(int unitIndex, out float x, out float z)
+    {
+        GetHumanAircraftMassSpawn(unitIndex, out x, out z);
     }
 
     private void GetBeastFormationSpawn(UnitKind kind, int unitIndex, out float x, out float z)
     {
         unitIndex = Mathf.Max(0, unitIndex);
-        int lanesPerRow = kind == UnitKind.Tank ? HumanFormationTanksPerRow : BeastFormationLanesPerRow;
+        int lanesPerRow = kind == UnitKind.Tank
+            ? HumanFormationTanksPerRow
+            : kind == UnitKind.Giant ? BeastGiantLanesPerRow : BeastFormationLanesPerRow;
         float laneSpacing = kind == UnitKind.Tank ? TankFormationLaneSpacingZ
             : kind == UnitKind.Giant ? GiantFormationLaneSpacingZ
             : SoldierFormationLaneSpacingZ;
@@ -393,7 +591,8 @@ public sealed partial class ApocalypseKingUnityGame
         }
         else if (kind == UnitKind.Giant)
         {
-            x = BeastGiantFormationBaseX() - rank * rankSpacing;
+            GetGiantMassSpawn(unitIndex, out x, out z);
+            return;
         }
         else
         {

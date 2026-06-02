@@ -17,6 +17,17 @@ Write-Host "[Apocalypse] Importing M14 rifle for soldiers..."
 Write-Host "[Apocalypse] Importing zombie unit models (Quaternius / Poly Pizza)..."
 & "$PSScriptRoot\import-zombie-units.ps1"
 
+Write-Host "[Apocalypse] Installing Kenney Castle Kit (faction bases)..."
+& "$PSScriptRoot\import-castle-environment.ps1"
+
+Write-Host "[Apocalypse] Installing realistic tank (optional; needs Sketchfab GLB — see doc/坦克写实素材选型与导入.md)..."
+$ErrorActionPreference = "Continue"
+& "$PSScriptRoot\import-realistic-tank.ps1"
+if (-not $?) {
+    Write-Host "[Apocalypse] Realistic tank skipped (place GLB in _downloads/realistic-tank or use -GlbPath)."
+}
+$ErrorActionPreference = "Stop"
+
 $ThirdParty = Join-Path $Root "Assets\ThirdParty\Kenney"
 New-Item -ItemType Directory -Force -Path $ThirdParty | Out-Null
 
