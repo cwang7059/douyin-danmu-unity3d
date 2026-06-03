@@ -79,7 +79,7 @@ Validate danmu key mapping without entering Play Mode:
 - [单位运动与动画规范](doc/单位运动与动画规范.md)
 - [本地 HTTP 弹幕网关](doc/本地弹幕网关.md)
 - [实现进度记录](doc/实现进度记录.md)
-- [维护重构收敛计划](doc/RefactoringPlan_UnitMovement_UI_State.md)
+- [单位移动与界面状态重构计划](doc/单位移动与界面状态重构计划.md)
 
 ## Notes
 
