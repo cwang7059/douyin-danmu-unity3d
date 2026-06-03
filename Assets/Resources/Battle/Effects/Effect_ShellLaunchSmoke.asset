@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_ShellLaunchSmoke
   m_EditorClassIdentifier: 
   id: 14
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.45
+  prefab: {fileID: 100000, guid: e37de961c0fe47b439a8a7c1c1b6213d, type: 3}
+  prefabScaleMultiplier: 0.5
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

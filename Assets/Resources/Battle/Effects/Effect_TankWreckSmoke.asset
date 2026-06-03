@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Effect_TankWreckSmoke
   m_EditorClassIdentifier: 
   id: 26
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
+  prefab: {fileID: 100000, guid: a817de05addd7b64faa73b34c74013ce, type: 3}
   prefabScaleMultiplier: 0.55
   prewarmCount: 8
   maxCount: 64

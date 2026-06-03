@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_BombDropTrail
   m_EditorClassIdentifier: 
   id: 18
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.35
+  prefab: {fileID: 100000, guid: b7a5dd96bb4187348909e660f427221b, type: 3}
+  prefabScaleMultiplier: 0.38
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

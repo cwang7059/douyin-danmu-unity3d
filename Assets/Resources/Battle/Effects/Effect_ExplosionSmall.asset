@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Effect_ExplosionSmall
   m_EditorClassIdentifier: 
   id: 1
-  prefab: {fileID: 1372040286346358, guid: 53ebac442b16db64f9177d0c749cbb06, type: 3}
+  prefab: {fileID: 100014, guid: 5332791ebce075d4a9e56f4581e7fb47, type: 3}
   prefabScaleMultiplier: 0.58
   prewarmCount: 8
   maxCount: 64

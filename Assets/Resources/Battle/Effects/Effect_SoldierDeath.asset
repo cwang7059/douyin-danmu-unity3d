@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Effect_SoldierDeath
   m_EditorClassIdentifier: 
   id: 24
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
+  prefab: {fileID: 100002, guid: 2f9348d6583cde14eb0d82bb9732647e, type: 3}
   prefabScaleMultiplier: 0.48
   prewarmCount: 8
   maxCount: 64

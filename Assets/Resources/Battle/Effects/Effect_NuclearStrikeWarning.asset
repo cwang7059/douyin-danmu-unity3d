@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_NuclearStrikeWarning
   m_EditorClassIdentifier: 
   id: 31
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 725748389856807714, guid: 4bda94453d2ca7444a0fff05b2d425f5, type: 3}
+  prefabScaleMultiplier: 1.45
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

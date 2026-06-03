@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_NuclearDetonation
   m_EditorClassIdentifier: 
   id: 32
-  prefab: {fileID: 0}
-  prefabScaleMultiplier: 1
+  prefab: {fileID: 100002, guid: 6ecf76dc4f268d340b2666896a954bcc, type: 3}
+  prefabScaleMultiplier: 1.35
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

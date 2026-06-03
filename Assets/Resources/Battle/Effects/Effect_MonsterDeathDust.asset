@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_MonsterDeathDust
   m_EditorClassIdentifier: 
   id: 30
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.62
+  prefab: {fileID: 100006, guid: a49596ebf788acd4ab1281bffea444b1, type: 3}
+  prefabScaleMultiplier: 0.58
   prewarmCount: 4
   maxCount: 24
   attachToParent: 0

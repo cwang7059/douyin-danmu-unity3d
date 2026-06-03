@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_ShellImpactMonster
   m_EditorClassIdentifier: 
   id: 17
-  prefab: {fileID: 1372040286346358, guid: 53ebac442b16db64f9177d0c749cbb06, type: 3}
-  prefabScaleMultiplier: 0.68
+  prefab: {fileID: 7226888052703040409, guid: 7ec363c8df426644ea85f8d6d570561c, type: 3}
+  prefabScaleMultiplier: 0.72
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

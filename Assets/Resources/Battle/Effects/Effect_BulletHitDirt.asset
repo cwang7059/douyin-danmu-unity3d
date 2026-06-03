@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_BulletHitDirt
   m_EditorClassIdentifier: 
   id: 4
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.42
+  prefab: {fileID: 100002, guid: 5d73f72c6be7d0440bbc9c87d4f718c0, type: 3}
+  prefabScaleMultiplier: 0.52
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0

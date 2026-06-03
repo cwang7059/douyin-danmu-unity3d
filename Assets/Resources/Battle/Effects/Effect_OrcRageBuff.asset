@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Effect_OrcRageBuff
   m_EditorClassIdentifier: 
   id: 11
-  prefab: {fileID: 1372040286346358, guid: 53ebac442b16db64f9177d0c749cbb06, type: 3}
+  prefab: {fileID: 8764043878647920493, guid: c4ed38c72957f2241ad144a1614956d9, type: 3}
   prefabScaleMultiplier: 0.8
   prewarmCount: 8
   maxCount: 64

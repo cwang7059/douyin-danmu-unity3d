@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_MonsterStompDust
   m_EditorClassIdentifier: 
   id: 22
-  prefab: {fileID: 1985655064596568, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.58
+  prefab: {fileID: 100000, guid: 717898f1e82d6b94f8dfa819112cc432, type: 3}
+  prefabScaleMultiplier: 0.6
   prewarmCount: 8
   maxCount: 64
   attachToParent: 0
