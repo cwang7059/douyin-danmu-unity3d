@@ -14,7 +14,7 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
     [Header("Engagement")]
     public bool RageLikeEnabled;
     public int RageLikeMultiplier = 4;
-    public float NuclearCountdownSeconds = 90f;
+    public float NuclearCountdownSeconds = 10f;
     public int MaxSpawnsPerFrame = 24;
 
     [Header("Infection")]
@@ -40,7 +40,7 @@ public sealed class ApocalypseMatchSettings : ScriptableObject
         s.BetrayalExtraSeconds = 120f;
         s.RageLikeEnabled = false;
         s.RageLikeMultiplier = 4;
-        s.NuclearCountdownSeconds = 90f;
+        s.NuclearCountdownSeconds = 10f;
         s.MaxSpawnsPerFrame = 24;
         s.InfectionChance = 0.12f;
         s.InfectionDurationSeconds = 3f;

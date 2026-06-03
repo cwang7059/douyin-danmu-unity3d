@@ -487,15 +487,16 @@ public sealed partial class ApocalypseKingUnityGame
         return root;
     }
 
+    private const float FormationWidthScale = 1.5f;
     private const float FormationBlockGapX = 56f;
     private const float HumanSoldierFormationOffsetX = 10f;
     private const float BeastSoldierFormationOffsetX = 10f;
     private const float SoldierFormationRankSpacingX = 44f;
-    private const float SoldierFormationLaneSpacingZ = 44f;
+    private const float SoldierFormationLaneSpacingZ = 44f * FormationWidthScale;
     private const float TankFormationRankSpacingX = 80f;
-    private const float TankFormationLaneSpacingZ = 82f;
+    private const float TankFormationLaneSpacingZ = 82f * FormationWidthScale;
     private const float GiantFormationRankSpacingX = 48f;
-    private const float GiantFormationLaneSpacingZ = 34f;
+    private const float GiantFormationLaneSpacingZ = 34f * FormationWidthScale;
     private const int BeastGiantLanesPerRow = 3;
     private const int BeastFormationLanesPerRow = 4;
 
@@ -521,12 +522,12 @@ public sealed partial class ApocalypseKingUnityGame
     private const int HumanSoldierMassSpawnColumns = 25;
     private const int HumanTankMassSpawnColumns = 20;
     private const float HumanSoldierMassSpawnSpacingX = 20f;
-    private const float HumanSoldierMassSpawnSpacingZ = 22f;
+    private const float HumanSoldierMassSpawnSpacingZ = 22f * FormationWidthScale;
     private const float HumanTankMassSpawnSpacingX = 24f;
-    private const float HumanTankMassSpawnSpacingZ = 26f;
+    private const float HumanTankMassSpawnSpacingZ = 26f * FormationWidthScale;
     private const int HumanAircraftMassSpawnColumns = 10;
     private const float HumanAircraftMassSpawnSpacingX = 26f;
-    private const float HumanAircraftMassSpawnSpacingZ = 28f;
+    private const float HumanAircraftMassSpawnSpacingZ = 28f * FormationWidthScale;
 
     private static float HumanSoldierBlockFrontX()
     {
@@ -564,7 +565,7 @@ public sealed partial class ApocalypseKingUnityGame
     private const int GiantFormationLayoutCap = 12;
     private const int GiantMassSpawnColumns = 100;
     private const float GiantMassSpawnSpacingX = 5.5f;
-    private const float GiantMassSpawnSpacingZ = 6f;
+    private const float GiantMassSpawnSpacingZ = 6f * FormationWidthScale;
 
     private static float BeastTankFormationBaseX()
     {

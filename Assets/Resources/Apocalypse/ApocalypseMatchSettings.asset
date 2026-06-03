@@ -20,5 +20,5 @@ MonoBehaviour:
   BetrayalExtraSeconds: 120
   RageLikeEnabled: 0
   RageLikeMultiplier: 4
-  NuclearCountdownSeconds: 90
+  NuclearCountdownSeconds: 10
   MaxSpawnsPerFrame: 24

@@ -54,7 +54,7 @@ public sealed partial class ApocalypseKingUnityGame
         zombieBase = new ApocalypseBaseState(FactionId.Zombie, hp, BeastCastleGateX + 42f, -96f);
         betrayalActive = false;
         betrayalAlly = FactionId.Neutral;
-        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 90f;
+        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 10f;
     }
 
     private void BeginApocalypseBattle()

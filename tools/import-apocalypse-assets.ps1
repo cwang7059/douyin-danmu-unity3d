@@ -8,6 +8,9 @@ Set-Location $Root
 Write-Host "[Apocalypse] Importing VFX (Kenney particles)..."
 & "$PSScriptRoot\import-free-vfx.ps1"
 
+Write-Host "[Apocalypse] Installing nuclear warhead mesh (Kenney Blaster Kit CC0)..."
+& "$PSScriptRoot\import-nuclear-warhead.ps1"
+
 Write-Host "[Apocalypse] Importing US Army tactical soldier..."
 & "$PSScriptRoot\import-us-soldier.ps1"
 
