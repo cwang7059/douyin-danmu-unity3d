@@ -55,7 +55,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     /// <summary>直升机炸弹水平速度（逻辑单位/秒）；较慢以便看清下落过程。</summary>
     private const float AircraftBombProjectileSpeed = 165f;
     private const float AircraftBombMinFlightSeconds = 1.35f;
-    private const float AircraftBombReleaseForward = 8f;
+    private const float AircraftBombHoverJitterX = 12f;
+    private const float AircraftBombHoverJitterZ = 8f;
+    private const float AircraftBombDropRadius = 42f;
     private const float AircraftBombDropTrailScale = 0.32f;
     private static readonly Color AircraftBombVisualColor = new Color(0.42f, 0.44f, 0.38f, 1f);
     private const string SoldierResourceModelPath = "Soldiers/USArmyTacticalVanguard/USArmySoldier";
@@ -79,6 +81,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
     private const string AircraftResourceFolderPath = "KumaSousa/LowPolyHelicopter";
     private const string AircraftResourceModelPath = AircraftResourceFolderPath + "/helicopter";
+    private const string AircraftDiffuseResourcePath = AircraftResourceFolderPath + "/blend 32";
     private const string GiantRealisticFolderPath = "RealisticZombies";
     private const string GiantPixelhouseResourceModelPath = GiantRealisticFolderPath + "/Pixelhouse/Zombie";
     private const string GiantPixelhouseResourceFolderPath = GiantRealisticFolderPath + "/Pixelhouse";
@@ -229,6 +232,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private readonly Dictionary<UnitKind, GameObject> modelPrototypes = new Dictionary<UnitKind, GameObject>();
     private GameObject soldierM14WeaponPrototype;
+    private Material aircraftHelicopterMaterial;
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
     private readonly List<GameObject> giantVariantPrototypes = new List<GameObject>();
@@ -2448,6 +2452,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        if (kind == UnitKind.Aircraft)
+        {
+            ApplyAircraftHelicopterMaterials(prototype);
+        }
+
         NormalizePrototype(prototype, Poses[kind].TargetHeight, kind);
     }
 
@@ -2988,6 +2997,43 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                     material.SetTexture("_BaseMap", skinTexture);
                 }
             }
+        }
+    }
+
+    private void ApplyAircraftHelicopterMaterials(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        if (aircraftHelicopterMaterial == null)
+        {
+            aircraftHelicopterMaterial = GetOpaqueMaterial(new Color(0.88f, 0.90f, 0.92f, 1f));
+            Texture2D diffuse = Resources.Load<Texture2D>(AircraftDiffuseResourcePath);
+            if (diffuse != null && aircraftHelicopterMaterial.HasProperty("_MainTex"))
+            {
+                aircraftHelicopterMaterial.mainTexture = diffuse;
+            }
+        }
+
+        Renderer[] renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                materials[m] = aircraftHelicopterMaterial;
+                ApplyOpaqueDoubleSided(materials[m]);
+            }
+
+            renderer.sharedMaterials = materials;
         }
     }
 
@@ -4316,6 +4362,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        if (kind == UnitKind.Aircraft)
+        {
+            ApplyAircraftHelicopterMaterials(model);
+        }
+
         var renderers = model.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
@@ -4909,9 +4960,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 visual.velocity = new Vector3(unit.facing * 0.9f, -2.6f, -0.35f + Noise(unit.id + 71f) * 0.7f);
                 break;
             case UnitKind.Giant:
-                visual.root.transform.rotation = Quaternion.Euler(0f, yaw - 18f, 74f);
-                visual.root.transform.localScale = Vector3.one * 1.0f;
+                visual.root.transform.rotation = Quaternion.Euler(0f, yaw + GiantPixelhouseMeshYawOffset, 0f);
+                visual.root.transform.localScale = Vector3.one;
                 visual.velocity = Vector3.zero;
+                GroundDeathVisualRoot(visual.root, 0.04f);
                 break;
             default:
                 visual.root.transform.rotation = Quaternion.identity;
@@ -4972,9 +5024,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "AircraftWreckWing", new Vector3(0f, 0f, 0f), new Vector3(0.90f, 0.035f, 0.18f), Quaternion.identity, new Color(0.10f, 0.15f, 0.16f, 1f));
                 break;
             case UnitKind.Giant:
-                CreateDeathVisualPart(root.transform, PrimitiveType.Capsule, "MonsterFallenBody", new Vector3(0f, 0.42f, 0f), new Vector3(0.82f, 1.35f, 0.82f), Quaternion.Euler(0f, 0f, 90f), new Color(0.20f, 0.12f, 0.10f, 1f));
-                CreateDeathVisualPart(root.transform, PrimitiveType.Sphere, "MonsterFallenHead", new Vector3(0.92f, 0.46f, 0f), new Vector3(0.44f, 0.44f, 0.44f), Quaternion.identity, new Color(0.28f, 0.16f, 0.12f, 1f));
-                CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "MonsterFallenArm", new Vector3(0.05f, 0.22f, 0.52f), new Vector3(1.05f, 0.18f, 0.24f), Quaternion.Euler(0f, 0f, 15f), new Color(0.18f, 0.10f, 0.08f, 1f));
+                if (!TryBuildGiantDeathVisual(root.transform))
+                {
+                    CreateDeathVisualPart(root.transform, PrimitiveType.Capsule, "MonsterFallenBody", new Vector3(0f, 0.42f, 0f), new Vector3(0.82f, 1.35f, 0.82f), Quaternion.Euler(0f, 0f, 90f), new Color(0.20f, 0.12f, 0.10f, 1f));
+                    CreateDeathVisualPart(root.transform, PrimitiveType.Sphere, "MonsterFallenHead", new Vector3(0.92f, 0.46f, 0f), new Vector3(0.44f, 0.44f, 0.44f), Quaternion.identity, new Color(0.28f, 0.16f, 0.12f, 1f));
+                    CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "MonsterFallenArm", new Vector3(0.05f, 0.22f, 0.52f), new Vector3(1.05f, 0.18f, 0.24f), Quaternion.Euler(0f, 0f, 15f), new Color(0.18f, 0.10f, 0.08f, 1f));
+                }
+
                 break;
             default:
                 CreateDeathVisualPart(root.transform, PrimitiveType.Cube, "DeathMarker", new Vector3(0f, 0.08f, 0f), new Vector3(0.3f, 0.12f, 0.3f), Quaternion.identity, new Color(0.10f, 0.10f, 0.10f, 1f));
