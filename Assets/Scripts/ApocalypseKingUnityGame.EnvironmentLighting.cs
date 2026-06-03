@@ -35,18 +35,18 @@ public sealed partial class ApocalypseKingUnityGame
         if (nuclearFlashTimer > 0f)
         {
             nuclearFlashTimer = Mathf.Max(0f, nuclearFlashTimer - Time.deltaTime);
-            nuclearFlashBlend = Mathf.Clamp01(nuclearFlashTimer / 2.4f);
+            nuclearFlashBlend = Mathf.Clamp01(nuclearFlashTimer / 1.1f);
         }
 
         const float dayBlend = 1f;
         sunLightRoot.rotation = Quaternion.Euler(52f, -58f, 0f);
 
         Color dayLight = new Color(1f, 0.98f, 0.92f, 1f);
-        sunLight.color = Color.Lerp(dayLight, new Color(1f, 0.94f, 0.82f, 1f), nuclearFlashBlend * 0.85f);
-        sunLight.intensity = 1.28f + nuclearFlashBlend * 2.8f;
+        sunLight.color = Color.Lerp(dayLight, new Color(1f, 0.90f, 0.78f, 1f), nuclearFlashBlend * 0.45f);
+        sunLight.intensity = 1.28f + nuclearFlashBlend * 1.15f;
 
         Color dayAmbient = new Color(0.62f, 0.66f, 0.60f, 1f);
-        RenderSettings.ambientLight = Color.Lerp(dayAmbient, new Color(0.95f, 0.88f, 0.78f, 1f), nuclearFlashBlend * 0.72f);
+        RenderSettings.ambientLight = Color.Lerp(dayAmbient, new Color(0.88f, 0.82f, 0.74f, 1f), nuclearFlashBlend * 0.38f);
 
         Color dayFog = new Color(0.74f, 0.84f, 0.92f, 1f);
         RenderSettings.fogColor = dayFog;
@@ -54,7 +54,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         if (mainCamera != null)
         {
-            mainCamera.backgroundColor = Color.Lerp(dayFog, new Color(1f, 0.92f, 0.78f, 1f), nuclearFlashBlend * 0.55f);
+            mainCamera.backgroundColor = Color.Lerp(dayFog, new Color(0.96f, 0.88f, 0.76f, 1f), nuclearFlashBlend * 0.28f);
         }
 
         ApplyDaySkyboxSettings();

@@ -80,6 +80,11 @@ public sealed partial class ApocalypseKingUnityGame
             if (kind == ProjectileKind.Bomb)
             {
                 flightSeconds = Mathf.Max(AircraftBombMinFlightSeconds, flightSeconds);
+                float dx = toX - fromX;
+                float dz = toZ - fromZ;
+                projectile.bombHeadingYawDegrees = dx * dx + dz * dz > 0.04f
+                    ? Mathf.Atan2(dx, dz) * Mathf.Rad2Deg
+                    : 0f;
             }
 
             projectile.duration = flightSeconds;
@@ -301,10 +306,19 @@ public sealed partial class ApocalypseKingUnityGame
 
             shot.root.transform.position = shot.worldPosition;
             shot.head.localPosition = Vector3.zero;
-            Vector3 direction = shot.worldPosition - shot.lastWorldPosition;
-            if (direction.sqrMagnitude > 0.0001f)
+            shot.head.localRotation = Quaternion.identity;
+            if (shot.kind == ProjectileKind.Bomb)
             {
-                shot.head.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+                // 航空炸弹下落时保持水平，仅按投放时的水平航向偏航（勿随竖直速度低头）
+                shot.head.rotation = Quaternion.Euler(0f, shot.bombHeadingYawDegrees, 0f);
+            }
+            else
+            {
+                Vector3 direction = shot.worldPosition - shot.lastWorldPosition;
+                if (direction.sqrMagnitude > 0.0001f)
+                {
+                    shot.head.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+                }
             }
 
             float pulse = shot.kind == ProjectileKind.Bullet ? 1f : 1f + Mathf.Sin(t * Mathf.PI) * 0.08f;

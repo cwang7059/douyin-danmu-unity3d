@@ -45,6 +45,11 @@ public sealed partial class ApocalypseKingUnityGame
             float dz = target.z - unit.z;
             float distance = Mathf.Sqrt(dx * dx + dz * dz);
             bool canFire = distance <= unit.attackRange + target.radius * 0.55f;
+            if (unit.kind == UnitKind.Aircraft)
+            {
+                canFire = canFire && distance <= AircraftBombDropRadius;
+            }
+
             if (canFire && unit.attackCooldown <= 0f)
             {
                 FireHumanWeapon(unit, target);
@@ -58,7 +63,19 @@ public sealed partial class ApocalypseKingUnityGame
         bool tankAnchored = unit.kind == UnitKind.Tank && engageEnemy && target != null
             && Mathf.Sqrt(DistanceSq(unit.x, unit.z, target.x, target.z)) <= unit.attackRange + target.radius * 0.55f;
         float nextX = unit.x;
-        if (!tankAnchored)
+        float nextZ = unit.z;
+        bool aircraftHoveringTarget = unit.kind == UnitKind.Aircraft && engageEnemy && target != null;
+        if (aircraftHoveringTarget)
+        {
+            float jitterX = (Noise(unit.id * 0.37f + unit.rank * 1.9f) - 0.5f) * AircraftBombHoverJitterX;
+            float jitterZ = (Noise(unit.id * 0.43f + unit.rank * 2.1f) - 0.5f) * AircraftBombHoverJitterZ;
+            float desiredX = target.x + jitterX;
+            float desiredZ = target.z + jitterZ;
+            float step = unit.speed * dt;
+            nextX = unit.x + Mathf.Sign(desiredX - unit.x) * Mathf.Min(step, Mathf.Abs(desiredX - unit.x));
+            nextZ = unit.z + Mathf.Sign(desiredZ - unit.z) * Mathf.Min(step, Mathf.Abs(desiredZ - unit.z));
+        }
+        else if (!tankAnchored)
         {
             float desiredX = HumanHoldX(unit, target, engageEnemy);
             float holdDeltaX = desiredX - unit.x;
@@ -69,13 +86,12 @@ public sealed partial class ApocalypseKingUnityGame
             }
         }
 
-        float nextZ = unit.z;
-        if (unit.kind == UnitKind.Aircraft)
+        if (!aircraftHoveringTarget && unit.kind == UnitKind.Aircraft)
         {
             float desiredZ = HumanHoldZ(unit);
             nextZ = desiredZ + Mathf.Sin(battleTime * 2.1f + unit.seed * 9f) * 13f;
         }
-        else if (!tankAnchored)
+        else if (!aircraftHoveringTarget && !tankAnchored)
         {
             float desiredZ = HumanHoldZ(unit);
             nextZ = unit.z + (desiredZ - unit.z) * dt * 0.45f;
@@ -280,16 +296,14 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
-        TryGetUnitBodyLaunchLogical(unit, out float launchX, out float launchZ, out float launchHeight);
-        launchHeight = Mathf.Max(2.8f, launchHeight);
-        float bombX = launchX + aim.x * AircraftBombReleaseForward;
-        float bombZ = launchZ + aim.y * AircraftBombReleaseForward;
-        float dropHeight = Mathf.Max(2.5f, launchHeight - 0.25f);
+        TryGetUnitBodyLaunchLogical(unit, out _, out _, out float launchHeight);
+        launchHeight = Mathf.Max(AircraftDefaultAltitude, launchHeight);
+        float dropHeight = Mathf.Max(2.5f, launchHeight - 0.15f);
         SpawnProjectile(
             ProjectileKind.Bomb,
             ProjectileTarget.Giant,
-            bombX,
-            bombZ,
+            target.x,
+            target.z,
             dropHeight,
             target.x,
             target.z,

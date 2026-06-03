@@ -11,6 +11,8 @@ public sealed partial class ApocalypseKingUnityGame
 
     private const string AircraftBombDiffusePath = "AircraftBomb/skin";
     private const float AircraftBombTargetLength = AircraftModelTargetHeight * 1.35f;
+    /// <summary>MK-82 长轴 +X；绑定到弹体节点 +Z 后由水平偏航控制朝向，下落全程保持横置。</summary>
+    private static readonly Quaternion AircraftBombModelBindRotation = Quaternion.Euler(0f, -90f, 0f);
 
     private GameObject aircraftBombMeshPrototype;
     private Material aircraftBombMaterial;
@@ -40,8 +42,15 @@ public sealed partial class ApocalypseKingUnityGame
             removed++;
         }
 
-        if (removed > 0 && aircraftBombMeshPrototype != null)
+        if (removed > 0)
         {
+            if (aircraftBombMeshPrototype != null)
+            {
+                Destroy(aircraftBombMeshPrototype);
+                aircraftBombMeshPrototype = null;
+            }
+
+            PrewarmAircraftBombMesh();
             PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, AircraftBombVisualColor);
             Debug.Log($"[AircraftBomb] Rebuilt bomb projectile pool ({removed} slots) with MK-82 mesh.");
         }
@@ -93,7 +102,7 @@ public sealed partial class ApocalypseKingUnityGame
         instance.transform.localPosition = Vector3.zero;
         instance.transform.localRotation = Quaternion.identity;
         instance.transform.localScale = Vector3.one;
-        AlignBombLongAxisToForward(parent, instance);
+        AlignBombLongAxisToForward(instance);
         ApplyAircraftBombMaterials(instance);
         bombTransform = instance.transform;
         return true;
@@ -110,6 +119,7 @@ public sealed partial class ApocalypseKingUnityGame
         template.name = "AircraftBomb_Template";
         template.SetActive(false);
         FitAircraftBombMesh(template);
+        AlignBombLongAxisToForward(template);
         ApplyAircraftBombMaterials(template);
         return template;
     }
@@ -247,6 +257,7 @@ public sealed partial class ApocalypseKingUnityGame
         renderer.lightProbeUsage = LightProbeUsage.Off;
         ApplyAircraftBombMaterials(root);
         FitAircraftBombMesh(root);
+        AlignBombLongAxisToForward(root);
         return root;
     }
 
@@ -268,16 +279,16 @@ public sealed partial class ApocalypseKingUnityGame
         model.transform.localScale = Vector3.one * scale;
     }
 
-    private static void AlignBombLongAxisToForward(Transform visualRoot, GameObject model)
+    private static void AlignBombLongAxisToForward(GameObject model)
     {
-        if (visualRoot == null || model == null)
+        if (model == null)
         {
             return;
         }
 
         if (!TryGetCastleModuleLocalBounds(model, out Bounds bounds))
         {
-            visualRoot.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            model.transform.localRotation = AircraftBombModelBindRotation;
             return;
         }
 
@@ -295,17 +306,18 @@ public sealed partial class ApocalypseKingUnityGame
             axis = 2;
         }
 
-        Quaternion correction = Quaternion.identity;
-        if (axis == 1)
+        switch (axis)
         {
-            correction = Quaternion.Euler(-90f, 0f, 0f);
+            case 1:
+                model.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+                break;
+            case 2:
+                model.transform.localRotation = Quaternion.identity;
+                break;
+            default:
+                model.transform.localRotation = AircraftBombModelBindRotation;
+                break;
         }
-        else if (axis == 0)
-        {
-            correction = Quaternion.Euler(0f, 90f, 0f);
-        }
-
-        visualRoot.localRotation = correction;
     }
 
     private Material GetAircraftBombMaterial()
