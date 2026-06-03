@@ -86,10 +86,18 @@ $ExitCode = 0
 
 try {
     $ResolvedUnityExe = Resolve-UnityExe $UnityExe
-    Write-Host "[ASSETS] Download/import nuclear missile + aircraft bomb + Unity setup..."
+    Write-Host "[ASSETS] Download/import nuclear missile + mushroom cloud + aircraft bomb + Unity setup..."
     & (Join-Path $Root "tools\import-nuclear-warhead.ps1") -UnityExe $ResolvedUnityExe
+    & (Join-Path $Root "tools\import-nuclear-mushroom-cloud.ps1")
     & (Join-Path $Root "tools\import-aircraft-bomb.ps1")
+    if (-not (Test-Path -LiteralPath (Join-Path $Root "Assets\Kenney"))) {
+        Write-Host "[ASSETS] Kenney VFX missing — importing..."
+        & (Join-Path $Root "tools\import-free-vfx.ps1") -UnityExe $ResolvedUnityExe -SkipUnitySetup
+    }
+
     Assert-UnityProjectIsNotOpen
+    Write-Host "[ASSETS] Bind battle VFX prefabs (incl. NuclearDetonation)..."
+    & (Join-Path $Root "tools\bind-vfx-prefabs.ps1") -UnityExe $ResolvedUnityExe
     Write-Host "[BUILD] Unity: $ResolvedUnityExe"
 
     $unityArgs = @(

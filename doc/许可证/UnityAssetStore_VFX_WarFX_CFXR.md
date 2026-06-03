@@ -9,4 +9,4 @@
 | 商用 | 按 EULA 允许在已发布游戏中使用 |
 | 工程路径 | `Assets/ThirdParty/UnityAssetStore/WarFX/`、`CartoonFXRemasterFree/` 或 `Assets/JMO Assets/` |
 | 接入日期 | （导入后填写） |
-| 备注 | 通过 `ApocalypseKingVfxPrefabBinder` 绑定到 `Resources/Battle/Effects/Effect_*.asset` |
+| 备注 | 通过 `ApocalypseKingVfxPrefabBinder` 绑定到 `Resources/Battle/Effects/Effect_*.asset`；核武见 `NuclearDetonation` / `NuclearStrikeWarning` 专用候选 Prefab 名 |

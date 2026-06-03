@@ -27,6 +27,7 @@ public static class ApocalypseKingAssetStoreVfxImport
         {
             int bound = ApocalypseKingVfxPrefabBinder.TryBindAllEffectConfigs(logDetails: true);
             AssetDatabase.SaveAssets();
+            ApocalypseKingVfxPrefabBinder.ValidateNuclearVfxBinding(logDetails: true);
             Debug.Log($"[ApocalypseKing] Kenney folder present. Re-bound {bound} EffectConfig(s).");
             return;
         }

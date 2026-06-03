@@ -53,6 +53,59 @@ public static class ApocalypseKingVfxPrefabBinder
         new KenneyPrefabBinding(BattleEffectId.HumanAirStrikeWarning, "Electricity.prefab", 0.85f),
         new KenneyPrefabBinding(BattleEffectId.OrcRageBuff, "Fire.prefab", 0.80f),
         new KenneyPrefabBinding(BattleEffectId.ClawHit, "Sparks.prefab", 0.52f),
+        new KenneyPrefabBinding(BattleEffectId.NuclearStrikeWarning, "Electricity.prefab", 0.95f),
+        new KenneyPrefabBinding(BattleEffectId.NuclearDetonation, "Fire.prefab", 1.05f),
+    };
+
+    private static readonly NuclearVfxBinding[] NuclearVfxBindings =
+    {
+        new NuclearVfxBinding(
+            BattleEffectId.NuclearDetonation,
+            1.35f,
+            new[]
+            {
+                "WFX_Nuke",
+                "WFX_ExplosiveSmokeGround Big",
+                "WFX_ExplosiveSmoke Big",
+                "WFX_Explosion",
+                "CFXR Explosion Smoke 2 Solo (HDR)",
+                "CFXR Explosion 1",
+                "CFXR2 WW Explosion",
+                "CFXR3 Fire Explosion B",
+                "WFX_Explosion Simple",
+            },
+            new VfxBindRule
+            {
+                Id = BattleEffectId.NuclearDetonation,
+                PreferWarFx = true,
+                PrefabScaleMultiplier = 1.35f,
+                RequiredTokens = new[] { "explosion", "nuke" },
+                OptionalTokens = new[] { "massive", "smoke", "ground", "hdr", "fire" },
+                NegativeTokens = new[] { "muzzle", "small", "quick", "impact", "hit", "bullet", "mobile", "firework" },
+                MinimumScore = 18,
+            }),
+        new NuclearVfxBinding(
+            BattleEffectId.NuclearStrikeWarning,
+            1.45f,
+            new[]
+            {
+                "CFXR Explosion Smoke 2 Solo (HDR)",
+                "WFX_Explosion Small",
+                "CFXR2 Sparks Rain",
+                "CFXR Explosion 1",
+                "CFXR2 WW Explosion",
+                "WFX_Explosion Simple",
+            },
+            new VfxBindRule
+            {
+                Id = BattleEffectId.NuclearStrikeWarning,
+                PreferCfxr = true,
+                PrefabScaleMultiplier = 1.45f,
+                RequiredTokens = new[] { "explosion" },
+                OptionalTokens = new[] { "sparks", "quick", "small", "warning", "ring" },
+                NegativeTokens = new[] { "muzzle", "massive", "monster", "ground", "mobile" },
+                MinimumScore = 14,
+            }),
     };
 
     [MenuItem("Apocalypse King/Bind Store VFX Prefabs to Effect Configs")]
@@ -63,24 +116,40 @@ public static class ApocalypseKingVfxPrefabBinder
         Debug.Log($"[ApocalypseKing] VFX prefab bind complete. Updated {bound} EffectConfig(s). See doc/炫酷特效素材清单与接入指南.md");
     }
 
+    [MenuItem("Apocalypse King/Validate Nuclear VFX Binding")]
+    public static void ValidateNuclearFromMenu()
+    {
+        ValidateNuclearVfxBinding(logDetails: true);
+    }
+
+    /// <summary>Called from tools/bind-vfx-prefabs.ps1 in batchmode (Unity Editor must be closed).</summary>
+    public static void BindAllForBatchMode()
+    {
+        int bound = TryBindAllEffectConfigs(logDetails: true);
+        AssetDatabase.SaveAssets();
+        bool nuclearOk = ValidateNuclearVfxBinding(logDetails: true);
+        if (!nuclearOk)
+        {
+            Debug.LogWarning("[ApocalypseKing] Nuclear VFX binding validation failed. See log above.");
+        }
+
+        Debug.Log($"[ApocalypseKing] VFX bind batch complete. Updated {bound} EffectConfig(s). Nuclear OK={nuclearOk}.");
+    }
+
     public static int TryBindAllEffectConfigs(bool logDetails = false)
     {
         int bound = BindKenneyPrefabs(logDetails);
         var prefabs = CollectCandidatePrefabs();
-        if (prefabs.Count == 0 && bound == 0)
-        {
-            if (logDetails)
-            {
-                Debug.Log(
-                    "[ApocalypseKing] No VFX prefabs found. Run tools/import-free-vfx.ps1 or import War FX + Cartoon FX Remaster Free from Asset Store.");
-            }
-
-            return 0;
-        }
+        bool hasStorePrefabs = prefabs.Count > 0;
 
         foreach (var rule in Rules)
         {
             if (rule.Id == BattleEffectId.None || rule.Id == BattleEffectId.BulletTracer)
+            {
+                continue;
+            }
+
+            if (IsNuclearEffectId(rule.Id))
             {
                 continue;
             }
@@ -123,7 +192,186 @@ public static class ApocalypseKingVfxPrefabBinder
             }
         }
 
+        bound += BindNuclearVfxPrefabs(prefabs, logDetails);
+        ValidateNuclearVfxBinding(logDetails);
+
+        if (!hasStorePrefabs && bound == 0 && logDetails)
+        {
+            Debug.Log(
+                "[ApocalypseKing] No store VFX prefabs found. Import War FX + Cartoon FX Remaster Free, then run Bind again.");
+        }
+
         return bound;
+    }
+
+    public static bool ValidateNuclearVfxBinding(bool logDetails = false)
+    {
+        bool ok = true;
+        for (int i = 0; i < NuclearVfxBindings.Length; i++)
+        {
+            NuclearVfxBinding entry = NuclearVfxBindings[i];
+            string configPath = EffectsResourcesFolder + "/Effect_" + entry.Id + ".asset";
+            var config = AssetDatabase.LoadAssetAtPath<EffectConfig>(configPath);
+            if (config == null)
+            {
+                ok = false;
+                if (logDetails)
+                {
+                    Debug.LogWarning($"[ApocalypseKing] Missing {configPath}");
+                }
+
+                continue;
+            }
+
+            if (config.prefab == null)
+            {
+                ok = false;
+                if (logDetails)
+                {
+                    Debug.LogWarning(
+                        $"[ApocalypseKing] {entry.Id} has no prefab — import War FX / Cartoon FX Remaster Free and run Bind Store VFX Prefabs.");
+                }
+
+                continue;
+            }
+
+            if (!config.prefab.GetComponentInChildren<ParticleSystem>(true))
+            {
+                ok = false;
+                if (logDetails)
+                {
+                    Debug.LogWarning($"[ApocalypseKing] {entry.Id} prefab has no ParticleSystem: {AssetDatabase.GetAssetPath(config.prefab)}");
+                }
+
+                continue;
+            }
+
+            if (logDetails)
+            {
+                string source = IsStoreVfxPrefab(config.prefab) ? "Asset Store" : "Kenney fallback";
+                Debug.Log(
+                    $"[ApocalypseKing] {entry.Id} OK ({source}): {config.prefab.name} scale x{config.prefabScaleMultiplier:0.##}");
+            }
+        }
+
+        return ok;
+    }
+
+    private static int BindNuclearVfxPrefabs(List<GameObject> storePrefabs, bool logDetails)
+    {
+        int bound = 0;
+        for (int i = 0; i < NuclearVfxBindings.Length; i++)
+        {
+            NuclearVfxBinding entry = NuclearVfxBindings[i];
+            GameObject match = FindPrefabByCandidateNames(entry.CandidatePrefabNames);
+            if (match == null && storePrefabs.Count > 0)
+            {
+                match = FindBestPrefab(storePrefabs, entry.ScoreRule);
+            }
+
+            if (match == null)
+            {
+                continue;
+            }
+
+            string configPath = EffectsResourcesFolder + "/Effect_" + entry.Id + ".asset";
+            var config = AssetDatabase.LoadAssetAtPath<EffectConfig>(configPath);
+            if (config == null)
+            {
+                continue;
+            }
+
+            float scale = IsStoreVfxPrefab(match) ? entry.StoreScale : entry.StoreScale * 0.72f;
+            if (config.prefab == match && Mathf.Approximately(config.prefabScaleMultiplier, scale))
+            {
+                continue;
+            }
+
+            config.prefab = match;
+            config.prefabScaleMultiplier = scale;
+            if (entry.Id == BattleEffectId.NuclearDetonation)
+            {
+                config.prewarmCount = Mathf.Max(config.prewarmCount, 4);
+                config.maxCount = Mathf.Max(config.maxCount, 8);
+            }
+
+            EditorUtility.SetDirty(config);
+            bound++;
+            if (logDetails)
+            {
+                string kind = IsStoreVfxPrefab(match) ? "store" : "fallback";
+                Debug.Log($"[ApocalypseKing] {entry.Id} <- {AssetDatabase.GetAssetPath(match)} ({kind}, scale x{scale:0.##})");
+            }
+        }
+
+        return bound;
+    }
+
+    private static GameObject FindPrefabByCandidateNames(string[] preferredNames)
+    {
+        if (preferredNames == null || preferredNames.Length == 0)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < preferredNames.Length; i++)
+        {
+            string target = preferredNames[i];
+            if (string.IsNullOrEmpty(target))
+            {
+                continue;
+            }
+
+            string[] guids = AssetDatabase.FindAssets(target + " t:Prefab");
+            for (int g = 0; g < guids.Length; g++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[g]);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null || !prefab.GetComponentInChildren<ParticleSystem>(true))
+                {
+                    continue;
+                }
+
+                if (string.Equals(prefab.name, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    return prefab;
+                }
+            }
+        }
+
+        for (int r = 0; r < VfxSearchRoots.Length; r++)
+        {
+            if (!AssetDatabase.IsValidFolder(VfxSearchRoots[r]))
+            {
+                continue;
+            }
+
+            string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { VfxSearchRoots[r] });
+            for (int g = 0; g < guids.Length; g++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[g]);
+                if (!IsLikelyVfxPrefabPath(path))
+                {
+                    continue;
+                }
+
+                string fileName = Path.GetFileNameWithoutExtension(path);
+                for (int i = 0; i < preferredNames.Length; i++)
+                {
+                    if (string.Equals(fileName, preferredNames[i], StringComparison.OrdinalIgnoreCase))
+                    {
+                        return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsNuclearEffectId(BattleEffectId id)
+    {
+        return id == BattleEffectId.NuclearDetonation || id == BattleEffectId.NuclearStrikeWarning;
     }
 
     private static int BindKenneyPrefabs(bool logDetails)
@@ -147,6 +395,12 @@ public static class ApocalypseKingVfxPrefabBinder
             string configPath = EffectsResourcesFolder + "/Effect_" + entry.Id + ".asset";
             var config = AssetDatabase.LoadAssetAtPath<EffectConfig>(configPath);
             if (config == null)
+            {
+                continue;
+            }
+
+            bool isNuclear = IsNuclearEffectId(entry.Id);
+            if (isNuclear && config.prefab != null && IsStoreVfxPrefab(config.prefab))
             {
                 continue;
             }
@@ -395,6 +649,22 @@ public static class ApocalypseKingVfxPrefabBinder
         }
     }
 
+    private readonly struct NuclearVfxBinding
+    {
+        public readonly BattleEffectId Id;
+        public readonly float StoreScale;
+        public readonly string[] CandidatePrefabNames;
+        public readonly VfxBindRule ScoreRule;
+
+        public NuclearVfxBinding(BattleEffectId id, float storeScale, string[] candidatePrefabNames, VfxBindRule scoreRule)
+        {
+            Id = id;
+            StoreScale = storeScale;
+            CandidatePrefabNames = candidatePrefabNames ?? Array.Empty<string>();
+            ScoreRule = scoreRule;
+        }
+    }
+
     private sealed class VfxBindRule
     {
         public BattleEffectId Id;
@@ -442,6 +712,8 @@ public static class ApocalypseKingVfxPrefabBinder
         Rule(BattleEffectId.OrcRageBuff, false, true, 0.80f, req: new[] { "fire" }, opt: new[] { "chemical", "rage", "red", "magic" }, neg: new[] { "explosion" }),
         Rule(BattleEffectId.ClawHit, false, true, 0.55f, req: new[] { "hit" }, opt: new[] { "slash", "spark" }, minScore: 8),
     };
+
+    // NuclearDetonation / NuclearStrikeWarning: use BindNuclearVfxPrefabs (explicit names + rules above).
 
     private static VfxBindRule Rule(
         BattleEffectId id,

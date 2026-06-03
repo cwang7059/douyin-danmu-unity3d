@@ -93,7 +93,8 @@ if (Test-Path -LiteralPath $KenneyPng) {
 }
 
 if (-not $SkipUnitySetup) {
-    Write-Host "[UNITY] Bind prefabs + refresh catalogs..."
+    Write-Host "[UNITY] Bind VFX prefabs + full project setup..."
+    & (Join-Path $Root "bind-vfx-prefabs.ps1") -UnityExe $UnityExe
     & (Join-Path $Root "setup-unity-assets.ps1") -UnityExe $UnityExe
 }
 
