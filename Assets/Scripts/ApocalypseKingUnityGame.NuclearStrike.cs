@@ -110,20 +110,15 @@ public sealed partial class ApocalypseKingUnityGame
     private int ExecuteNuclearDetonation(float centerX, float centerZ, float intensity, bool fullStrike)
     {
         float effectScale = Mathf.Lerp(2.2f, 3.1f, Mathf.Clamp01(intensity));
-        TriggerNuclearFlash(2.4f);
+        TriggerNuclearFlash(1.1f);
         TriggerCameraShake(3.2f, 0.58f);
 
-        for (int i = 0; i < NuclearRingOffsetX.Length; i++)
+        PlayBattleEffect(BattleEffectId.NuclearDetonation, centerX, centerZ, 0.42f, effectScale, Quaternion.identity);
+        for (int i = 1; i < NuclearRingOffsetX.Length; i++)
         {
             float x = centerX + NuclearRingOffsetX[i];
             float z = centerZ + NuclearRingOffsetZ[i];
-            float ringScale = effectScale * (i == 0 ? 1f : 0.72f);
-            float height = i == 0 ? 0.42f : 0.28f;
-            PlayBattleEffect(BattleEffectId.NuclearDetonation, x, z, height, ringScale, Quaternion.identity);
-            if (i == 0)
-            {
-                PlayBattleEffect(BattleEffectId.BombExplosion, x, z, 0.22f, 1.35f, Quaternion.identity);
-            }
+            PlayBattleEffect(BattleEffectId.ExplosionLarge, x, z, 0.28f, effectScale * 0.52f, Quaternion.identity);
         }
 
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, centerX, centerZ, 0.45f);

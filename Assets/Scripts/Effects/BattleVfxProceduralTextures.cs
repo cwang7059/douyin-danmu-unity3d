@@ -58,6 +58,16 @@ public static class BattleVfxProceduralTextures
             return CreateStreak(128, 64, new Color(1f, 0.72f, 0.22f, 1f), name.Contains("tank"));
         }
 
+        if (name.Contains("mushroom_cloud"))
+        {
+            return CreateSoftCircle(128, new Color(0.82f, 0.78f, 0.72f, 1f), 0.12f);
+        }
+
+        if (name.Contains("mushroom_smoke"))
+        {
+            return CreateSoftCircle(96, new Color(0.42f, 0.38f, 0.34f, 1f));
+        }
+
         if (name.Contains("explosion") || name.Contains("sinestesia") || name.Contains("fireball") || name.Contains("bomb") || name.Contains("nuclear"))
         {
             int cells = name.Contains("large") || name.Contains("bomb") || name.Contains("nuclear") ? 8 : 4;

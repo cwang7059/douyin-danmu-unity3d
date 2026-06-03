@@ -19,6 +19,9 @@ public sealed class EffectManager : MonoBehaviour
     private const string TextureExplosionSinestesiaBomb = VfxSelectedPath + "explosion_sinestesia_bomb";
     private const string TextureExplosionNuclear = VfxSelectedPath + "explosion_nuclear";
     private const string TextureShockwaveRing = VfxSelectedPath + "shockwave_ring";
+    private const string VfxNuclearPath = "VFX/Nuclear/";
+    private const string TextureMushroomCloudEvolution = VfxNuclearPath + "mushroom_cloud_evolution";
+    private const string TextureMushroomSmokeAtlas = VfxNuclearPath + "mushroom_smoke_atlas";
 
     [SerializeField] private EffectConfig[] configs;
     [SerializeField] private BattleEffectsCatalog effectsCatalog;
@@ -151,6 +154,7 @@ public sealed class EffectManager : MonoBehaviour
 
     private void Prewarm()
     {
+        ClearAllPools();
         foreach (var pair in configById)
         {
             int count = Mathf.Max(0, pair.Value.prewarmCount);
@@ -183,7 +187,7 @@ public sealed class EffectManager : MonoBehaviour
         EnsurePrewarmed(BattleEffectId.MonsterDeathExplosion, 4);
         EnsurePrewarmed(BattleEffectId.MonsterDeathDust, 4);
         EnsurePrewarmed(BattleEffectId.NuclearStrikeWarning, 2);
-        EnsurePrewarmed(BattleEffectId.NuclearDetonation, 2);
+        EnsurePrewarmed(BattleEffectId.NuclearDetonation, 4);
     }
 
     private void EnsurePrewarmed(BattleEffectId id, int desiredCount)
@@ -219,25 +223,86 @@ public sealed class EffectManager : MonoBehaviour
         Queue<PooledParticleEffect> queue;
         if (pools.TryGetValue(id, out queue) && queue.Count > 0)
         {
-            return queue.Dequeue();
+            var pooled = queue.Dequeue();
+            if (IsStaleProceduralNuclearEffect(id, config, pooled))
+            {
+                Destroy(pooled.gameObject);
+            }
+            else
+            {
+                return pooled;
+            }
         }
 
         return CreateEffect(id, config);
     }
 
+    private static bool IsStaleProceduralNuclearEffect(BattleEffectId id, EffectConfig config, PooledParticleEffect pooled)
+    {
+        if (pooled == null || config == null || config.prefab == null)
+        {
+            return false;
+        }
+
+        if (id != BattleEffectId.NuclearDetonation && id != BattleEffectId.NuclearStrikeWarning)
+        {
+            return false;
+        }
+
+        Transform root = pooled.transform;
+        return root.Find("NuclearStemSmoke") != null
+            || root.Find("NuclearWarningRing") != null
+            || root.Find("NuclearCapBloom") != null;
+    }
+
+    private void ClearAllPools()
+    {
+        pools.Clear();
+        liveCounts.Clear();
+        if (poolRoot == null)
+        {
+            return;
+        }
+
+        for (int i = poolRoot.childCount - 1; i >= 0; i--)
+        {
+            Destroy(poolRoot.GetChild(i).gameObject);
+        }
+    }
+
     private PooledParticleEffect CreateEffect(BattleEffectId id, EffectConfig config)
     {
         GameObject prefab = config != null ? config.prefab : null;
-        GameObject instance;
+        GameObject instance = null;
         if (prefab != null)
         {
             instance = Instantiate(prefab, poolRoot, false);
+            if (!instance.GetComponentInChildren<ParticleSystem>(true))
+            {
+                Destroy(instance);
+                prefab = null;
+                instance = null;
+            }
         }
-        else if (createFallbackEffects)
+
+        if (instance == null && prefab == null)
         {
-            instance = CreateFallbackEffect(id);
+            if (UsesStoreNuclearPrefabOnly(id))
+            {
+                Debug.LogWarning($"[EffectManager] {id} requires a store prefab (e.g. WFX_Nuke). Re-run Bind Store VFX or fix EffectConfig prefab reference.");
+                return null;
+            }
+
+            if (createFallbackEffects)
+            {
+                instance = CreateFallbackEffect(id);
+            }
+            else
+            {
+                return null;
+            }
         }
-        else
+        else if (instance == null)
         {
             return null;
         }
@@ -447,17 +512,167 @@ public sealed class EffectManager : MonoBehaviour
 
     private static void AddNuclearDetonation(Transform root)
     {
-        const float scale = 2.85f;
+        const float scale = 3.1f;
         string fireTexture = TextureExplosionNuclear;
-        AddBurst(root, "NuclearFlash", 0.42f, 0.08f, 0.16f, 0.02f, 0.08f, 2.4f * scale, 4.2f * scale, 4, Color.white, new Color(1f, 0.92f, 0.72f, 0f), ParticleSystemShapeType.Sphere, 0.06f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-        AddExplosion(root, 2.2f, 42, 52, scale * 1.05f, fireTexture);
-        AddBurst(root, "NuclearFireColumn", 3.6f, 0.85f, 1.45f, 0.35f * scale, 1.1f * scale, 1.2f * scale, 2.6f * scale, 18, Color.white, new Color(1f, 0.42f, 0.08f, 0f), ParticleSystemShapeType.Cone, 0.22f * scale, 8f, -0.04f, ParticleSystemRenderMode.Billboard, fireTexture);
-        AddBurst(root, "NuclearMushroomStem", 4.8f, 1.2f, 2.2f, 0.55f * scale, 1.8f * scale, 1.6f * scale, 3.4f * scale, 64, new Color(0.42f, 0.38f, 0.34f, 0.88f), new Color(0.12f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Cone, 0.38f * scale, 4f, -0.22f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
-        AddBurst(root, "NuclearMushroomCap", 5.6f, 1.6f, 2.8f, 0.18f * scale, 0.65f * scale, 2.4f * scale, 4.8f * scale, 88, new Color(0.55f, 0.50f, 0.46f, 0.82f), new Color(0.16f, 0.14f, 0.12f, 0f), ParticleSystemShapeType.Hemisphere, 0.92f * scale, 0f, -0.35f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
-        AddBurst(root, "NuclearHeatRipple", 2.4f, 0.48f, 0.92f, 0.05f * scale, 0.14f * scale, 1.8f * scale, 3.2f * scale, 12, new Color(1f, 0.62f, 0.18f, 0.75f), new Color(1f, 0.18f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.55f * scale, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureShockwaveRing);
-        AddShockwave(root, 96, 2.85f, new Color(1f, 0.88f, 0.52f, 0.62f));
-        AddShockwave(root, 64, 2.1f, new Color(1f, 0.42f, 0.12f, 0.52f));
-        AddPointLight(root, "NuclearDetonationLight", new Color(1f, 0.72f, 0.28f, 1f), 9.5f * scale, 18f * scale);
+
+        AddBurst(root, "NuclearFlash", 0.28f, 0.04f, 0.08f, 0.01f, 0.04f, 1.6f * scale, 2.6f * scale, 2, new Color(1f, 0.92f, 0.72f, 0.75f), new Color(1f, 0.48f, 0.12f, 0f), ParticleSystemShapeType.Sphere, 0.05f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+        AddBurst(root, "NuclearFireball", 1.4f, 0.22f, 0.42f, 0.04f, 0.14f, 1.1f * scale, 1.9f * scale, 3, Color.white, new Color(1f, 0.35f, 0.05f, 0f), ParticleSystemShapeType.Sphere, 0.12f * scale, 0f, -0.02f, ParticleSystemRenderMode.Billboard, fireTexture);
+
+        AddNuclearSoftSmoke(
+            root, "NuclearStemSmoke", scale,
+            emitSeconds: 2.6f, rate: 11f,
+            lifetimeMin: 4.8f, lifetimeMax: 7.2f,
+            speedMin: 0.35f * scale, speedMax: 0.95f * scale,
+            sizeMin: 3.8f * scale, sizeMax: 6.8f * scale,
+            new Color(0.82f, 0.55f, 0.28f, 0.42f), new Color(0.38f, 0.34f, 0.30f, 0f),
+            ParticleSystemShapeType.Cone, 0.22f * scale, 14f,
+            Vector3.zero, 0f, TextureSmokeBlack, riseSpeed: 0.55f);
+
+        AddNuclearSoftSmoke(
+            root, "NuclearStemAsh", scale,
+            emitSeconds: 2.2f, rate: 8f,
+            lifetimeMin: 5.2f, lifetimeMax: 7.8f,
+            speedMin: 0.28f * scale, speedMax: 0.72f * scale,
+            sizeMin: 4.5f * scale, sizeMax: 8.2f * scale,
+            new Color(0.58f, 0.54f, 0.50f, 0.38f), new Color(0.18f, 0.16f, 0.14f, 0f),
+            ParticleSystemShapeType.Cone, 0.28f * scale, 16f,
+            new Vector3(0f, 0.15f * scale, 0f), 0.12f, TextureSmokeBlack, riseSpeed: 0.42f);
+
+        AddNuclearSoftSmoke(
+            root, "NuclearCapBloom", scale,
+            emitSeconds: 1.6f, rate: 9f,
+            lifetimeMin: 4.5f, lifetimeMax: 6.8f,
+            speedMin: 0.12f * scale, speedMax: 0.38f * scale,
+            sizeMin: 5.5f * scale, sizeMax: 10.5f * scale,
+            new Color(0.92f, 0.90f, 0.86f, 0.45f), new Color(0.32f, 0.28f, 0.24f, 0f),
+            ParticleSystemShapeType.Hemisphere, 1.05f * scale, 0f,
+            new Vector3(0f, 2.35f * scale, 0f), 0.48f, TextureSmokeWhite, riseSpeed: 0.18f);
+
+        AddNuclearSoftSmoke(
+            root, "NuclearCapSpread", scale,
+            emitSeconds: 1.2f, rate: 5f,
+            lifetimeMin: 5.0f, lifetimeMax: 7.5f,
+            speedMin: 0.08f * scale, speedMax: 0.28f * scale,
+            sizeMin: 7.0f * scale, sizeMax: 12.0f * scale,
+            new Color(0.78f, 0.74f, 0.70f, 0.32f), new Color(0.22f, 0.20f, 0.18f, 0f),
+            ParticleSystemShapeType.Hemisphere, 1.55f * scale, 0f,
+            new Vector3(0f, 3.05f * scale, 0f), 0.62f, TextureSmokeWhite, riseSpeed: 0.1f);
+
+        AddBurst(root, "NuclearGroundDust", 3.8f, 0.9f, 1.6f, 0.06f * scale, 0.22f * scale, 1.8f * scale, 3.4f * scale, 10, new Color(0.55f, 0.48f, 0.42f, 0.45f), new Color(0.12f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Circle, 1.05f * scale, 0f, -0.03f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+        AddBurst(root, "NuclearHeatRipple", 2.2f, 0.35f, 0.65f, 0.02f * scale, 0.06f * scale, 1.6f * scale, 2.6f * scale, 5, new Color(1f, 0.62f, 0.18f, 0.42f), new Color(1f, 0.18f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.58f * scale, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureShockwaveRing);
+        AddShockwave(root, 72, 2.4f, new Color(1f, 0.88f, 0.52f, 0.4f));
+        AddShockwave(root, 48, 1.7f, new Color(1f, 0.42f, 0.12f, 0.32f));
+        AddPointLight(root, "NuclearDetonationLight", new Color(1f, 0.65f, 0.24f, 1f), 7f * scale, 18f * scale);
+    }
+
+    private static ParticleSystem AddNuclearSoftSmoke(
+        Transform parent,
+        string name,
+        float scale,
+        float emitSeconds,
+        float rate,
+        float lifetimeMin,
+        float lifetimeMax,
+        float speedMin,
+        float speedMax,
+        float sizeMin,
+        float sizeMax,
+        Color start,
+        Color end,
+        ParticleSystemShapeType shapeType,
+        float shapeRadius,
+        float coneAngleDeg,
+        Vector3 shapeLocalOffset,
+        float startDelaySeconds,
+        string texturePath,
+        float riseSpeed)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var system = go.AddComponent<ParticleSystem>();
+        var main = system.main;
+        main.duration = emitSeconds;
+        main.startDelay = startDelaySeconds;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(lifetimeMin, lifetimeMax);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(speedMin, speedMax);
+        main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
+        main.startColor = new ParticleSystem.MinMaxGradient(start, end);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, 360f);
+        main.gravityModifier = -0.04f;
+        main.maxParticles = 96;
+        main.loop = false;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        var emission = system.emission;
+        emission.rateOverTime = rate;
+        emission.SetBursts(System.Array.Empty<ParticleSystem.Burst>());
+
+        var shape = system.shape;
+        shape.shapeType = shapeType;
+        shape.radius = shapeRadius;
+        shape.position = shapeLocalOffset;
+        shape.randomPositionAmount = 0.72f;
+        shape.randomDirectionAmount = 0.38f;
+        if (shapeType == ParticleSystemShapeType.Cone)
+        {
+            shape.angle = coneAngleDeg;
+            shape.radiusThickness = 0.85f;
+        }
+        else if (shapeType == ParticleSystemShapeType.Hemisphere)
+        {
+            shape.arc = 180f;
+            shape.radiusThickness = 0.65f;
+        }
+
+        var velocity = system.velocityOverLifetime;
+        velocity.enabled = riseSpeed > 0.01f;
+        velocity.space = ParticleSystemSimulationSpace.World;
+        velocity.y = new ParticleSystem.MinMaxCurve(riseSpeed * scale * 0.45f, riseSpeed * scale);
+
+        var noise = system.noise;
+        noise.enabled = true;
+        noise.strength = 0.42f;
+        noise.frequency = 0.55f;
+        noise.scrollSpeed = 0.35f;
+        noise.damping = true;
+
+        var color = system.colorOverLifetime;
+        color.enabled = true;
+        color.color = CreateNuclearSmokeGradient(start, end);
+
+        var size = system.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+            new Keyframe(0f, 0.4f),
+            new Keyframe(0.25f, 0.95f),
+            new Keyframe(0.55f, 1.2f),
+            new Keyframe(1f, 0.65f)));
+
+        var renderer = system.GetComponent<ParticleSystemRenderer>();
+        renderer.renderMode = ParticleSystemRenderMode.Billboard;
+        renderer.maxParticleSize = 48f;
+        Material material = GetParticleMaterial(texturePath, ParticleSystemRenderMode.Billboard);
+        if (material != null)
+        {
+            renderer.sharedMaterial = material;
+            if (texturePath == TextureExplosionNuclear
+                || texturePath == TextureExplosionSinestesiaLarge
+                || texturePath == TextureExplosionSinestesiaBomb)
+            {
+                ConfigureTextureSheet(system, texturePath);
+            }
+        }
+
+        return system;
+    }
+
+    private static ParticleSystem.MinMaxGradient CreateNuclearSmokeGradient(Color start, Color end)
+    {
+        var gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(start, 0f), new GradientColorKey(Color.Lerp(start, end, 0.55f), 0.5f), new GradientColorKey(end, 1f) },
+            new[] { new GradientAlphaKey(start.a, 0f), new GradientAlphaKey(start.a * 0.85f, 0.35f), new GradientAlphaKey(start.a * 0.45f, 0.7f), new GradientAlphaKey(end.a, 1f) });
+        return new ParticleSystem.MinMaxGradient(gradient);
     }
 
     private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
@@ -666,6 +881,20 @@ public sealed class EffectManager : MonoBehaviour
             return true;
         }
 
+        if (textureResourcePath == TextureMushroomCloudEvolution)
+        {
+            tilesX = 2;
+            tilesY = 2;
+            return true;
+        }
+
+        if (textureResourcePath == TextureMushroomSmokeAtlas)
+        {
+            tilesX = 4;
+            tilesY = 4;
+            return true;
+        }
+
         if (textureResourcePath == TextureExplosionSinestesiaSmall
             || textureResourcePath == TextureExplosionFireball
             || textureResourcePath == TextureExplosionBomb
@@ -700,6 +929,11 @@ public sealed class EffectManager : MonoBehaviour
             new[] { new GradientColorKey(start, 0f), new GradientColorKey(end, 1f) },
             new[] { new GradientAlphaKey(start.a, 0f), new GradientAlphaKey(Mathf.Lerp(start.a, end.a, 0.45f), 0.45f), new GradientAlphaKey(end.a, 1f) });
         return new ParticleSystem.MinMaxGradient(gradient);
+    }
+
+    private static bool UsesStoreNuclearPrefabOnly(BattleEffectId id)
+    {
+        return id == BattleEffectId.NuclearDetonation || id == BattleEffectId.NuclearStrikeWarning;
     }
 
     private static bool IsLargeEffect(BattleEffectId id)

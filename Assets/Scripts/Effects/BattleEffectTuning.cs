@@ -118,8 +118,8 @@ public static class BattleEffectTuning
                 max = 2.2f;
                 return;
             case BattleEffectId.NuclearDetonation:
-                min = 2.0f;
-                max = 3.4f;
+                min = 2.8f;
+                max = 5.2f;
                 return;
             default:
                 min = 0.40f;

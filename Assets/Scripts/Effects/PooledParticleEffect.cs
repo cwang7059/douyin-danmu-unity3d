@@ -4,6 +4,7 @@ using UnityEngine;
 public sealed class PooledParticleEffect : MonoBehaviour
 {
     private ParticleSystem[] particleSystems;
+    private NuclearMushroomCloudSprite[] mushroomSprites;
     private EffectManager owner;
     private BattleEffectId id;
     private Coroutine returnRoutine;
@@ -13,6 +14,7 @@ public sealed class PooledParticleEffect : MonoBehaviour
         owner = effectOwner;
         id = effectId;
         particleSystems = GetComponentsInChildren<ParticleSystem>(true);
+        mushroomSprites = GetComponentsInChildren<NuclearMushroomCloudSprite>(true);
     }
 
     public void Play(EffectPlayback playback)
@@ -34,6 +36,11 @@ public sealed class PooledParticleEffect : MonoBehaviour
             particleSystems = GetComponentsInChildren<ParticleSystem>(true);
         }
 
+        if (mushroomSprites == null || mushroomSprites.Length == 0)
+        {
+            mushroomSprites = GetComponentsInChildren<NuclearMushroomCloudSprite>(true);
+        }
+
         float duration = 0.5f;
         for (int i = 0; i < particleSystems.Length; i++)
         {
@@ -46,6 +53,18 @@ public sealed class PooledParticleEffect : MonoBehaviour
             system.Clear(true);
             system.Play(true);
             duration = Mathf.Max(duration, EstimateParticleSystemDuration(system));
+        }
+
+        for (int i = 0; i < mushroomSprites.Length; i++)
+        {
+            var sprite = mushroomSprites[i];
+            if (sprite == null)
+            {
+                continue;
+            }
+
+            sprite.gameObject.SetActive(true);
+            duration = Mathf.Max(duration, sprite.EstimatedDuration);
         }
 
         returnRoutine = StartCoroutine(ReturnAfter(duration + 0.35f));
@@ -85,6 +104,17 @@ public sealed class PooledParticleEffect : MonoBehaviour
                 if (particleSystems[i] != null)
                 {
                     particleSystems[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                }
+            }
+        }
+
+        if (mushroomSprites != null)
+        {
+            for (int i = 0; i < mushroomSprites.Length; i++)
+            {
+                if (mushroomSprites[i] != null)
+                {
+                    mushroomSprites[i].gameObject.SetActive(false);
                 }
             }
         }

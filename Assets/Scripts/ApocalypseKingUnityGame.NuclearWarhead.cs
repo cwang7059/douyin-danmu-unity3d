@@ -46,7 +46,7 @@ public sealed partial class ApocalypseKingUnityGame
     private const float NuclearWarheadMinFlightSeconds = 3.2f;
     private const float NuclearWarheadMaxFlightSeconds = 7.5f;
     private const float NuclearWarheadFlightSpeed = 280f;
-    private const float NuclearDetonationVfxHoldSeconds = 3.5f;
+    private const float NuclearDetonationVfxHoldSeconds = 8.5f;
     private const float NuclearWarheadTrailInterval = 0.09f;
     private const float NuclearWarningRefreshSeconds = 0.55f;
     private const float NuclearOrientationSampleDelta = 0.018f;
