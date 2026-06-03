@@ -37,6 +37,14 @@ if (-not $?) {
 }
 $ErrorActionPreference = "Stop"
 
+Write-Host "[Apocalypse] Installing realistic helicopter (see doc/直升机写实素材选型与导入.md)..."
+$ErrorActionPreference = "Continue"
+& "$PSScriptRoot\import-realistic-helicopter.ps1"
+if (-not $?) {
+    Write-Host "[Apocalypse] Realistic helicopter skipped (run import-realistic-helicopter.ps1 manually)."
+}
+$ErrorActionPreference = "Stop"
+
 $ThirdParty = Join-Path $Root "Assets\ThirdParty\Kenney"
 New-Item -ItemType Directory -Force -Path $ThirdParty | Out-Null
 

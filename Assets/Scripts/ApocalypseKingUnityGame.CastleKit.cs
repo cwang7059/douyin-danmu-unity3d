@@ -150,6 +150,94 @@ public sealed partial class ApocalypseKingUnityGame
         return hasBounds;
     }
 
+    private static bool IsAircraftFuselageMesh(Transform meshTransform)
+    {
+        if (meshTransform == null)
+        {
+            return false;
+        }
+
+        string name = meshTransform.name.ToLowerInvariant();
+        if (name.Contains("propeller")
+            || name.Contains("rotor")
+            || name.Contains("missile")
+            || string.Equals(name, "helicopterbase", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("camera")
+            || (name.Contains("light") && meshTransform.GetComponent<Light>() != null))
+        {
+            return false;
+        }
+
+        if (name.Contains("prop") && !name.Contains("property"))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetAircraftFuselageLocalBounds(GameObject instance, out Bounds bounds)
+    {
+        bounds = default;
+        bool hasBounds = false;
+        if (instance == null)
+        {
+            return false;
+        }
+
+        Transform root = instance.transform;
+        MeshFilter[] meshFilters = instance.GetComponentsInChildren<MeshFilter>(true);
+        for (int i = 0; i < meshFilters.Length; i++)
+        {
+            MeshFilter meshFilter = meshFilters[i];
+            if (meshFilter == null || !IsAircraftFuselageMesh(meshFilter.transform))
+            {
+                continue;
+            }
+
+            Mesh mesh = meshFilter.sharedMesh;
+            if (mesh == null)
+            {
+                continue;
+            }
+
+            Bounds meshBounds = mesh.bounds;
+            Vector3[] corners =
+            {
+                new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.min.z),
+                new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.max.z),
+                new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.min.z),
+                new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.max.z),
+                new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.min.z),
+                new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.max.z),
+                new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.min.z),
+                new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.max.z),
+            };
+
+            Transform meshTransform = meshFilter.transform;
+            for (int c = 0; c < corners.Length; c++)
+            {
+                Vector3 localCorner = root.InverseTransformPoint(meshTransform.TransformPoint(corners[c]));
+                if (!hasBounds)
+                {
+                    bounds = new Bounds(localCorner, Vector3.zero);
+                    hasBounds = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(localCorner);
+                }
+            }
+        }
+
+        if (!hasBounds)
+        {
+            return TryGetCastleModuleLocalBounds(instance, out bounds);
+        }
+
+        return true;
+    }
+
     private static void AlignCastleKitModuleToFloor(GameObject instance, float floorLocalY)
     {
         if (!TryGetCastleModuleLocalBounds(instance, out Bounds bounds))

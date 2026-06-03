@@ -159,7 +159,7 @@ public sealed partial class ApocalypseKingUnityGame
                 if (game.matchPhase == MatchPhase.Battle)
                 {
                     float nuclear = game.GetNuclearTimer();
-                    float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 10f;
+                    float maxNuclear = game.matchSettings != null ? game.matchSettings.NuclearCountdownSeconds : 90f;
                     float pct = maxNuclear > 0f ? nuclear / maxNuclear : 0f;
                     int filled = Mathf.Clamp(Mathf.CeilToInt(pct * 8f), 0, 8);
                     string bar = new string('#', filled).PadRight(8, '-');

@@ -68,7 +68,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void ResetNuclearCountdown()
     {
-        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 10f;
+        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 90f;
     }
 
     private Vector2 GetNuclearStrikeCenter()

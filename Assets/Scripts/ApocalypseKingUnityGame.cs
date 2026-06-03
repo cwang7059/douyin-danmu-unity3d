@@ -17,11 +17,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int TankT55AkCount = 25;
     private const int TankCount = 50;
     private const int AircraftCount = 20;
-    private const int GiantCount = 30;
+    private const int GiantCount = 200;
     private const int MaxSoldierCount = 50;
     private const int MaxTankCount = 50;
     private const int MaxAircraftCount = 20;
-    private const int MaxGiantCount = 30;
+    private const int MaxGiantCount = 200;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
@@ -47,7 +47,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float AircraftDefaultAltitude = 4.2f;
     private const float AircraftVisualScale = 0.95f / (1.5f * 1.4f);
     private const float TankHarmonizeDisplayBoost = 1.1f;
-    /// <summary>FBX 机身沿模型 Y 轴竖起；先绕 X 放平，再由 body 绕 Y 瞄向怪物（勿把 heading 再乘到模型上）。</summary>
+    /// <summary>低模直升机 FBX 机身沿 Y 竖起时的兜底绑定（写实机用机身包围盒自动对齐）。</summary>
     private const float AircraftBindPitch = -90f;
     private const float AircraftBindYaw = 0f;
     private const float AircraftBindRoll = 0f;
@@ -79,6 +79,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const string TankScoutResourceModelPath = TankResourceFolderPath + "/TankB";
     private const string TankAssaultResourceModelPath = TankResourceFolderPath + "/TankC";
     private const string TankHeavyResourceModelPath = TankResourceFolderPath + "/TankD";
+    private const string RealisticAircraftFolderPath = "RealisticAircraft";
+    private const string RealisticAircraftResourcePath = RealisticAircraftFolderPath + "/BlackHawk";
+    private const string RealisticAircraftBodyTexturePath = RealisticAircraftFolderPath + "/Apache_Texture_Camo_Green";
+    private const string RealisticAircraftRotorTexturePath = RealisticAircraftFolderPath + "/Apache_Texture_Green";
     private const string AircraftResourceFolderPath = "KumaSousa/LowPolyHelicopter";
     private const string AircraftResourceModelPath = AircraftResourceFolderPath + "/helicopter";
     private const string AircraftDiffuseResourcePath = AircraftResourceFolderPath + "/blend 32";
@@ -233,6 +237,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly Dictionary<UnitKind, GameObject> modelPrototypes = new Dictionary<UnitKind, GameObject>();
     private GameObject soldierM14WeaponPrototype;
     private Material aircraftHelicopterMaterial;
+    private Material realisticAircraftBodyMaterial;
+    private Material realisticAircraftRotorMaterial;
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
     private readonly List<GameObject> giantVariantPrototypes = new List<GameObject>();
@@ -1593,6 +1599,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         string[] candidates =
         {
+            "RealisticAircraft/BlackHawk.glb",
+            "RealisticAircraft/BlackHawk.fbx",
             "PolyPizza/helicopter.glb",
         };
 
@@ -1857,8 +1865,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return best;
     }
 
+    private static bool HasRealisticAircraftInResources()
+    {
+        return LoadTankResourceModelRoot(RealisticAircraftResourcePath) != null;
+    }
+
+    private GameObject LoadRealisticAircraftResourcePrototype()
+    {
+        var source = LoadTankResourceModelRoot(RealisticAircraftResourcePath);
+        if (source == null)
+        {
+            return null;
+        }
+
+        var prototype = Instantiate(source, modelCacheRoot, false);
+        prototype.name = $"{UnitKind.Aircraft}_Realistic_Prototype";
+        prototype.hideFlags = HideFlags.HideInHierarchy;
+        ConfigureImportedPrototype(prototype, UnitKind.Aircraft);
+        prototype.SetActive(false);
+        return prototype;
+    }
+
     private GameObject LoadAircraftResourcePrototype()
     {
+        if (HasRealisticAircraftInResources())
+        {
+            return LoadRealisticAircraftResourcePrototype();
+        }
+
         var source = Resources.Load<GameObject>(AircraftResourceModelPath);
         if (source == null)
         {
@@ -2454,7 +2488,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (kind == UnitKind.Aircraft)
         {
-            ApplyAircraftHelicopterMaterials(prototype);
+            RemoveAircraftStrayGeometry(prototype);
+            if (HasRealisticAircraftInResources())
+            {
+                ApplyRealisticAircraftMaterials(prototype);
+            }
+            else
+            {
+                ApplyAircraftHelicopterMaterials(prototype);
+            }
         }
 
         NormalizePrototype(prototype, Poses[kind].TargetHeight, kind);
@@ -3000,6 +3042,166 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private void ApplyRealisticAircraftMaterials(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        Texture2D bodyAlbedo = Resources.Load<Texture2D>(RealisticAircraftBodyTexturePath);
+        if (bodyAlbedo == null)
+        {
+            bodyAlbedo = Resources.Load<Texture2D>(RealisticAircraftFolderPath + "/Apache_Texture_Green");
+        }
+
+        if (bodyAlbedo == null)
+        {
+            return;
+        }
+
+        Texture2D rotorAlbedo = Resources.Load<Texture2D>(RealisticAircraftRotorTexturePath) ?? bodyAlbedo;
+        EnsureRealisticAircraftMaterials(bodyAlbedo, rotorAlbedo);
+
+        Renderer[] renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null || IsAircraftStrayRenderer(renderer))
+            {
+                continue;
+            }
+
+            Material target = IsAircraftRotorRenderer(renderer)
+                ? realisticAircraftRotorMaterial
+                : realisticAircraftBodyMaterial;
+            if (target == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                materials[m] = target;
+            }
+
+            renderer.sharedMaterials = materials;
+        }
+    }
+
+    private void EnsureRealisticAircraftMaterials(Texture2D bodyAlbedo, Texture2D rotorAlbedo)
+    {
+        if (realisticAircraftBodyMaterial == null)
+        {
+            realisticAircraftBodyMaterial = GetOpaqueMaterial(Color.white);
+            ApplyAlbedoToMaterial(realisticAircraftBodyMaterial, bodyAlbedo);
+            ApplyOpaqueDoubleSided(realisticAircraftBodyMaterial);
+        }
+
+        if (realisticAircraftRotorMaterial == null)
+        {
+            realisticAircraftRotorMaterial = GetOpaqueMaterial(Color.white);
+            ApplyAlbedoToMaterial(realisticAircraftRotorMaterial, rotorAlbedo);
+            ApplyOpaqueDoubleSided(realisticAircraftRotorMaterial);
+        }
+    }
+
+    private static void ApplyAlbedoToMaterial(Material material, Texture2D albedo)
+    {
+        if (material == null || albedo == null)
+        {
+            return;
+        }
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTexture("_MainTex", albedo);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTexture("_BaseMap", albedo);
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", Color.white);
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", Color.white);
+        }
+    }
+
+    private static bool IsAircraftRotorRenderer(Renderer renderer)
+    {
+        if (renderer == null)
+        {
+            return false;
+        }
+
+        string name = renderer.gameObject.name.ToLowerInvariant();
+        if (renderer.transform.parent != null)
+        {
+            name += " " + renderer.transform.parent.name.ToLowerInvariant();
+        }
+
+        return name.Contains("propeller")
+            || name.Contains("rotor")
+            || (name.Contains("prop") && !name.Contains("property"));
+    }
+
+    private static bool IsAircraftStrayRenderer(Renderer renderer)
+    {
+        if (renderer == null)
+        {
+            return true;
+        }
+
+        string name = renderer.gameObject.name;
+        return string.Equals(name, "HelicopterBase", StringComparison.OrdinalIgnoreCase)
+            || name.IndexOf("Camera", StringComparison.OrdinalIgnoreCase) >= 0
+            || name.IndexOf("Light", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private void RemoveAircraftStrayGeometry(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        Transform[] transforms = prototype.GetComponentsInChildren<Transform>(true);
+        for (int i = transforms.Length - 1; i >= 0; i--)
+        {
+            Transform node = transforms[i];
+            if (node == null || node == prototype.transform)
+            {
+                continue;
+            }
+
+            string name = node.name;
+            bool stray = string.Equals(name, "HelicopterBase", StringComparison.OrdinalIgnoreCase)
+                || name.IndexOf("Camera", StringComparison.OrdinalIgnoreCase) >= 0
+                || (name.IndexOf("Light", StringComparison.OrdinalIgnoreCase) >= 0 && node.GetComponent<Light>() != null);
+            if (!stray)
+            {
+                continue;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(node.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(node.gameObject);
+            }
+        }
+    }
+
     private void ApplyAircraftHelicopterMaterials(GameObject prototype)
     {
         if (prototype == null)
@@ -3407,6 +3609,43 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private static void ApplyAircraftPrototypeBindRotation(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        if (!TryGetAircraftFuselageLocalBounds(prototype, out Bounds bounds))
+        {
+            prototype.transform.localRotation = Quaternion.Euler(AircraftBindPitch, AircraftBindYaw, AircraftBindRoll);
+            return;
+        }
+
+        Vector3 size = bounds.size;
+        int axis = 0;
+        float maxSize = size.x;
+        if (size.y > maxSize)
+        {
+            axis = 1;
+            maxSize = size.y;
+        }
+
+        if (size.z > maxSize)
+        {
+            axis = 2;
+        }
+
+        Quaternion correction = axis switch
+        {
+            1 => Quaternion.Euler(-90f, 0f, 0f),
+            0 => Quaternion.Euler(0f, 90f, 0f),
+            _ => Quaternion.identity,
+        };
+
+        prototype.transform.localRotation = correction;
+    }
+
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
         bool includeTankDisplayGeometry = !(HasRealisticTankInResources() && kind == UnitKind.Tank);
@@ -3417,7 +3656,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (kind == UnitKind.Aircraft)
         {
-            prototype.transform.localRotation = Quaternion.Euler(AircraftBindPitch, AircraftBindYaw, AircraftBindRoll);
+            ApplyAircraftPrototypeBindRotation(prototype);
             if (!TryComputeModelBounds(prototype, out bounds))
             {
                 return;
@@ -4074,6 +4313,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return 110;
         }
 
+        if (lower.Contains("main") && lower.Contains("prop"))
+        {
+            return 108;
+        }
+
         if (lower.Contains("blade"))
         {
             return 95;
@@ -4364,7 +4608,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (kind == UnitKind.Aircraft)
         {
-            ApplyAircraftHelicopterMaterials(model);
+            RemoveAircraftStrayGeometry(model);
+            if (HasRealisticAircraftInResources())
+            {
+                ApplyRealisticAircraftMaterials(model);
+            }
+            else
+            {
+                ApplyAircraftHelicopterMaterials(model);
+            }
         }
 
         var renderers = model.GetComponentsInChildren<Renderer>(true);
