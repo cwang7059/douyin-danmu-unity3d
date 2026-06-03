@@ -332,14 +332,14 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "TankSparks", 0.14f, 0.10f, 0.18f, 5.0f, 9.0f, 0.06f, 0.12f, 6, new Color(1f, 0.86f, 0.55f, 1f), new Color(0.75f, 0.45f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.06f, 24f, 0.06f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 break;
             case BattleEffectId.MuzzleAircraft:
-                AddBurst(root, "AircraftDropFlash", 0.12f, 0.06f, 0.16f, 1.2f, 2.8f, 0.18f, 0.34f, 5, Color.white, new Color(1f, 0.50f, 0.12f, 0f), ParticleSystemShapeType.Cone, 0.10f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddBurst(root, "AircraftDropSmoke", 0.42f, 0.18f, 0.46f, 0.25f, 0.75f, 0.12f, 0.28f, 8, new Color(0.72f, 0.72f, 0.68f, 0.52f), new Color(0.28f, 0.28f, 0.25f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                AddBurst(root, "AircraftDropFlash", 0.08f, 0.03f, 0.08f, 0.6f, 1.4f, 0.06f, 0.12f, 2, Color.white, new Color(0.72f, 0.74f, 0.70f, 0f), ParticleSystemShapeType.Cone, 0.04f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddBurst(root, "AircraftDropSmoke", 0.28f, 0.12f, 0.28f, 0.18f, 0.55f, 0.06f, 0.14f, 4, new Color(0.72f, 0.72f, 0.68f, 0.42f), new Color(0.28f, 0.28f, 0.25f, 0f), ParticleSystemShapeType.Cone, 0.04f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.ShellLaunchSmoke:
                 AddBurst(root, "ShellTrailSmoke", 0.62f, 0.32f, 0.82f, 0.28f, 1.1f, 0.16f, 0.38f, 12, new Color(0.56f, 0.55f, 0.52f, 0.55f), new Color(0.22f, 0.22f, 0.20f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 break;
             case BattleEffectId.BombDropTrail:
-                AddBurst(root, "BombTrailSmoke", 0.72f, 0.38f, 0.88f, 0.18f, 0.7f, 0.16f, 0.34f, 10, new Color(0.70f, 0.72f, 0.70f, 0.48f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                AddBurst(root, "BombTrailSmoke", 0.42f, 0.18f, 0.34f, 0.12f, 0.42f, 0.05f, 0.12f, 4, new Color(0.70f, 0.72f, 0.70f, 0.38f), new Color(0.30f, 0.30f, 0.28f, 0f), ParticleSystemShapeType.Cone, 0.03f, 0f, -0.10f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
                 break;
             case BattleEffectId.BulletHitMetal:
                 AddBurst(root, "BulletImpactFlash", 0.18f, 0.08f, 0.16f, 0.02f, 0.12f, 0.18f, 0.32f, 2, Color.white, new Color(1f, 0.36f, 0.05f, 0f), ParticleSystemShapeType.Hemisphere, 0.05f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);

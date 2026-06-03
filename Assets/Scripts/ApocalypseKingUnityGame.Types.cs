@@ -246,6 +246,7 @@ public sealed partial class ApocalypseKingUnityGame
         public Color color;
         public Vector3 lastWorldPosition;
         public Vector3 worldPosition;
+        public bool usesBombMesh;
     }
 
     private sealed class EffectView

@@ -12,16 +12,16 @@ using UnityGLTF;
 
 public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 {
-    private const int SoldierCount = 500;
-    private const int TankT55ACount = 100;
-    private const int TankT55AkCount = 100;
-    private const int TankCount = 200;
-    private const int AircraftCount = 50;
-    private const int GiantCount = 500;
-    private const int MaxSoldierCount = 500;
-    private const int MaxTankCount = 200;
-    private const int MaxAircraftCount = 50;
-    private const int MaxGiantCount = 500;
+    private const int SoldierCount = 50;
+    private const int TankT55ACount = 25;
+    private const int TankT55AkCount = 25;
+    private const int TankCount = 50;
+    private const int AircraftCount = 20;
+    private const int GiantCount = 30;
+    private const int MaxSoldierCount = 50;
+    private const int MaxTankCount = 50;
+    private const int MaxAircraftCount = 20;
+    private const int MaxGiantCount = 30;
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
@@ -52,6 +52,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float AircraftBindYaw = 0f;
     private const float AircraftBindRoll = 0f;
     private const float AircraftEngagementYawOffset = 0f;
+    /// <summary>直升机炸弹水平速度（逻辑单位/秒）；较慢以便看清下落过程。</summary>
+    private const float AircraftBombProjectileSpeed = 165f;
+    private const float AircraftBombMinFlightSeconds = 1.35f;
+    private const float AircraftBombReleaseForward = 8f;
+    private const float AircraftBombDropTrailScale = 0.32f;
+    private static readonly Color AircraftBombVisualColor = new Color(0.42f, 0.44f, 0.38f, 1f);
     private const string SoldierResourceModelPath = "Soldiers/USArmyTacticalVanguard/USArmySoldier";
     private const string SoldierResourceFolderPath = "Soldiers/USArmyTacticalVanguard";
     private const string SoldierAlternateResourceModelPath = "Quaternius/ZombieApocalypse/Characters_Sam_SingleWeapon";
@@ -352,6 +358,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         try
         {
             await LoadPrototypes();
+            await PrewarmNuclearMissileAsync();
             AttachPrototypesToUnits();
             PrewarmBattlePools();
             assetsReady = true;
@@ -368,6 +375,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             assetsReady = true;
             ShowLoading(false);
             AttachFallbackPrototypes();
+            await PrewarmNuclearMissileAsync();
             PrewarmBattlePools();
             matchPhase = MatchPhase.ModeSelect;
             paused = true;
@@ -4647,6 +4655,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void PrewarmBattlePools()
     {
+        PrewarmAircraftBombMesh();
+        RebuildBombProjectilePool();
+
         if (projectiles.Count > 0 || effects.Count > 0 || deathVisuals.Count > 0)
         {
             return;
@@ -4654,8 +4665,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         PrewarmProjectiles(ProjectileKind.Bullet, PrewarmBulletProjectiles, new Color(1f, 0.82f, 0.32f, 1f));
         PrewarmProjectiles(ProjectileKind.Shell, PrewarmShellProjectiles, new Color(0.58f, 0.56f, 0.52f, 0.9f));
-        PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, new Color(0.42f, 0.50f, 0.48f, 1f));
+        PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, AircraftBombVisualColor);
         PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
+        InitializeNuclearWarheadVisual();
 
         PrewarmFallbackEffectViews(PrewarmFallbackEffects);
 
@@ -6558,6 +6570,23 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float worldX = x * LogicalToWorld;
         float worldZ = z * LogicalToWorld;
         return new Vector3(worldX, SampleBattlefieldGroundHeightWorld(worldX, worldZ) + height, worldZ);
+    }
+
+    private bool TryGetUnitBodyLaunchLogical(BattleUnit unit, out float x, out float z, out float height)
+    {
+        x = unit.x;
+        z = unit.z;
+        height = unit.altitude;
+        if (unit?.body == null)
+        {
+            return false;
+        }
+
+        Vector3 world = unit.body.position;
+        x = world.x / LogicalToWorld;
+        z = world.z / LogicalToWorld;
+        height = world.y - SampleBattlefieldGroundHeightWorld(world.x, world.z);
+        return true;
     }
 
     private void PlayBattleEffect(BattleEffectId id, float x, float z, float height, float scale, Quaternion rotation)

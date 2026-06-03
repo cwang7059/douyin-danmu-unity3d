@@ -30,7 +30,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         var target = FindNearestEnemy(unit, true);
         bool siegeCastle = IsEnemyCastleInSiegeRange(unit);
-        bool engageEnemy = target != null && IsUnitInCastleAggro(unit, target);
+        bool engageEnemy = CanHumanUnitEngageEnemy(unit, target);
 
         unit.animTimer += dt;
         unit.attackCooldown = Mathf.Max(0f, unit.attackCooldown - dt);
@@ -280,11 +280,40 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
-        float bombX = unit.x + aim.x * 22f;
-        float bombZ = unit.z + aim.y * 22f;
-        float airFxHeight = Mathf.Max(2.8f, unit.altitude - 0.12f);
-        PlayBattleEffect(BattleEffectId.MuzzleAircraft, bombX, bombZ, airFxHeight, 0.62f, RotationFromDirection(aim));
-        SpawnProjectile(ProjectileKind.Bomb, ProjectileTarget.Giant, bombX, bombZ, airFxHeight, target.x, target.z, 0.18f, scaledDamage, 76f, 430f, new Color(0.42f, 0.50f, 0.48f, 1f));
+        TryGetUnitBodyLaunchLogical(unit, out float launchX, out float launchZ, out float launchHeight);
+        launchHeight = Mathf.Max(2.8f, launchHeight);
+        float bombX = launchX + aim.x * AircraftBombReleaseForward;
+        float bombZ = launchZ + aim.y * AircraftBombReleaseForward;
+        float dropHeight = Mathf.Max(2.5f, launchHeight - 0.25f);
+        SpawnProjectile(
+            ProjectileKind.Bomb,
+            ProjectileTarget.Giant,
+            bombX,
+            bombZ,
+            dropHeight,
+            target.x,
+            target.z,
+            0.18f,
+            scaledDamage,
+            76f,
+            AircraftBombProjectileSpeed,
+            AircraftBombVisualColor);
+    }
+
+    private bool CanHumanUnitEngageEnemy(BattleUnit unit, BattleUnit target)
+    {
+        if (unit == null || target == null)
+        {
+            return false;
+        }
+
+        if (unit.kind == UnitKind.Aircraft)
+        {
+            float weaponRange = unit.attackRange + target.radius * 0.55f;
+            return DistanceSq(unit.x, unit.z, target.x, target.z) <= weaponRange * weaponRange;
+        }
+
+        return IsUnitInCastleAggro(unit, target);
     }
 
     private void UpdateGiants(float dt)
