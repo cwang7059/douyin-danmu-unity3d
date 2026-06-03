@@ -86,6 +86,9 @@ $ExitCode = 0
 
 try {
     $ResolvedUnityExe = Resolve-UnityExe $UnityExe
+    Write-Host "[ASSETS] Download/import nuclear missile + aircraft bomb + Unity setup..."
+    & (Join-Path $Root "tools\import-nuclear-warhead.ps1") -UnityExe $ResolvedUnityExe
+    & (Join-Path $Root "tools\import-aircraft-bomb.ps1")
     Assert-UnityProjectIsNotOpen
     Write-Host "[BUILD] Unity: $ResolvedUnityExe"
 

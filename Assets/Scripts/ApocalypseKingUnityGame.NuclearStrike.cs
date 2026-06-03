@@ -2,7 +2,6 @@ using UnityEngine;
 
 public sealed partial class ApocalypseKingUnityGame
 {
-    private const float NuclearCountdownStrikeDelaySeconds = 1.35f;
     private const float NuclearStrikeRadius = 620f;
     private const float NuclearStrikeUnitDamage = 680f;
     private const float NuclearStrikeGiantDamage = 1200f;
@@ -19,22 +18,30 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void UpdateNuclearStrikeSequence(float dt)
     {
-        if (nuclearStrikeSequenceTimer <= 0f)
+        if (!IsNuclearStrikeSequenceActive)
         {
             return;
         }
 
-        nuclearStrikeSequenceTimer = Mathf.Max(0f, nuclearStrikeSequenceTimer - dt);
-        if (!nuclearStrikeDetonated && nuclearStrikeSequenceTimer <= 0.22f)
+        if (nuclearStrikePhase == NuclearStrikePhase.InFlight)
         {
-            nuclearStrikeDetonated = true;
-            DetonateScheduledNuclearStrike();
+            UpdateNuclearWarheadFlight(dt);
+            return;
+        }
+
+        if (nuclearStrikePhase == NuclearStrikePhase.PostDetonation)
+        {
+            nuclearWarheadPostVfxTimer = Mathf.Max(0f, nuclearWarheadPostVfxTimer - dt);
+            if (nuclearWarheadPostVfxTimer <= 0f)
+            {
+                ResetNuclearStrikeSequence();
+            }
         }
     }
 
     private void TryBeginNuclearCountdownStrike()
     {
-        if (matchPhase != MatchPhase.Battle || ended || nuclearStrikeSequenceTimer > 0f)
+        if (matchPhase != MatchPhase.Battle || ended || IsNuclearStrikeSequenceActive)
         {
             return;
         }
@@ -42,13 +49,11 @@ public sealed partial class ApocalypseKingUnityGame
         Vector2 center = GetNuclearStrikeCenter();
         nuclearStrikeCenterX = center.x;
         nuclearStrikeCenterZ = center.y;
-        nuclearStrikeSequenceTimer = NuclearCountdownStrikeDelaySeconds;
-        nuclearStrikeDetonated = false;
 
-        PlayBattleEffect(BattleEffectId.NuclearStrikeWarning, nuclearStrikeCenterX, nuclearStrikeCenterZ, 0.08f, 1.85f, Quaternion.identity);
         PlayBattleAudio(BattleAudioCueId.ExplosionSmall, nuclearStrikeCenterX, nuclearStrikeCenterZ, 0.12f);
         TriggerCameraShake(0.35f, 0.12f);
-        ShowBanner("核武倒计时归零 — 战术核打击锁定", true, 1.6f);
+        ShowBanner("核武倒计时归零 — 人族城堡发射战术核弹", true, 1.6f);
+        BeginNuclearWarheadFlight();
     }
 
     private void DetonateScheduledNuclearStrike()
@@ -63,7 +68,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private void ResetNuclearCountdown()
     {
-        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 90f;
+        nuclearTimer = matchSettings != null ? matchSettings.NuclearCountdownSeconds : 10f;
     }
 
     private Vector2 GetNuclearStrikeCenter()
