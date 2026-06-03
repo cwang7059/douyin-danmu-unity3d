@@ -459,10 +459,10 @@ public sealed class EffectManager : MonoBehaviour
                 AddShockwave(root, 42, 1.6f, new Color(0.85f, 0.66f, 0.38f, 0.38f));
                 break;
             case BattleEffectId.HumanAirStrikeWarning:
-                AddShockwave(root, 52, 1.75f, new Color(0.32f, 0.72f, 1f, 0.58f));
-                AddBurst(root, "AirStrikeMarker", 1.05f, 0.55f, 1.0f, 0.08f, 0.42f, 0.10f, 0.22f, 28, new Color(0.34f, 0.80f, 1f, 0.9f), new Color(0.10f, 0.38f, 1f, 0f), ParticleSystemShapeType.Circle, 0.55f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddBurst(root, "AirStrikeSparks", 0.85f, 0.22f, 0.48f, 1.2f, 3.2f, 0.06f, 0.14f, 16, new Color(0.55f, 0.88f, 1f, 0.95f), new Color(0.12f, 0.42f, 1f, 0f), ParticleSystemShapeType.Circle, 0.35f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddPointLight(root, "AirStrikeWarningLight", new Color(0.28f, 0.62f, 1f, 1f), 2.8f, 5.5f);
+                AddShockwave(root, 52, 1.75f, new Color(0.55f, 0.48f, 0.40f, 0.48f));
+                AddBurst(root, "AirStrikeMarker", 1.05f, 0.55f, 1.0f, 0.08f, 0.42f, 0.10f, 0.22f, 28, new Color(0.62f, 0.60f, 0.56f, 0.75f), new Color(0.18f, 0.17f, 0.16f, 0f), ParticleSystemShapeType.Circle, 0.55f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureSmokeWhite);
+                AddBurst(root, "AirStrikeSparks", 0.85f, 0.22f, 0.48f, 1.2f, 3.2f, 0.06f, 0.14f, 16, new Color(1f, 0.78f, 0.32f, 0.92f), new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.35f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
+                AddPointLight(root, "AirStrikeWarningLight", new Color(1f, 0.55f, 0.18f, 1f), 2.8f, 5.5f);
                 break;
             case BattleEffectId.OrcRageBuff:
                 AddBurst(root, "RageFlare", 1.35f, 0.48f, 1.15f, 0.9f, 2.4f, 0.18f, 0.48f, 52, new Color(1f, 0.18f, 0.08f, 0.88f), new Color(0.35f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Sphere, 0.48f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
@@ -471,24 +471,24 @@ public sealed class EffectManager : MonoBehaviour
                 AddPointLight(root, "RageBuffLight", new Color(1f, 0.28f, 0.08f, 1f), 2.4f, 4.8f);
                 break;
             case BattleEffectId.HumanSummon:
-                AddBurst(root, "HumanSummonFlash", 0.52f, 0.16f, 0.32f, 0.7f, 2.6f, 0.12f, 0.28f, 10, new Color(0.55f, 0.88f, 1f, 0.95f), new Color(0.12f, 0.42f, 1f, 0f), ParticleSystemShapeType.Circle, 0.26f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddBurst(root, "HumanSummonCore", 0.38f, 0.10f, 0.22f, 0.02f, 0.12f, 1.05f, 1.65f, 2, Color.white, new Color(0.35f, 0.78f, 1f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionSinestesiaSmall);
-                AddBurst(root, "HumanSummonSmoke", 0.82f, 0.36f, 0.65f, 0.28f, 0.95f, 0.16f, 0.36f, 18, new Color(0.62f, 0.78f, 0.92f, 0.58f), new Color(0.22f, 0.34f, 0.48f, 0f), ParticleSystemShapeType.Hemisphere, 0.20f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
-                AddShockwave(root, 14, 0.62f, new Color(0.38f, 0.78f, 1f, 0.42f));
-                AddPointLight(root, "HumanSummonLight", new Color(0.35f, 0.72f, 1f, 1f), 2.6f, 5f);
+                AddBurst(root, "HumanSummonFlash", 0.52f, 0.16f, 0.32f, 0.7f, 2.6f, 0.12f, 0.28f, 10, new Color(1f, 0.92f, 0.62f, 0.92f), new Color(1f, 0.38f, 0.06f, 0f), ParticleSystemShapeType.Circle, 0.26f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
+                AddBurst(root, "HumanSummonCore", 0.38f, 0.10f, 0.22f, 0.02f, 0.12f, 1.05f, 1.65f, 2, Color.white, new Color(1f, 0.45f, 0.08f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "HumanSummonSmoke", 0.82f, 0.36f, 0.65f, 0.28f, 0.95f, 0.16f, 0.36f, 18, new Color(0.58f, 0.56f, 0.52f, 0.62f), new Color(0.16f, 0.15f, 0.14f, 0f), ParticleSystemShapeType.Hemisphere, 0.20f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+                AddShockwave(root, 14, 0.62f, new Color(0.72f, 0.58f, 0.32f, 0.38f));
+                AddPointLight(root, "HumanSummonLight", new Color(1f, 0.62f, 0.22f, 1f), 2.2f, 4.2f);
                 break;
             case BattleEffectId.OrcSummon:
-                AddBurst(root, "OrcSummonFlash", 0.55f, 0.18f, 0.34f, 0.9f, 2.8f, 0.14f, 0.30f, 12, new Color(1f, 0.42f, 0.18f, 0.95f), new Color(0.55f, 0.08f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.30f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddBurst(root, "OrcSummonCore", 0.42f, 0.12f, 0.24f, 0.02f, 0.14f, 1.15f, 1.75f, 2, Color.white, new Color(1f, 0.22f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionSinestesiaSmall);
-                AddBurst(root, "OrcSummonSmoke", 0.92f, 0.40f, 0.68f, 0.32f, 1.05f, 0.20f, 0.42f, 22, new Color(0.48f, 0.22f, 0.14f, 0.65f), new Color(0.16f, 0.06f, 0.04f, 0f), ParticleSystemShapeType.Hemisphere, 0.24f, 0f, -0.10f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
-                AddShockwave(root, 16, 0.68f, new Color(1f, 0.42f, 0.14f, 0.44f));
-                AddPointLight(root, "OrcSummonLight", new Color(1f, 0.35f, 0.10f, 1f), 2.8f, 5.2f);
+                AddBurst(root, "OrcSummonFlash", 0.55f, 0.18f, 0.34f, 0.9f, 2.8f, 0.14f, 0.30f, 12, new Color(1f, 0.72f, 0.28f, 0.95f), new Color(1f, 0.22f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.30f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
+                AddBurst(root, "OrcSummonCore", 0.42f, 0.12f, 0.24f, 0.02f, 0.14f, 1.15f, 1.75f, 2, Color.white, new Color(1f, 0.35f, 0.06f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "OrcSummonSmoke", 0.92f, 0.40f, 0.68f, 0.32f, 1.05f, 0.20f, 0.42f, 22, new Color(0.42f, 0.40f, 0.36f, 0.68f), new Color(0.12f, 0.11f, 0.10f, 0f), ParticleSystemShapeType.Hemisphere, 0.24f, 0f, -0.10f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+                AddShockwave(root, 16, 0.68f, new Color(0.55f, 0.48f, 0.40f, 0.42f));
+                AddPointLight(root, "OrcSummonLight", new Color(1f, 0.48f, 0.14f, 1f), 2.4f, 4.6f);
                 break;
             case BattleEffectId.NuclearStrikeWarning:
                 AddShockwave(root, 72, 2.35f, new Color(1f, 0.92f, 0.42f, 0.72f));
                 AddShockwave(root, 48, 1.65f, new Color(1f, 0.38f, 0.12f, 0.58f));
-                AddBurst(root, "NuclearWarningRing", 1.45f, 0.62f, 1.05f, 0.04f, 0.18f, 0.12f, 0.28f, 36, new Color(1f, 0.95f, 0.55f, 0.95f), new Color(1f, 0.32f, 0.05f, 0f), ParticleSystemShapeType.Circle, 0.72f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-                AddBurst(root, "NuclearWarningSparks", 1.2f, 0.38f, 0.72f, 0.8f, 2.4f, 0.08f, 0.18f, 28, new Color(1f, 0.72f, 0.22f, 0.95f), new Color(1f, 0.18f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.48f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "NuclearWarningRing", 1.45f, 0.62f, 1.05f, 0.04f, 0.18f, 0.12f, 0.28f, 36, new Color(1f, 0.92f, 0.48f, 0.88f), new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.72f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
+                AddBurst(root, "NuclearWarningSparks", 1.2f, 0.38f, 0.72f, 0.8f, 2.4f, 0.08f, 0.18f, 28, new Color(1f, 0.78f, 0.32f, 0.95f), new Color(1f, 0.22f, 0.03f, 0f), ParticleSystemShapeType.Circle, 0.48f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
                 AddPointLight(root, "NuclearWarningLight", new Color(1f, 0.78f, 0.32f, 1f), 5.5f, 12f);
                 break;
             case BattleEffectId.NuclearDetonation:
@@ -712,6 +712,8 @@ public sealed class EffectManager : MonoBehaviour
             shape.angle = Mathf.Max(1f, coneAngle);
         }
 
+        ApplyParticleShapeGroundOrientation(system, shapeType, renderMode);
+
         var color = system.colorOverLifetime;
         color.enabled = true;
         color.color = CreateFadeGradient(start, end);
@@ -735,6 +737,20 @@ public sealed class EffectManager : MonoBehaviour
         }
 
         return system;
+    }
+
+    private static void ApplyParticleShapeGroundOrientation(ParticleSystem system, ParticleSystemShapeType shapeType, ParticleSystemRenderMode renderMode)
+    {
+        if (system == null)
+        {
+            return;
+        }
+
+        if (shapeType == ParticleSystemShapeType.Circle || renderMode == ParticleSystemRenderMode.HorizontalBillboard)
+        {
+            var shape = system.shape;
+            shape.rotation = new Vector3(90f, 0f, 0f);
+        }
     }
 
     private static void AddShockwave(Transform parent, int count, float scale, Color color)
