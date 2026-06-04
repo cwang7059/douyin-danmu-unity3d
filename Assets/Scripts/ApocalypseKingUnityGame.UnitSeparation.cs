@@ -35,10 +35,15 @@ public sealed partial class ApocalypseKingUnityGame
                 changed |= ResolveWithinGroup(game.soldiers, 1.16f);
             }
 
+            for (int pass = 0; pass < 8; pass++)
+            {
+                changed |= ResolveWithinGroup(game.tanks, 1.2f);
+            }
+
             for (int pass = 0; pass < 4; pass++)
             {
                 changed |= ResolveWithinGroup(game.giants, 1.05f);
-                changed |= ResolveWithinGroup(game.tanks, 1.18f);
+                changed |= ResolveWithinGroup(game.tanks, 1.16f);
                 changed |= ResolveWithinGroup(game.soldiers, 1.12f);
                 changed |= ResolveBetweenGroups(game.tanks, game.soldiers, 1.10f);
                 changed |= ResolveWithinGroup(game.aircraft, 1.08f);
@@ -73,7 +78,10 @@ public sealed partial class ApocalypseKingUnityGame
             switch (unit.kind)
             {
                 case UnitKind.Tank:
-                    return unit.combatVariant == UnitCombatVariant.RocketTruck ? 58f : 52f;
+                {
+                    float body = Mathf.Max(42f, unit.radius * 1.42f);
+                    return unit.combatVariant == UnitCombatVariant.RocketTruck ? body * 1.06f : body;
+                }
                 case UnitKind.Giant:
                     return 38f;
                 case UnitKind.Soldier:
@@ -331,7 +339,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             float nx = dx / distance;
             float nz = dz / distance;
-            float push = (minimum - distance) + 0.25f;
+            bool tankPair = first.kind == UnitKind.Tank && second.kind == UnitKind.Tank;
+            float push = (minimum - distance) + (tankPair ? 1.1f : 0.25f);
             float firstWeight = PushWeight(first);
             float secondWeight = PushWeight(second);
             ApplyAircraftSeparationWeights(first, second, ref firstWeight, ref secondWeight);
@@ -345,12 +354,18 @@ public sealed partial class ApocalypseKingUnityGame
             float secondPush = push * (secondWeight / totalWeight);
             if (first.kind == UnitKind.Tank)
             {
-                firstPush = Mathf.Min(firstPush, 20f);
+                firstPush = Mathf.Min(firstPush, ApocalypseKingUnityGame.TankSeparationMaxPush);
             }
 
             if (second.kind == UnitKind.Tank)
             {
-                secondPush = Mathf.Min(secondPush, 20f);
+                secondPush = Mathf.Min(secondPush, ApocalypseKingUnityGame.TankSeparationMaxPush);
+            }
+
+            if (tankPair)
+            {
+                firstPush = Mathf.Max(firstPush, (minimum - distance) * 0.52f);
+                secondPush = Mathf.Max(secondPush, (minimum - distance) * 0.52f);
             }
 
             if (first.kind == UnitKind.Aircraft)
