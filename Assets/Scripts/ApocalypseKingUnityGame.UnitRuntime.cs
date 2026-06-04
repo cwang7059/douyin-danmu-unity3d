@@ -84,11 +84,18 @@ public sealed partial class ApocalypseKingUnityGame
         else if (!tankAnchored)
         {
             float desiredX = HumanHoldX(unit, target, engageEnemy);
-            float holdDeltaX = desiredX - unit.x;
-            if (Mathf.Abs(holdDeltaX) > 0.5f)
+            float step = unit.speed * dt;
+            if (unit.kind == UnitKind.Tank)
             {
-                float stepX = unit.speed * dt;
-                nextX = unit.x + Mathf.Sign(holdDeltaX) * Mathf.Min(stepX, Mathf.Abs(holdDeltaX));
+                nextX = Mathf.MoveTowards(unit.x, desiredX, step);
+            }
+            else
+            {
+                float holdDeltaX = desiredX - unit.x;
+                if (Mathf.Abs(holdDeltaX) > 0.5f)
+                {
+                    nextX = unit.x + Mathf.Sign(holdDeltaX) * Mathf.Min(step, Mathf.Abs(holdDeltaX));
+                }
             }
         }
 
@@ -100,7 +107,10 @@ public sealed partial class ApocalypseKingUnityGame
         else if (!aircraftHoveringTarget && !tankAnchored)
         {
             float desiredZ = HumanHoldZ(unit);
-            nextZ = unit.z + (desiredZ - unit.z) * dt * 0.45f;
+            float step = unit.speed * dt;
+            nextZ = unit.kind == UnitKind.Tank
+                ? Mathf.MoveTowards(unit.z, desiredZ, step * 0.92f)
+                : unit.z + (desiredZ - unit.z) * dt * 0.45f;
         }
 
         float maxMoveStep = unit.speed * dt * 1.35f;
@@ -162,7 +172,6 @@ public sealed partial class ApocalypseKingUnityGame
         bool hasSiegePoint = TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _);
         float standoff = rearArtillery ? RocketTruckSiegeStandoffX : TankFormationSiegeStandoffX;
         float frontFormationX = HumanTankFormationFrontSpawnX();
-        float depth = formationX - frontFormationX;
         float advanceFrontX = formationX;
 
         if (hasSiegePoint)
@@ -203,7 +212,9 @@ public sealed partial class ApocalypseKingUnityGame
             return Mathf.Min(truckDesiredX, tankFrontCap);
         }
 
-        return Mathf.Max(formationX, advanceFrontX + depth);
+        float rowDepth = formationX - frontFormationX;
+        float desiredX = advanceFrontX + rowDepth;
+        return Mathf.Max(formationX, desiredX);
     }
 
     private float HumanHoldX(BattleUnit unit, BattleUnit target, bool engageEnemy)
