@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [DefaultExecutionOrder(-200)]
 public sealed class EffectManager : MonoBehaviour
@@ -8,6 +9,8 @@ public sealed class EffectManager : MonoBehaviour
     private const string ShaderRuntimeUnlitTint = "RuntimeMaterials/RuntimeUnlitTint";
     private const string TextureSmokeBlack = VfxSelectedPath + "smoke_black";
     private const string TextureSmokeWhite = VfxSelectedPath + "smoke_white";
+    /// <summary>Runtime soft-circle with alpha; avoids black-background PNGs used as particles.</summary>
+    private const string TextureFireGlow = "__proc/fire_glow";
     private const string TextureFlashKenney = VfxSelectedPath + "flash_kenney";
     private const string TextureMuzzleRifle = VfxSelectedPath + "muzzle_rifle";
     private const string TextureMuzzleTank = VfxSelectedPath + "muzzle_tank";
@@ -195,6 +198,9 @@ public sealed class EffectManager : MonoBehaviour
         EnsurePrewarmed(BattleEffectId.NuclearStrikeWarning, 2);
         EnsurePrewarmed(BattleEffectId.NuclearDetonation, 4);
         EnsurePrewarmed(BattleEffectId.PterosaurFireBreath, 10);
+        EnsurePrewarmed(BattleEffectId.PterosaurFireballMuzzle, 12);
+        EnsurePrewarmed(BattleEffectId.PterosaurFireballImpact, 14);
+        EnsurePrewarmed(BattleEffectId.PterosaurFireballBurn, 12);
     }
 
     private void EnsurePrewarmed(BattleEffectId id, int desiredCount)
@@ -278,9 +284,15 @@ public sealed class EffectManager : MonoBehaviour
         }
     }
 
+    private const string UrpFireballHitResourcePath = "Battle/VFX/UrpPterosaurFireballHit";
+
     private PooledParticleEffect CreateEffect(BattleEffectId id, EffectConfig config)
     {
         GameObject prefab = config != null ? config.prefab : null;
+        if (prefab == null && id == BattleEffectId.PterosaurFireballImpact)
+        {
+            prefab = Resources.Load<GameObject>(UrpFireballHitResourcePath);
+        }
         if (prefab != null && PrefersProceduralGroundEffect(id))
         {
             prefab = null;
@@ -422,6 +434,19 @@ public sealed class EffectManager : MonoBehaviour
                 AddBurst(root, "FireBreathCore", 0.38f, 0.14f, 0.32f, 14f, 26f, 0.18f, 0.42f, 6, new Color(1f, 0.92f, 0.55f, 0.95f), new Color(1f, 0.35f, 0.05f, 0f), ParticleSystemShapeType.Cone, 0.22f, 8f, 0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
                 AddBurst(root, "FireBreathFlame", 0.52f, 0.22f, 0.48f, 9f, 18f, 0.12f, 0.32f, 14, new Color(1f, 0.58f, 0.12f, 0.88f), new Color(0.85f, 0.08f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.18f, 6f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
                 AddBurst(root, "FireBreathEmber", 0.62f, 0.28f, 0.58f, 6f, 14f, 0.06f, 0.18f, 22, new Color(1f, 0.42f, 0.08f, 0.82f), new Color(0.45f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Cone, 0.14f, 4f, -0.02f, ParticleSystemRenderMode.Stretch);
+                break;
+            case BattleEffectId.PterosaurFireballMuzzle:
+                AddBurst(root, "FireballMuzzleFlash", 0.14f, 0.04f, 0.10f, 8f, 16f, 0.22f, 0.42f, 4, new Color(1f, 0.62f, 0.18f, 0.95f), new Color(0.75f, 0.05f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.06f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFireGlow, true);
+                break;
+            case BattleEffectId.PterosaurFireballTrail:
+                AddBurst(root, "FireballTrailCore", 0.18f, 0.05f, 0.12f, 0.2f, 0.8f, 0.16f, 0.34f, 4, new Color(1f, 0.42f, 0.08f, 0.88f), new Color(0.62f, 0.04f, 0.01f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFireGlow, true);
+                break;
+            case BattleEffectId.PterosaurFireballImpact:
+                AddBurst(root, "FireballImpactFlash", 0.32f, 0.08f, 0.18f, 0.6f, 2.0f, 0.35f, 0.72f, 8, new Color(1f, 0.55f, 0.12f, 0.95f), new Color(0.55f, 0.04f, 0.01f, 0f), ParticleSystemShapeType.Sphere, 0.18f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureFireGlow, true);
+                AddShockwave(root, 18, 0.85f, new Color(1f, 0.32f, 0.08f, 0.38f));
+                break;
+            case BattleEffectId.PterosaurFireballBurn:
+                AddBurst(root, "FireballBurnFlame", 0.42f, 0.14f, 0.24f, 0.05f, 0.35f, 0.22f, 0.38f, 3, new Color(1f, 0.48f, 0.10f, 0.9f), new Color(0.55f, 0.04f, 0.01f, 0f), ParticleSystemShapeType.Sphere, 0.12f, 0f, 0.02f, ParticleSystemRenderMode.Billboard, TextureFireGlow, true);
                 break;
             case BattleEffectId.ShellLaunchSmoke:
                 AddBurst(root, "ShellTrailSmoke", 0.62f, 0.32f, 0.82f, 0.28f, 1.1f, 0.16f, 0.38f, 12, new Color(0.56f, 0.55f, 0.52f, 0.55f), new Color(0.22f, 0.22f, 0.20f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
@@ -708,7 +733,7 @@ public sealed class EffectManager : MonoBehaviour
         AddPointLight(root, "ExplosionLight", new Color(1f, 0.52f, 0.18f, 1f), 3.8f * scale, 5.5f * scale);
     }
 
-    private static ParticleSystem AddBurst(Transform parent, string name, float duration, float lifetimeMin, float lifetimeMax, float speedMin, float speedMax, float sizeMin, float sizeMax, int count, Color start, Color end, ParticleSystemShapeType shapeType, float radius, float coneAngle = 0f, float gravity = 0f, ParticleSystemRenderMode renderMode = ParticleSystemRenderMode.Billboard, string textureResourcePath = null)
+    private static ParticleSystem AddBurst(Transform parent, string name, float duration, float lifetimeMin, float lifetimeMax, float speedMin, float speedMax, float sizeMin, float sizeMax, int count, Color start, Color end, ParticleSystemShapeType shapeType, float radius, float coneAngle = 0f, float gravity = 0f, ParticleSystemRenderMode renderMode = ParticleSystemRenderMode.Billboard, string textureResourcePath = null, bool additiveBlend = false)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -752,11 +777,15 @@ public sealed class EffectManager : MonoBehaviour
         renderer.renderMode = renderMode;
         renderer.lengthScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.85f : 1f;
         renderer.velocityScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.12f : 0f;
-        Material material = GetParticleMaterial(textureResourcePath, renderMode);
+        bool useAdditive = additiveBlend || IsFireParticleTexture(textureResourcePath);
+        Material material = GetParticleMaterial(textureResourcePath, renderMode, useAdditive);
         if (material != null)
         {
             renderer.sharedMaterial = material;
-            ConfigureTextureSheet(system, textureResourcePath);
+            if (!useAdditive)
+            {
+                ConfigureTextureSheet(system, textureResourcePath);
+            }
         }
 
         return system;
@@ -894,9 +923,143 @@ public sealed class EffectManager : MonoBehaviour
         return TextureExplosionSinestesiaLarge;
     }
 
-    private static Material GetParticleMaterial(string textureResourcePath, ParticleSystemRenderMode renderMode)
+    private static bool UsesUrpPipeline()
     {
-        string cacheKey = (string.IsNullOrEmpty(textureResourcePath) ? "__solid" : textureResourcePath) + "|" + renderMode;
+        return GraphicsSettings.currentRenderPipeline != null;
+    }
+
+    private static Shader ResolveParticleTintShader(bool additiveBlend)
+    {
+        if (UsesUrpPipeline())
+        {
+            Shader urp = Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                ?? Shader.Find("Universal Render Pipeline/Particles/Simple Lit");
+            if (urp != null)
+            {
+                return urp;
+            }
+        }
+
+        if (additiveBlend)
+        {
+            Shader additive = Shader.Find("Legacy Shaders/Particles/Additive")
+                ?? Shader.Find("Particles/Additive");
+            if (additive != null)
+            {
+                return additive;
+            }
+        }
+
+        return Resources.Load<Shader>(ShaderRuntimeUnlitTint) ?? Shader.Find("ApocalypseKing/UnlitTint");
+    }
+
+    private static void ConfigureParticleMaterial(Material material, Texture2D texture, bool additiveBlend)
+    {
+        if (material == null)
+        {
+            return;
+        }
+
+        if (texture != null)
+        {
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+            }
+
+            if (material.HasProperty("_MainTex"))
+            {
+                material.SetTexture("_MainTex", texture);
+            }
+        }
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", Color.white);
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", Color.white);
+        }
+
+        if (material.HasProperty("_TintColor"))
+        {
+            material.SetColor("_TintColor", Color.white);
+        }
+
+        if (material.HasProperty("_Surface"))
+        {
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_Blend", additiveBlend ? 2f : 0f);
+            material.SetFloat("_AlphaClip", 0f);
+            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_Cull", 2f);
+            if (material.HasProperty("_ColorMode"))
+            {
+                material.SetFloat("_ColorMode", 0f);
+            }
+
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.DisableKeyword("_ALPHAMODULATE_ON");
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)RenderQueue.Transparent;
+            if (additiveBlend)
+            {
+                material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)BlendMode.One);
+                material.SetInt("_SrcBlendAlpha", (int)BlendMode.One);
+                material.SetInt("_DstBlendAlpha", (int)BlendMode.OneMinusSrcAlpha);
+            }
+            else
+            {
+                material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_SrcBlendAlpha", (int)BlendMode.One);
+                material.SetInt("_DstBlendAlpha", (int)BlendMode.OneMinusSrcAlpha);
+            }
+
+            return;
+        }
+
+        material.renderQueue = (int)RenderQueue.Transparent;
+        if (material.HasProperty("_Mode"))
+        {
+            material.SetFloat("_Mode", 2f);
+        }
+
+        BlendMode src = BlendMode.SrcAlpha;
+        BlendMode dst = additiveBlend ? BlendMode.One : BlendMode.OneMinusSrcAlpha;
+        if (material.HasProperty("_SrcBlend"))
+        {
+            material.SetInt("_SrcBlend", (int)src);
+        }
+
+        if (material.HasProperty("_DstBlend"))
+        {
+            material.SetInt("_DstBlend", (int)dst);
+        }
+
+        if (material.HasProperty("_ZWrite"))
+        {
+            material.SetInt("_ZWrite", 0);
+        }
+
+        material.EnableKeyword("_ALPHABLEND_ON");
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+    }
+
+    private static Material GetParticleMaterial(string textureResourcePath, ParticleSystemRenderMode renderMode, bool additiveBlend = false)
+    {
+        string cacheKey = "v3|"
+            + (string.IsNullOrEmpty(textureResourcePath) ? "__solid" : textureResourcePath)
+            + "|" + renderMode
+            + "|" + (additiveBlend ? "add" : "alpha");
         Material material;
         if (particleMaterialCache.TryGetValue(cacheKey, out material))
         {
@@ -914,7 +1077,7 @@ public sealed class EffectManager : MonoBehaviour
             }
         }
 
-        Shader tintShader = Resources.Load<Shader>(ShaderRuntimeUnlitTint) ?? Shader.Find("ApocalypseKing/UnlitTint");
+        Shader tintShader = ResolveParticleTintShader(additiveBlend);
         if (tintShader != null)
         {
             material = new Material(tintShader);
@@ -934,46 +1097,7 @@ public sealed class EffectManager : MonoBehaviour
         }
 
         material.name = texture != null ? "VFX_" + texture.name : "VFX_Solid";
-        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-
-        if (texture != null && material.HasProperty("_MainTex"))
-        {
-            material.SetTexture("_MainTex", texture);
-        }
-
-        if (material.HasProperty("_Color"))
-        {
-            material.SetColor("_Color", Color.white);
-        }
-
-        if (material.HasProperty("_TintColor"))
-        {
-            material.SetColor("_TintColor", Color.white);
-        }
-
-        if (material.HasProperty("_Mode"))
-        {
-            material.SetFloat("_Mode", 2f);
-        }
-
-        if (material.HasProperty("_SrcBlend"))
-        {
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        }
-
-        if (material.HasProperty("_DstBlend"))
-        {
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        }
-
-        if (material.HasProperty("_ZWrite"))
-        {
-            material.SetInt("_ZWrite", 0);
-        }
-
-        material.EnableKeyword("_ALPHABLEND_ON");
-        material.DisableKeyword("_ALPHATEST_ON");
-        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        ConfigureParticleMaterial(material, texture, additiveBlend);
         particleMaterialCache[cacheKey] = material;
         return material;
     }
@@ -1056,6 +1180,141 @@ public sealed class EffectManager : MonoBehaviour
             new[] { new GradientColorKey(start, 0f), new GradientColorKey(end, 1f) },
             new[] { new GradientAlphaKey(start.a, 0f), new GradientAlphaKey(Mathf.Lerp(start.a, end.a, 0.45f), 0.45f), new GradientAlphaKey(end.a, 1f) });
         return new ParticleSystem.MinMaxGradient(gradient);
+    }
+
+    internal static void BuildPterosaurFireballProjectileVfx(Transform root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Color core = new Color(1f, 0.62f, 0.18f, 1f);
+        Color tail = new Color(0.82f, 0.12f, 0.02f, 0f);
+
+        // 程序化柔边贴图 + 叠加混合；勿用 smoke_white PNG（黑底无透明会呈方格）。
+        AddLoopingFireEmitter(
+            root,
+            "FireballCore",
+            22f,
+            0.28f,
+            0.42f,
+            0.01f,
+            0.04f,
+            0.42f,
+            0.82f,
+            core,
+            tail,
+            ParticleSystemShapeType.Sphere,
+            0.08f,
+            ParticleSystemRenderMode.Billboard,
+            TextureFireGlow,
+            false,
+            false,
+            0f,
+            true);
+    }
+
+    private static ParticleSystem AddLoopingFireEmitter(
+        Transform parent,
+        string name,
+        float rate,
+        float lifetimeMin,
+        float lifetimeMax,
+        float speedMin,
+        float speedMax,
+        float sizeMin,
+        float sizeMax,
+        Color start,
+        Color end,
+        ParticleSystemShapeType shapeType,
+        float radius,
+        ParticleSystemRenderMode renderMode,
+        string textureResourcePath,
+        bool enableTrails,
+        bool useWorldSpace,
+        float coneAngle = 0f,
+        bool additiveBlend = false)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        if (shapeType == ParticleSystemShapeType.Cone)
+        {
+            go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        }
+
+        var system = go.AddComponent<ParticleSystem>();
+        var main = system.main;
+        main.loop = true;
+        main.duration = 1f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(lifetimeMin, lifetimeMax);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(speedMin, speedMax);
+        main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
+        main.startColor = new ParticleSystem.MinMaxGradient(start, Color.Lerp(start, Color.white, 0.08f));
+        main.gravityModifier = 0f;
+        main.simulationSpace = useWorldSpace
+            ? ParticleSystemSimulationSpace.World
+            : ParticleSystemSimulationSpace.Local;
+        main.maxParticles = Mathf.Clamp(Mathf.RoundToInt(rate * lifetimeMax * 1.5f), 32, 256);
+
+        var emission = system.emission;
+        emission.rateOverTime = rate;
+
+        var shape = system.shape;
+        shape.shapeType = shapeType;
+        shape.radius = radius;
+        if (shapeType == ParticleSystemShapeType.Cone)
+        {
+            shape.angle = Mathf.Max(4f, coneAngle);
+        }
+
+        var color = system.colorOverLifetime;
+        color.enabled = true;
+        color.color = CreateFadeGradient(start, end);
+
+        var size = system.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+            new Keyframe(0f, 0.55f),
+            new Keyframe(0.4f, 1f),
+            new Keyframe(1f, 0.05f)));
+
+        var velocity = system.velocityOverLifetime;
+        velocity.enabled = shapeType == ParticleSystemShapeType.Cone;
+        velocity.space = ParticleSystemSimulationSpace.Local;
+        velocity.z = new ParticleSystem.MinMaxCurve(-1.2f, -0.35f);
+
+        if (enableTrails)
+        {
+            var trails = system.trails;
+            trails.enabled = true;
+            trails.lifetime = 0.38f;
+            trails.minVertexDistance = 0.04f;
+            trails.worldSpace = useWorldSpace;
+            trails.dieWithParticles = true;
+            trails.colorOverLifetime = CreateFadeGradient(start, end);
+        }
+
+        var renderer = system.GetComponent<ParticleSystemRenderer>();
+        renderer.renderMode = renderMode;
+        renderer.lengthScale = renderMode == ParticleSystemRenderMode.Stretch ? 1.15f : 1f;
+        renderer.velocityScale = renderMode == ParticleSystemRenderMode.Stretch ? 0.22f : 0f;
+        Material material = GetParticleMaterial(textureResourcePath, renderMode, additiveBlend);
+        if (material != null)
+        {
+            renderer.sharedMaterial = material;
+        }
+
+        system.Play(true);
+        return system;
+    }
+
+    private static bool IsFireParticleTexture(string textureResourcePath)
+    {
+        return textureResourcePath == TextureFireGlow
+            || textureResourcePath == TextureFlashKenney
+            || textureResourcePath == TextureExplosionFireball
+            || textureResourcePath == TextureMuzzleTank;
     }
 
     private static bool UsesStoreNuclearPrefabOnly(BattleEffectId id)

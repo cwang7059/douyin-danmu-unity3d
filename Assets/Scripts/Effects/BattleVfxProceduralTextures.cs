@@ -6,6 +6,12 @@ public static class BattleVfxProceduralTextures
 {
     private static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>();
 
+    public static bool IsProceduralOnlyPath(string resourcesPath)
+    {
+        return !string.IsNullOrEmpty(resourcesPath)
+            && resourcesPath.StartsWith("__proc/", System.StringComparison.Ordinal);
+    }
+
     public static Texture2D Resolve(string resourcesPath)
     {
         if (string.IsNullOrEmpty(resourcesPath))
@@ -13,10 +19,13 @@ public static class BattleVfxProceduralTextures
             return null;
         }
 
-        Texture2D loaded = Resources.Load<Texture2D>(resourcesPath);
-        if (loaded != null)
+        if (!IsProceduralOnlyPath(resourcesPath))
         {
-            return loaded;
+            Texture2D loaded = Resources.Load<Texture2D>(resourcesPath);
+            if (loaded != null)
+            {
+                return loaded;
+            }
         }
 
         Texture2D cached;
@@ -41,6 +50,11 @@ public static class BattleVfxProceduralTextures
         if (slash >= 0 && slash < path.Length - 1)
         {
             name = path.Substring(slash + 1);
+        }
+
+        if (name.Contains("fire_glow"))
+        {
+            return CreateSoftCircle(128, new Color(1f, 0.78f, 0.28f, 1f), 0.1f);
         }
 
         if (name.Contains("smoke"))

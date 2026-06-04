@@ -37,6 +37,22 @@ public static class BattleEffectTuning
                 min = 0.42f;
                 max = 0.88f;
                 return;
+            case BattleEffectId.PterosaurFireballMuzzle:
+                min = 0.28f;
+                max = 0.52f;
+                return;
+            case BattleEffectId.PterosaurFireballTrail:
+                min = 0.32f;
+                max = 0.62f;
+                return;
+            case BattleEffectId.PterosaurFireballImpact:
+                min = 0.62f;
+                max = 1.05f;
+                return;
+            case BattleEffectId.PterosaurFireballBurn:
+                min = 0.38f;
+                max = 0.72f;
+                return;
             case BattleEffectId.ShellLaunchSmoke:
                 min = 0.24f;
                 max = 0.42f;

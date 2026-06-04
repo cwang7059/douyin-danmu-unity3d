@@ -34,4 +34,8 @@ public enum BattleEffectId
     NuclearStrikeWarning,
     NuclearDetonation,
     PterosaurFireBreath,
+    PterosaurFireballMuzzle,
+    PterosaurFireballTrail,
+    PterosaurFireballImpact,
+    PterosaurFireballBurn,
 }
