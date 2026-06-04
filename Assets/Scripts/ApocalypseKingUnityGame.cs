@@ -165,6 +165,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float Bottom = -640f;
     private const float GiantGroundY = -228f;
     private const float SeparationGridCellSize = 256f;
+    private const float TankSeparationMaxPush = 32f;
 
     private const int HumanFormationLanesPerRow = 4;
     private const int HumanFormationTanksPerRow = 3;
@@ -1482,6 +1483,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             active = false,
             x = 0f,
             z = 0f,
+            visualX = 0f,
+            visualZ = 0f,
             baseZ = 0f,
             altitude = kind == UnitKind.Aircraft ? AircraftDefaultAltitude : 0f,
             hp = 1f,
@@ -5708,6 +5711,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.root.SetActive(true);
         unit.x = x;
         unit.z = z;
+        unit.visualX = x;
+        unit.visualZ = z;
         unit.baseZ = z;
         unit.hp = hp;
         unit.maxHp = hp;
@@ -6334,7 +6339,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float dx = unit.x - previousX;
         float dz = unit.z - previousZ;
-        unit.moveSpeed = Mathf.Sqrt(dx * dx + dz * dz) / Mathf.Max(0.001f, dt);
+        float rawSpeed = Mathf.Sqrt(dx * dx + dz * dz) / Mathf.Max(0.001f, dt);
+        if (unit.kind == UnitKind.Tank)
+        {
+            unit.moveSpeed = Mathf.Min(rawSpeed, unit.speed * 1.15f);
+        }
+        else
+        {
+            unit.moveSpeed = rawSpeed;
+        }
     }
 
     private static bool UsesEngagementHeading(UnitKind kind)
@@ -6349,9 +6362,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
+        if (unit.kind == UnitKind.Tank)
+        {
+            unit.visualX = unit.x;
+            unit.visualZ = unit.z;
+        }
+
         unit.root.transform.position = ToWorldPoint(unit.x, unit.z, 0f);
 
         bool animatorMotion = UsesAnimatorPlayback(unit);
+        bool tankUsesMotionRig = unit.kind == UnitKind.Tank && unit.tankMotionRig != null;
         float moveFactor = Mathf.Clamp01(unit.moveSpeed / Mathf.Max(1f, unit.speed * 0.75f));
         float cycle = unit.animTimer * MotionCycleSpeed(unit.kind, moveFactor) + unit.seed * Mathf.PI * 2f;
         float airPhase = battleTime > 0.01f ? battleTime : unit.animTimer;
@@ -6362,7 +6382,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 : unit.kind == UnitKind.Giant && !UnitUsesGiantSkinnedLocomotion(unit)
                     ? Mathf.Abs(Mathf.Sin(cycle)) * 0.04f * moveFactor
                     : unit.kind == UnitKind.Tank
-                        ? Mathf.Sin(cycle * 0.45f) * 0.018f * moveFactor
+                        ? (tankUsesMotionRig ? 0f : Mathf.Sin(cycle * 0.45f) * 0.006f * moveFactor)
                         : 0f;
 
         float bodyAltitude = UnitUsesGroundAltitude(unit) ? 0f : unit.altitude;
@@ -6415,7 +6435,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             float hitBoost = unit.kind == UnitKind.Giant && unit.hitFlashTimer > 0f ? 1.08f : 1f;
             float attackBoost = unit.attackVisualTimer > 0f ? (unit.kind == UnitKind.Giant ? 1.04f : 1.02f) : 1f;
             float modelYaw = unit.kind == UnitKind.Tank
-                ? wobble
+                ? (tankUsesMotionRig ? 0f : wobble)
                 : unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur
                     ? PterosaurMeshYawOffset + wobble
                     : unit.kind == UnitKind.Aircraft
@@ -6440,7 +6460,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             Quaternion facingRotation = Quaternion.Euler(modelPitch, modelYaw, modelRoll);
             Quaternion modelRotation = facingRotation * unit.baseModelLocalRotation;
             if (!animatorMotion && !UnitUsesGiantSkinnedLocomotion(unit)
-                && !(unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur))
+                && !(unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur)
+                && !(unit.kind == UnitKind.Tank && tankUsesMotionRig))
             {
                 ApplyProceduralModelMotion(unit, cycle, moveFactor, ref modelLocalPosition, ref modelRotation);
             }
