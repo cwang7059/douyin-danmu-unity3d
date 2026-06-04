@@ -194,6 +194,7 @@ public sealed class EffectManager : MonoBehaviour
         EnsurePrewarmed(BattleEffectId.MonsterDeathDust, 4);
         EnsurePrewarmed(BattleEffectId.NuclearStrikeWarning, 2);
         EnsurePrewarmed(BattleEffectId.NuclearDetonation, 4);
+        EnsurePrewarmed(BattleEffectId.PterosaurFireBreath, 10);
     }
 
     private void EnsurePrewarmed(BattleEffectId id, int desiredCount)
@@ -416,6 +417,11 @@ public sealed class EffectManager : MonoBehaviour
             case BattleEffectId.MuzzleAircraft:
                 AddBurst(root, "AircraftDropFlash", 0.08f, 0.03f, 0.08f, 0.6f, 1.4f, 0.06f, 0.12f, 2, Color.white, new Color(0.72f, 0.74f, 0.70f, 0f), ParticleSystemShapeType.Cone, 0.04f, 12f, 0f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
                 AddBurst(root, "AircraftDropSmoke", 0.28f, 0.12f, 0.28f, 0.18f, 0.55f, 0.06f, 0.14f, 4, new Color(0.72f, 0.72f, 0.68f, 0.42f), new Color(0.28f, 0.28f, 0.25f, 0f), ParticleSystemShapeType.Cone, 0.04f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeWhite);
+                break;
+            case BattleEffectId.PterosaurFireBreath:
+                AddBurst(root, "FireBreathCore", 0.38f, 0.14f, 0.32f, 14f, 26f, 0.18f, 0.42f, 6, new Color(1f, 0.92f, 0.55f, 0.95f), new Color(1f, 0.35f, 0.05f, 0f), ParticleSystemShapeType.Cone, 0.22f, 8f, 0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "FireBreathFlame", 0.52f, 0.22f, 0.48f, 9f, 18f, 0.12f, 0.32f, 14, new Color(1f, 0.58f, 0.12f, 0.88f), new Color(0.85f, 0.08f, 0.02f, 0f), ParticleSystemShapeType.Cone, 0.18f, 6f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "FireBreathEmber", 0.62f, 0.28f, 0.58f, 6f, 14f, 0.06f, 0.18f, 22, new Color(1f, 0.42f, 0.08f, 0.82f), new Color(0.45f, 0.02f, 0.01f, 0f), ParticleSystemShapeType.Cone, 0.14f, 4f, -0.02f, ParticleSystemRenderMode.Stretch);
                 break;
             case BattleEffectId.ShellLaunchSmoke:
                 AddBurst(root, "ShellTrailSmoke", 0.62f, 0.32f, 0.82f, 0.28f, 1.1f, 0.16f, 0.38f, 12, new Color(0.56f, 0.55f, 0.52f, 0.55f), new Color(0.22f, 0.22f, 0.20f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, -0.06f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);

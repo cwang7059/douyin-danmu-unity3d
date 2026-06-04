@@ -33,6 +33,10 @@ public static class BattleEffectTuning
                 min = 0.22f;
                 max = 0.42f;
                 return;
+            case BattleEffectId.PterosaurFireBreath:
+                min = 0.42f;
+                max = 0.88f;
+                return;
             case BattleEffectId.ShellLaunchSmoke:
                 min = 0.24f;
                 max = 0.42f;

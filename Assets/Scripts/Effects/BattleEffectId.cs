@@ -33,4 +33,5 @@ public enum BattleEffectId
     MonsterDeathDust,
     NuclearStrikeWarning,
     NuclearDetonation,
+    PterosaurFireBreath,
 }
