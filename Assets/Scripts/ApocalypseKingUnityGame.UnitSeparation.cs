@@ -83,7 +83,7 @@ public sealed partial class ApocalypseKingUnityGame
                     return unit.combatVariant == UnitCombatVariant.RocketTruck ? body * 1.06f : body;
                 }
                 case UnitKind.Giant:
-                    return 38f;
+                    return unit.combatVariant == UnitCombatVariant.RocketGiant ? 44f : 38f;
                 case UnitKind.Soldier:
                     return 24f;
                 case UnitKind.Aircraft:
