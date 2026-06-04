@@ -10,6 +10,7 @@
 本项目使用了该素材包中的 5 个带骨骼动画 GLB 模型，放置在 `Assets/Resources/Quaternius/UltimateMonsters/`，用于 Giant / Monster 单位的运行时加载与 Animator 播放。
 
 使用的模型页面：
+- Dragon（翼龙首选）：https://poly.pizza/m/3rUm1cN3yp
 - Blue Demon：https://poly.pizza/m/S7jYW6Amye
 - Mushroom King：https://poly.pizza/m/grnFTziU8u
 - Orc：https://poly.pizza/m/5vO2YJsPEf
