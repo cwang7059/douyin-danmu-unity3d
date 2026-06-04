@@ -230,12 +230,147 @@ public sealed partial class ApocalypseKingUnityGame
             }
         }
 
+        SkinnedMeshRenderer[] skinnedMeshes = instance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[i];
+            if (skinned == null
+                || skinned.sharedMesh == null
+                || !IsAircraftFuselageMesh(skinned.transform))
+            {
+                continue;
+            }
+
+            Bounds meshBounds = skinned.sharedMesh.bounds;
+            Vector3[] corners =
+            {
+                new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.min.z),
+                new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.max.z),
+                new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.min.z),
+                new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.max.z),
+                new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.min.z),
+                new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.max.z),
+                new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.min.z),
+                new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.max.z),
+            };
+
+            Transform meshTransform = skinned.transform;
+            for (int c = 0; c < corners.Length; c++)
+            {
+                Vector3 localCorner = root.InverseTransformPoint(meshTransform.TransformPoint(corners[c]));
+                if (!hasBounds)
+                {
+                    bounds = new Bounds(localCorner, Vector3.zero);
+                    hasBounds = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(localCorner);
+                }
+            }
+        }
+
         if (!hasBounds)
         {
             return TryGetCastleModuleLocalBounds(instance, out bounds);
         }
 
         return true;
+    }
+
+    private static bool IsPterosaurCruiseMesh(Transform meshTransform)
+    {
+        if (meshTransform == null)
+        {
+            return false;
+        }
+
+        string name = meshTransform.name.ToLowerInvariant();
+        if (name.Contains("wing") || name.Contains("tail") || name.Contains("crest"))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetPterosaurFuselageLocalBounds(GameObject instance, out Bounds bounds)
+    {
+        bounds = default;
+        bool hasBounds = false;
+        if (instance == null)
+        {
+            return false;
+        }
+
+        Transform root = instance.transform;
+        MeshFilter[] meshFilters = instance.GetComponentsInChildren<MeshFilter>(true);
+        for (int i = 0; i < meshFilters.Length; i++)
+        {
+            MeshFilter meshFilter = meshFilters[i];
+            if (meshFilter == null || !IsPterosaurCruiseMesh(meshFilter.transform))
+            {
+                continue;
+            }
+
+            Mesh mesh = meshFilter.sharedMesh;
+            if (mesh == null)
+            {
+                continue;
+            }
+
+            EncapsulateMeshCornersInRootLocal(root, meshFilter.transform, mesh.bounds, ref bounds, ref hasBounds);
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = instance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[i];
+            if (skinned == null
+                || skinned.sharedMesh == null
+                || !IsPterosaurCruiseMesh(skinned.transform))
+            {
+                continue;
+            }
+
+            EncapsulateMeshCornersInRootLocal(root, skinned.transform, skinned.sharedMesh.bounds, ref bounds, ref hasBounds);
+        }
+
+        return hasBounds;
+    }
+
+    private static void EncapsulateMeshCornersInRootLocal(
+        Transform root,
+        Transform meshTransform,
+        Bounds meshBounds,
+        ref Bounds bounds,
+        ref bool hasBounds)
+    {
+        Vector3[] corners =
+        {
+            new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.min.z),
+            new Vector3(meshBounds.min.x, meshBounds.min.y, meshBounds.max.z),
+            new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.min.z),
+            new Vector3(meshBounds.min.x, meshBounds.max.y, meshBounds.max.z),
+            new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.min.z),
+            new Vector3(meshBounds.max.x, meshBounds.min.y, meshBounds.max.z),
+            new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.min.z),
+            new Vector3(meshBounds.max.x, meshBounds.max.y, meshBounds.max.z),
+        };
+
+        for (int c = 0; c < corners.Length; c++)
+        {
+            Vector3 localCorner = root.InverseTransformPoint(meshTransform.TransformPoint(corners[c]));
+            if (!hasBounds)
+            {
+                bounds = new Bounds(localCorner, Vector3.zero);
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(localCorner);
+            }
+        }
     }
 
     private static void AlignCastleKitModuleToFloor(GameObject instance, float floorLocalY)
