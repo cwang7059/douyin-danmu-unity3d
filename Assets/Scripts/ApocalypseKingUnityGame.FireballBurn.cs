@@ -158,7 +158,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
     }
 
-    private static float ComputeFireballMaxFlightSeconds(float fromX, float fromZ, float goalX, float goalZ)
+    private float ComputeFireballMaxFlightSeconds(float fromX, float fromZ, float goalX, float goalZ)
     {
         float travel = Distance(fromX, fromZ, goalX, goalZ);
         float seconds = travel / PterosaurFireballFlightSpeed + 12f;
