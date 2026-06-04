@@ -68,6 +68,12 @@ public sealed class EffectManager : MonoBehaviour
         return Play(EffectPlayback.Create(id, position, Quaternion.identity));
     }
 
+    public bool ShouldOrientEffectOnPlay(BattleEffectId effectId, Quaternion rotation)
+    {
+        return !PrefersProceduralGroundEffect(effectId)
+            && Quaternion.Angle(rotation, Quaternion.identity) < 2f;
+    }
+
     public PooledParticleEffect Play(EffectPlayback playback)
     {
         if (playback.id == BattleEffectId.None)
@@ -224,7 +230,8 @@ public sealed class EffectManager : MonoBehaviour
         if (pools.TryGetValue(id, out queue) && queue.Count > 0)
         {
             var pooled = queue.Dequeue();
-            if (IsStaleProceduralNuclearEffect(id, config, pooled))
+            if (IsStaleProceduralNuclearEffect(id, config, pooled)
+                || IsStaleStoreGroundEffect(id, pooled))
             {
                 Destroy(pooled.gameObject);
             }
@@ -273,6 +280,11 @@ public sealed class EffectManager : MonoBehaviour
     private PooledParticleEffect CreateEffect(BattleEffectId id, EffectConfig config)
     {
         GameObject prefab = config != null ? config.prefab : null;
+        if (prefab != null && PrefersProceduralGroundEffect(id))
+        {
+            prefab = null;
+        }
+
         GameObject instance = null;
         if (prefab != null)
         {
@@ -316,6 +328,11 @@ public sealed class EffectManager : MonoBehaviour
 
         pooled.Initialize(this, id);
         ConfigureParticleCollision(instance, config);
+        if (prefab != null)
+        {
+            ApplyGroundOrientationToEffectHierarchy(instance.transform);
+        }
+
         instance.SetActive(false);
         return pooled;
     }
@@ -472,14 +489,14 @@ public sealed class EffectManager : MonoBehaviour
                 break;
             case BattleEffectId.HumanSummon:
                 AddBurst(root, "HumanSummonFlash", 0.52f, 0.16f, 0.32f, 0.7f, 2.6f, 0.12f, 0.28f, 10, new Color(1f, 0.92f, 0.62f, 0.92f), new Color(1f, 0.38f, 0.06f, 0f), ParticleSystemShapeType.Circle, 0.26f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
-                AddBurst(root, "HumanSummonCore", 0.38f, 0.10f, 0.22f, 0.02f, 0.12f, 1.05f, 1.65f, 2, Color.white, new Color(1f, 0.45f, 0.08f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "HumanSummonCore", 0.38f, 0.10f, 0.22f, 0.02f, 0.12f, 1.05f, 1.65f, 2, Color.white, new Color(1f, 0.45f, 0.08f, 0f), ParticleSystemShapeType.Circle, 0.08f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureExplosionFireball);
                 AddBurst(root, "HumanSummonSmoke", 0.82f, 0.36f, 0.65f, 0.28f, 0.95f, 0.16f, 0.36f, 18, new Color(0.58f, 0.56f, 0.52f, 0.62f), new Color(0.16f, 0.15f, 0.14f, 0f), ParticleSystemShapeType.Hemisphere, 0.20f, 0f, -0.08f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 AddShockwave(root, 14, 0.62f, new Color(0.72f, 0.58f, 0.32f, 0.38f));
                 AddPointLight(root, "HumanSummonLight", new Color(1f, 0.62f, 0.22f, 1f), 2.2f, 4.2f);
                 break;
             case BattleEffectId.OrcSummon:
                 AddBurst(root, "OrcSummonFlash", 0.55f, 0.18f, 0.34f, 0.9f, 2.8f, 0.14f, 0.30f, 12, new Color(1f, 0.72f, 0.28f, 0.95f), new Color(1f, 0.22f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.30f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
-                AddBurst(root, "OrcSummonCore", 0.42f, 0.12f, 0.24f, 0.02f, 0.14f, 1.15f, 1.75f, 2, Color.white, new Color(1f, 0.35f, 0.06f, 0f), ParticleSystemShapeType.Sphere, 0.10f, 0f, 0f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
+                AddBurst(root, "OrcSummonCore", 0.42f, 0.12f, 0.24f, 0.02f, 0.14f, 1.15f, 1.75f, 2, Color.white, new Color(1f, 0.35f, 0.06f, 0f), ParticleSystemShapeType.Circle, 0.10f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureExplosionFireball);
                 AddBurst(root, "OrcSummonSmoke", 0.92f, 0.40f, 0.68f, 0.32f, 1.05f, 0.20f, 0.42f, 22, new Color(0.42f, 0.40f, 0.36f, 0.68f), new Color(0.12f, 0.11f, 0.10f, 0f), ParticleSystemShapeType.Hemisphere, 0.24f, 0f, -0.10f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
                 AddShockwave(root, 16, 0.68f, new Color(0.55f, 0.48f, 0.40f, 0.42f));
                 AddPointLight(root, "OrcSummonLight", new Color(1f, 0.48f, 0.14f, 1f), 2.4f, 4.6f);
@@ -502,10 +519,10 @@ public sealed class EffectManager : MonoBehaviour
 
     private static void AddMonsterShellImpact(Transform root)
     {
-        AddBurst(root, "MonsterShellImpactFireball", 0.74f, 0.32f, 0.56f, 0.04f, 0.22f, 1.1f, 1.75f, 2, Color.white, new Color(1f, 0.24f, 0.02f, 0f), ParticleSystemShapeType.Sphere, 0.08f, 0f, -0.02f, ParticleSystemRenderMode.Billboard, TextureExplosionFireball);
-        AddBurst(root, "MonsterShellImpactFlash", 0.42f, 0.16f, 0.32f, 0.08f, 0.36f, 0.84f, 1.35f, 3, new Color(1f, 0.96f, 0.62f, 0.92f), new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.12f, 0f, -0.02f, ParticleSystemRenderMode.Billboard, TextureFlashKenney);
-        AddBurst(root, "MonsterShellImpactSmoke", 1.35f, 0.55f, 1.25f, 0.32f, 1.4f, 0.32f, 0.86f, 24, new Color(0.34f, 0.30f, 0.24f, 0.66f), new Color(0.08f, 0.06f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.18f, 0f, -0.24f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
-        AddBurst(root, "MonsterShellImpactDebris", 0.58f, 0.20f, 0.52f, 3.0f, 8.0f, 0.08f, 0.18f, 26, new Color(1f, 0.72f, 0.24f, 0.95f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Sphere, 0.24f, 0f, -0.18f, ParticleSystemRenderMode.Stretch);
+        AddBurst(root, "MonsterShellImpactFireball", 0.74f, 0.32f, 0.56f, 0.04f, 0.22f, 1.1f, 1.75f, 2, Color.white, new Color(1f, 0.24f, 0.02f, 0f), ParticleSystemShapeType.Circle, 0.08f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureExplosionFireball);
+        AddBurst(root, "MonsterShellImpactFlash", 0.42f, 0.16f, 0.32f, 0.08f, 0.36f, 0.84f, 1.35f, 3, new Color(1f, 0.96f, 0.62f, 0.92f), new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.12f, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, TextureFlashKenney);
+        AddBurst(root, "MonsterShellImpactSmoke", 1.35f, 0.55f, 1.25f, 0.32f, 1.4f, 0.32f, 0.86f, 24, new Color(0.34f, 0.30f, 0.24f, 0.66f), new Color(0.08f, 0.06f, 0.04f, 0f), ParticleSystemShapeType.Hemisphere, 0.18f, 0f, -0.24f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
+        AddBurst(root, "MonsterShellImpactDebris", 0.58f, 0.20f, 0.52f, 3.0f, 8.0f, 0.08f, 0.18f, 26, new Color(1f, 0.72f, 0.24f, 0.95f), new Color(1f, 0.16f, 0.02f, 0f), ParticleSystemShapeType.Hemisphere, 0.24f, 0f, -0.18f, ParticleSystemRenderMode.Stretch);
         AddShockwave(root, 30, 1.18f, new Color(1f, 0.58f, 0.18f, 0.52f));
         AddPointLight(root, "MonsterShellImpactLight", new Color(1f, 0.48f, 0.14f, 1f), 4.2f, 6.5f);
     }
@@ -678,7 +695,7 @@ public sealed class EffectManager : MonoBehaviour
     private static void AddExplosion(Transform root, float duration, int fireCount, int debrisCount, float scale, string fireTextureResourcePath)
     {
         int animatedFireCount = Mathf.Clamp(Mathf.CeilToInt(fireCount / 12f), 1, 3);
-        AddBurst(root, "ExplosionFire", duration, 0.34f, 0.58f, 0.05f * scale, 0.28f * scale, 0.95f * scale, 1.45f * scale, animatedFireCount, Color.white, new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Sphere, 0.12f * scale, 0f, 0f, ParticleSystemRenderMode.Billboard, fireTextureResourcePath);
+        AddBurst(root, "ExplosionFire", duration, 0.34f, 0.58f, 0.05f * scale, 0.28f * scale, 0.95f * scale, 1.45f * scale, animatedFireCount, Color.white, new Color(1f, 0.28f, 0.04f, 0f), ParticleSystemShapeType.Circle, 0.12f * scale, 0f, 0f, ParticleSystemRenderMode.HorizontalBillboard, fireTextureResourcePath);
         AddBurst(root, "ExplosionSmoke", duration + 1.2f, 0.8f, 1.85f, 0.8f * scale, 2.2f * scale, 0.36f * scale, 0.92f * scale, Mathf.Max(18, fireCount), new Color(0.34f, 0.32f, 0.28f, 0.78f), new Color(0.10f, 0.10f, 0.09f, 0f), ParticleSystemShapeType.Hemisphere, 0.34f * scale, 0f, -0.12f, ParticleSystemRenderMode.Billboard, TextureSmokeBlack);
         AddBurst(root, "ExplosionDebris", duration, 0.28f, 0.75f, 2.6f * scale, 7.0f * scale, 0.07f * scale, 0.18f * scale, debrisCount, new Color(0.58f, 0.46f, 0.32f, 0.95f), new Color(0.18f, 0.13f, 0.08f, 0f), ParticleSystemShapeType.Hemisphere, 0.28f * scale, 0f, -0.30f, ParticleSystemRenderMode.Stretch);
         AddShockwave(root, Mathf.RoundToInt(24 * scale), 1.0f * scale, new Color(1f, 0.70f, 0.28f, 0.42f));
@@ -750,7 +767,95 @@ public sealed class EffectManager : MonoBehaviour
         {
             var shape = system.shape;
             shape.rotation = new Vector3(90f, 0f, 0f);
+            return;
         }
+
+        if (shapeType == ParticleSystemShapeType.Hemisphere)
+        {
+            var shape = system.shape;
+            shape.rotation = new Vector3(90f, 0f, 0f);
+        }
+    }
+
+    internal static void ApplyGroundOrientationToEffectHierarchy(Transform root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        var systems = root.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            var system = systems[i];
+            if (system == null)
+            {
+                continue;
+            }
+
+            var shape = system.shape;
+            var renderer = system.GetComponent<ParticleSystemRenderer>();
+            ParticleSystemShapeType shapeType = shape.shapeType;
+            ParticleSystemRenderMode renderMode = renderer != null ? renderer.renderMode : ParticleSystemRenderMode.Billboard;
+            ApplyParticleShapeGroundOrientation(system, shapeType, renderMode);
+
+            if (renderer != null
+                && renderer.renderMode == ParticleSystemRenderMode.Billboard
+                && (shapeType == ParticleSystemShapeType.Circle
+                    || shapeType == ParticleSystemShapeType.Hemisphere
+                    || shapeType == ParticleSystemShapeType.Sphere))
+            {
+                renderer.renderMode = ParticleSystemRenderMode.HorizontalBillboard;
+            }
+        }
+    }
+
+    private static bool PrefersProceduralGroundEffect(BattleEffectId id)
+    {
+        switch (id)
+        {
+            case BattleEffectId.ExplosionSmall:
+            case BattleEffectId.ExplosionLarge:
+            case BattleEffectId.ShellExplosionSmall:
+            case BattleEffectId.ShellExplosionLarge:
+            case BattleEffectId.ShellImpactMonster:
+            case BattleEffectId.BombExplosion:
+            case BattleEffectId.AirCrashExplosion:
+            case BattleEffectId.TankDeathExplosion:
+            case BattleEffectId.AircraftDeathExplosion:
+            case BattleEffectId.MonsterDeathExplosion:
+            case BattleEffectId.HumanSummon:
+            case BattleEffectId.OrcSummon:
+            case BattleEffectId.BulletHitMetal:
+            case BattleEffectId.BulletHitDirt:
+            case BattleEffectId.SoldierDeath:
+            case BattleEffectId.MonsterHammerImpact:
+            case BattleEffectId.MonsterStompDust:
+            case BattleEffectId.ClawHit:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsProceduralGroundEffectInstance(PooledParticleEffect pooled)
+    {
+        if (pooled == null)
+        {
+            return false;
+        }
+
+        Transform root = pooled.transform;
+        return root.Find("ExplosionFire") != null
+            || root.Find("MonsterShellImpactSmoke") != null
+            || root.Find("HumanSummonSmoke") != null
+            || root.Find("OrcSummonSmoke") != null
+            || root.Find("DirtPuff") != null;
+    }
+
+    private static bool IsStaleStoreGroundEffect(BattleEffectId id, PooledParticleEffect pooled)
+    {
+        return PrefersProceduralGroundEffect(id) && !IsProceduralGroundEffectInstance(pooled);
     }
 
     private static void AddShockwave(Transform parent, int count, float scale, Color color)

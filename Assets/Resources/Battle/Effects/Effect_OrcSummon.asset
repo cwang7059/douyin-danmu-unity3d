@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Effect_OrcSummon
   m_EditorClassIdentifier: 
   id: 9
-  prefab: {fileID: 100000, guid: a9726ee302999a84ea27e4657abb703f, type: 3}
-  prefabScaleMultiplier: 0.72
+  prefab: {fileID: 8791802859087666345, guid: ae07f2a45f14a82428409cfe410e6002, type: 3}
+  prefabScaleMultiplier: 0.78
   prewarmCount: 12
   maxCount: 48
   attachToParent: 0

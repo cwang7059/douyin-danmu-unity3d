@@ -29,6 +29,11 @@ public sealed class PooledParticleEffect : MonoBehaviour
         transform.position = playback.position;
         transform.rotation = playback.rotation;
         transform.localScale = Vector3.one * playback.scale;
+        if (owner != null && owner.ShouldOrientEffectOnPlay(id, playback.rotation))
+        {
+            EffectManager.ApplyGroundOrientationToEffectHierarchy(transform);
+        }
+
         gameObject.SetActive(true);
 
         if (particleSystems == null || particleSystems.Length == 0)
