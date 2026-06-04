@@ -11,7 +11,6 @@ public sealed partial class ApocalypseKingUnityGame
     private static readonly float[] NuclearRingOffsetX = { 0f, -200f, 200f, -120f, 120f };
     private static readonly float[] NuclearRingOffsetZ = { 0f, 140f, -140f, -95f, 95f };
 
-    private float nuclearStrikeSequenceTimer;
     private float nuclearStrikeCenterX;
     private float nuclearStrikeCenterZ;
     private bool nuclearStrikeDetonated;

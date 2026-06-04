@@ -627,7 +627,6 @@ public sealed partial class ApocalypseKingUnityGame
         nuclearWarheadTrailTimer = 0f;
         nuclearWarningRefreshTimer = 0f;
         nuclearStrikePhase = NuclearStrikePhase.InFlight;
-        nuclearStrikeSequenceTimer = 1f;
         nuclearStrikeDetonated = false;
 
         nuclearWarheadRoot.SetActive(true);
@@ -750,7 +749,6 @@ public sealed partial class ApocalypseKingUnityGame
     private void ResetNuclearStrikeSequence()
     {
         nuclearStrikePhase = NuclearStrikePhase.Idle;
-        nuclearStrikeSequenceTimer = 0f;
         nuclearStrikeDetonated = false;
         nuclearWarheadFlightProgress = 0f;
         nuclearWarheadPostVfxTimer = 0f;
