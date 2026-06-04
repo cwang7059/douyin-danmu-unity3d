@@ -833,6 +833,7 @@ public sealed partial class ApocalypseKingUnityGame
         unit.runtimeState = UnitRuntimeState.Dead;
         unit.root.SetActive(false);
         humanLosses++;
+        testBattleDeathCount++;
 
         switch (unit.kind)
         {
@@ -855,6 +856,8 @@ public sealed partial class ApocalypseKingUnityGame
                 PlayBattleEffect(BattleEffectId.SoldierDeath, unit.x, unit.z, 0.08f, 0.58f, Quaternion.identity);
                 break;
         }
+
+        TryTestRespawnAtSpawn(unit);
     }
 
     private void DefeatGiant(BattleUnit giant)
@@ -873,6 +876,8 @@ public sealed partial class ApocalypseKingUnityGame
         PlayBattleEffect(BattleEffectId.MonsterDeathDust, giant.x, giant.z + 12f, 0.22f, 0.95f, Quaternion.identity);
         PlayBattleAudio(BattleAudioCueId.ExplosionLarge, giant.x, giant.z, 0.4f);
         TriggerCameraShake(0.32f, 0.24f);
+        testBattleDeathCount++;
+        TryTestRespawnAtSpawn(giant);
         if (CountActive(giants) <= 0)
         {
             ended = true;

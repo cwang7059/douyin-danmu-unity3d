@@ -122,6 +122,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         ApplyBaseSiegeDamage(dt);
         TickInfectionTimers(dt);
+        TickBurnStatuses(dt);
         RefreshBaseMarkers();
         CheckApocalypseMatchEnd();
     }
