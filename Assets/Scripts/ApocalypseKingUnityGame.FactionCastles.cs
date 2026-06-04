@@ -488,7 +488,8 @@ public sealed partial class ApocalypseKingUnityGame
     }
 
     private const float FormationWidthScale = 1.5f;
-    private const float FormationBlockGapX = 56f;
+    /// <summary>兵种块之间的纵深间距（逻辑坐标），紧挨城门梯队展开。</summary>
+    private const float CastleEchelonGapX = 22f;
     private const float HumanSoldierFormationOffsetX = 10f;
     private const float BeastSoldierFormationOffsetX = 10f;
     private const float SoldierFormationRankSpacingX = 44f;
@@ -520,35 +521,49 @@ public sealed partial class ApocalypseKingUnityGame
 
     private const int HumanFormationLayoutCap = 16;
     private const int HumanSoldierMassSpawnColumns = 25;
-    private const int HumanTankMassSpawnColumns = 20;
+    private const int HumanTankMassSpawnColumns = 10;
     private const float HumanSoldierMassSpawnSpacingX = 20f;
     private const float HumanSoldierMassSpawnSpacingZ = 22f * FormationWidthScale;
-    private const float HumanTankMassSpawnSpacingX = 24f;
-    private const float HumanTankMassSpawnSpacingZ = 26f * FormationWidthScale;
+    private const float HumanTankMassSpawnSpacingX = 28f;
+    private const float HumanTankMassSpawnSpacingZ = 32f * FormationWidthScale;
     private const int HumanAircraftMassSpawnColumns = 10;
     private const float HumanAircraftMassSpawnSpacingX = 26f;
     private const float HumanAircraftMassSpawnSpacingZ = 28f * FormationWidthScale;
 
+    private static float HumanCastleSpawnExitX()
+    {
+        return HumanCastleGateX + HumanSoldierFormationOffsetX + 6f;
+    }
+
+    private static float HumanSoldierMassSpawnFrontX()
+    {
+        int rows = FormationRowCount(SoldierCount, HumanSoldierMassSpawnColumns);
+        return HumanCastleSpawnExitX() + Mathf.Max(0, rows - 1) * HumanSoldierMassSpawnSpacingX;
+    }
+
     private static float HumanSoldierBlockFrontX()
     {
-        int rows = FormationRowCount(HumanFormationLayoutCap, HumanFormationLanesPerRow);
-        return HumanCastleGateX + HumanSoldierFormationOffsetX + Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
+        return HumanSoldierMassSpawnFrontX();
     }
 
     private static float HumanTankFormationBaseX()
     {
-        return HumanSoldierBlockFrontX() + FormationBlockGapX;
+        return HumanSoldierMassSpawnFrontX() + CastleEchelonGapX;
     }
 
     private static float HumanTankBlockFrontX()
     {
-        int rows = FormationRowCount(HumanFormationLayoutCap, HumanFormationTanksPerRow);
-        return HumanTankFormationBaseX() + Mathf.Max(0, rows - 1) * TankFormationRankSpacingX;
+        return HumanTankFormationFrontSpawnX();
     }
 
     private static float HumanAircraftFormationX()
     {
-        return HumanTankBlockFrontX() + FormationBlockGapX;
+        return HumanTankFormationFrontSpawnX() + CastleEchelonGapX;
+    }
+
+    private static float BeastCastleSpawnExitX()
+    {
+        return BeastCastleGateX - BeastSoldierFormationOffsetX - 10f;
     }
 
     private static float BeastSoldierBlockFrontX()
@@ -557,9 +572,20 @@ public sealed partial class ApocalypseKingUnityGame
         return BeastCastleGateX - BeastSoldierFormationOffsetX - Mathf.Max(0, rows - 1) * SoldierFormationRankSpacingX;
     }
 
+    private static float BeastGiantMassSpawnAnchorX()
+    {
+        return BeastCastleSpawnExitX() - 6f;
+    }
+
+    private static float BeastGiantMassSpawnFrontX()
+    {
+        int rows = FormationRowCount(BaseGiantCount, GiantMassSpawnColumns);
+        return BeastGiantMassSpawnAnchorX() - Mathf.Max(0, rows - 1) * GiantMassSpawnSpacingX;
+    }
+
     private static float BeastGiantFormationBaseX()
     {
-        return BeastSoldierBlockFrontX() - FormationBlockGapX;
+        return BeastGiantMassSpawnAnchorX();
     }
 
     private const int GiantFormationLayoutCap = 12;
@@ -569,9 +595,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private static float BeastTankFormationBaseX()
     {
-        int giantRows = FormationRowCount(GiantFormationLayoutCap, BeastGiantLanesPerRow);
-        float giantFront = BeastGiantFormationBaseX() - Mathf.Max(0, giantRows - 1) * GiantFormationRankSpacingX;
-        return giantFront - FormationBlockGapX;
+        return BeastGiantMassSpawnFrontX() - CastleEchelonGapX;
     }
 
     private void GetGiantMassSpawn(int unitIndex, out float x, out float z)
@@ -579,7 +603,7 @@ public sealed partial class ApocalypseKingUnityGame
         unitIndex = Mathf.Max(0, unitIndex);
         int col = unitIndex % GiantMassSpawnColumns;
         int row = unitIndex / GiantMassSpawnColumns;
-        float anchorX = BeastGiantFormationBaseX() - 8f;
+        float anchorX = BeastGiantMassSpawnAnchorX();
         z = (col - (GiantMassSpawnColumns - 1) * 0.5f) * GiantMassSpawnSpacingZ;
         x = anchorX - row * GiantMassSpawnSpacingX;
     }
@@ -592,7 +616,7 @@ public sealed partial class ApocalypseKingUnityGame
 
     private static float BeastAircraftFormationX()
     {
-        return BeastTankBlockFrontX() - FormationBlockGapX;
+        return BeastGiantMassSpawnFrontX() - CastleEchelonGapX;
     }
 
     private void GetHumanSoldierMassSpawn(int unitIndex, out float x, out float z)
@@ -600,9 +624,30 @@ public sealed partial class ApocalypseKingUnityGame
         unitIndex = Mathf.Max(0, unitIndex);
         int col = unitIndex % HumanSoldierMassSpawnColumns;
         int row = unitIndex / HumanSoldierMassSpawnColumns;
-        float anchorX = HumanCastleGateX + HumanSoldierFormationOffsetX + 6f;
+        float anchorX = HumanCastleSpawnExitX();
         z = (col - (HumanSoldierMassSpawnColumns - 1) * 0.5f) * HumanSoldierMassSpawnSpacingZ;
         x = anchorX + row * HumanSoldierMassSpawnSpacingX;
+    }
+
+    private static float HumanTankMassSpawnAnchorX()
+    {
+        return HumanTankFormationBaseX() + 8f;
+    }
+
+    private static int HumanTankMassSpawnRowCount()
+    {
+        return (TankCount + HumanTankMassSpawnColumns - 1) / HumanTankMassSpawnColumns;
+    }
+
+    private static float HumanTankFormationFrontSpawnX()
+    {
+        int frontRow = Mathf.Max(0, HumanTankMassSpawnRowCount() - 1);
+        return HumanTankMassSpawnAnchorX() + frontRow * HumanTankMassSpawnSpacingX;
+    }
+
+    private static float HumanTankFormationRearSpawnX()
+    {
+        return HumanTankMassSpawnAnchorX();
     }
 
     private void GetHumanTankMassSpawn(int unitIndex, out float x, out float z)
@@ -610,7 +655,7 @@ public sealed partial class ApocalypseKingUnityGame
         unitIndex = Mathf.Max(0, unitIndex);
         int col = unitIndex % HumanTankMassSpawnColumns;
         int row = unitIndex / HumanTankMassSpawnColumns;
-        float anchorX = HumanTankFormationBaseX() + 10f;
+        float anchorX = HumanTankMassSpawnAnchorX();
         z = (col - (HumanTankMassSpawnColumns - 1) * 0.5f) * HumanTankMassSpawnSpacingZ;
         x = anchorX + row * HumanTankMassSpawnSpacingX;
     }
@@ -643,7 +688,7 @@ public sealed partial class ApocalypseKingUnityGame
         unitIndex = Mathf.Max(0, unitIndex);
         int col = unitIndex % HumanAircraftMassSpawnColumns;
         int row = unitIndex / HumanAircraftMassSpawnColumns;
-        float anchorX = HumanAircraftFormationX() + 12f;
+        float anchorX = HumanAircraftFormationX() + 8f;
         z = (col - (HumanAircraftMassSpawnColumns - 1) * 0.5f) * HumanAircraftMassSpawnSpacingZ;
         x = anchorX + row * HumanAircraftMassSpawnSpacingX;
     }
@@ -679,14 +724,14 @@ public sealed partial class ApocalypseKingUnityGame
         }
         else
         {
-            x = BeastCastleGateX - BeastSoldierFormationOffsetX - rank * rankSpacing;
+            x = BeastCastleSpawnExitX() - rank * rankSpacing;
         }
     }
 
     private void GetBeastAircraftFormationSpawn(int laneIndex, out float x, out float z)
     {
         laneIndex = Mathf.Clamp(laneIndex, 0, AirLanes.Length - 1);
-        x = BeastAircraftFormationX();
+        x = BeastCastleGateX - BeastSoldierFormationOffsetX - 18f;
         z = AirLanes[laneIndex];
     }
 
