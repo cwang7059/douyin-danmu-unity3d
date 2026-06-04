@@ -147,11 +147,20 @@ public sealed partial class ApocalypseKingUnityGame
 
         public static bool AvoidsBuildings(BattleUnit unit)
         {
-            return unit != null
-                && (unit.kind == UnitKind.Soldier
-                    || unit.kind == UnitKind.Tank
-                    || unit.kind == UnitKind.Aircraft
-                    || unit.kind == UnitKind.Giant);
+            if (unit == null)
+            {
+                return false;
+            }
+
+            if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+            {
+                return false;
+            }
+
+            return unit.kind == UnitKind.Soldier
+                || unit.kind == UnitKind.Tank
+                || unit.kind == UnitKind.Aircraft
+                || unit.kind == UnitKind.Giant;
         }
 
         public static float BuildingAvoidanceRadius(BattleUnit unit)
