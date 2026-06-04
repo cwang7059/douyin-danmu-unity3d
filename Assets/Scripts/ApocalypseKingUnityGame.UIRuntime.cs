@@ -97,7 +97,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.humanLabel != null)
             {
-                game.humanLabel.text = $"Force {humanAlive}/{humanTotal}  Tanks {tankAlive}";
+                game.humanLabel.text =
+                    $"部队 {humanAlive}/{humanTotal}  步兵 {soldierAlive}/{ApocalypseKingUnityGame.MaxSoldierCount}  装甲 {tankAlive}/{ApocalypseKingUnityGame.MaxTankCount}";
             }
 
             if (game.giantLabel != null)
