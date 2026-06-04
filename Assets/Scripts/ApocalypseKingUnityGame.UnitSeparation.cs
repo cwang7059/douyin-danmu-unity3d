@@ -42,8 +42,10 @@ public sealed partial class ApocalypseKingUnityGame
                 changed |= ResolveWithinGroup(game.soldiers, 1.12f);
                 changed |= ResolveBetweenGroups(game.tanks, game.soldiers, 1.10f);
                 changed |= ResolveWithinGroup(game.aircraft, 1.08f);
+                changed |= ResolveWithinGroup(game.pterosaurs, 1.08f);
                 changed |= ResolveBetweenGroups(game.aircraft, game.soldiers, 1.16f);
                 changed |= ResolveBetweenGroups(game.aircraft, game.tanks, 1.08f);
+                changed |= ResolveBetweenGroups(game.pterosaurs, game.aircraft, 1.12f);
                 changed |= ResolveAwayFromGiant(game.soldiers, 1.02f);
                 changed |= ResolveAwayFromBuildings(game.soldiers);
                 changed |= ResolveAwayFromBuildings(game.tanks);
@@ -59,6 +61,7 @@ public sealed partial class ApocalypseKingUnityGame
             UpdateActiveTransforms(game.tanks);
             UpdateActiveTransforms(game.soldiers);
             UpdateActiveTransforms(game.aircraft);
+            UpdateActiveTransforms(game.pterosaurs);
             UpdateActiveTransforms(game.giants);
         }
 
@@ -67,7 +70,7 @@ public sealed partial class ApocalypseKingUnityGame
             switch (unit.kind)
             {
                 case UnitKind.Tank:
-                    return 48f;
+                    return unit.combatVariant == UnitCombatVariant.RocketTruck ? 58f : 52f;
                 case UnitKind.Giant:
                     return 38f;
                 case UnitKind.Soldier:

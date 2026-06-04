@@ -115,34 +115,96 @@ public sealed partial class ApocalypseKingUnityGame
         UpdateUnitTransform(unit, dt);
     }
 
-    private float HumanHoldX(BattleUnit unit, BattleUnit target, bool engageEnemy)
+    private bool TryGetHumanFormationSpawn(BattleUnit unit, out float spawnX, out float spawnZ)
     {
-        float stagger = (Noise(unit.id * 0.37f + unit.rank * 1.9f) - 0.5f) * 40f;
-        bool hasSiegePoint = TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _);
-        float desiredX = hasSiegePoint ? siegeX + stagger : unit.x + stagger;
+        spawnX = 0f;
+        spawnZ = 0f;
+        if (unit == null)
+        {
+            return false;
+        }
 
-        if (target != null && engageEnemy)
+        if (unit.kind == UnitKind.Soldier && unit.rank >= 0 && unit.rank < SoldierCount)
+        {
+            GetHumanSoldierMassSpawn(unit.rank, out spawnX, out spawnZ);
+            return true;
+        }
+
+        if (unit.kind != UnitKind.Tank)
+        {
+            return false;
+        }
+
+        if (unit.combatVariant == UnitCombatVariant.RocketTruck && unit.rank >= TankCount)
+        {
+            GetHumanRocketTruckMassSpawn(unit.rank - TankCount, out spawnX, out spawnZ);
+            return true;
+        }
+
+        if (unit.combatVariant == UnitCombatVariant.Standard && unit.rank < TankCount)
+        {
+            GetHumanTankMassSpawn(unit.rank, out spawnX, out spawnZ);
+            return true;
+        }
+
+        return false;
+    }
+
+    private float ResolveHumanTankFormationDesiredX(BattleUnit unit, float formationX, BattleUnit target, bool engageEnemy)
+    {
+        bool rearArtillery = unit.combatVariant == UnitCombatVariant.RocketTruck;
+        bool hasSiegePoint = TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _);
+        float standoff = rearArtillery ? RocketTruckSiegeStandoffX : TankFormationSiegeStandoffX;
+        float frontFormationX = HumanTankFormationFrontSpawnX();
+        float depth = formationX - frontFormationX;
+        float advanceFrontX = formationX;
+
+        if (hasSiegePoint)
+        {
+            advanceFrontX = siegeX - standoff;
+        }
+
+        if (!rearArtillery && target != null && engageEnemy)
         {
             float gap = HumanEngagementGap(unit.kind);
-            float combatX = (unit.facing >= 0 ? target.x - gap : target.x + gap) + stagger;
+            float combatX = unit.facing >= 0 ? target.x - gap : target.x + gap;
             if (hasSiegePoint)
             {
-                // 只向城堡方向推进：交战站位不得落在身后，避免双方在中场对顶不前
-                if (unit.facing >= 0)
-                {
-                    desiredX = Mathf.Min(Mathf.Max(combatX, unit.x), siegeX + stagger);
-                }
-                else
-                {
-                    desiredX = Mathf.Max(Mathf.Min(combatX, unit.x), siegeX + stagger);
-                }
+                advanceFrontX = Mathf.Min(Mathf.Max(combatX, advanceFrontX), siegeX - standoff);
             }
             else
             {
-                desiredX = combatX;
+                advanceFrontX = Mathf.Max(advanceFrontX, combatX);
             }
         }
 
+        float desiredX = advanceFrontX + depth;
+        if (rearArtillery)
+        {
+            GetHumanRocketTruckMassSpawn(0, out float rocketReferenceX, out _);
+            float rocketDepth = formationX - rocketReferenceX;
+            desiredX = formationX;
+            if (hasSiegePoint)
+            {
+                desiredX = (siegeX - standoff) + rocketDepth;
+            }
+
+            float tankFrontCap = hasSiegePoint
+                ? siegeX - TankFormationSiegeStandoffX - RocketTruckBehindTankGapX
+                : HumanTankFormationFrontSpawnX() - RocketTruckBehindTankGapX * 0.35f;
+            desiredX = Mathf.Min(desiredX, tankFrontCap);
+            desiredX = Mathf.Max(formationX - 6f, desiredX);
+        }
+        else
+        {
+            desiredX = Mathf.Max(formationX, desiredX);
+        }
+
+        return desiredX;
+    }
+
+    private float HumanHoldX(BattleUnit unit, BattleUnit target, bool engageEnemy)
+    {
         float minX = Left + 58f;
         float maxX = Right - 48f;
         if (unit.kind == UnitKind.Tank)
@@ -151,7 +213,64 @@ public sealed partial class ApocalypseKingUnityGame
             maxX = Right - 160f;
         }
 
-        return Mathf.Clamp(desiredX, minX, maxX);
+        if (unit.kind == UnitKind.Tank && TryGetHumanFormationSpawn(unit, out float formationX, out _))
+        {
+            float desiredX = ResolveHumanTankFormationDesiredX(unit, formationX, target, engageEnemy);
+            return Mathf.Clamp(desiredX, minX, maxX);
+        }
+
+        if (unit.kind == UnitKind.Soldier && TryGetHumanFormationSpawn(unit, out float soldierFormationX, out _))
+        {
+            bool hasSiegePoint = TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _);
+            float desiredX = soldierFormationX;
+            if (hasSiegePoint)
+            {
+                desiredX = Mathf.Max(soldierFormationX, siegeX - SoldierFormationSiegeStandoffX);
+            }
+
+            if (target != null && engageEnemy)
+            {
+                float gap = HumanEngagementGap(unit.kind);
+                float combatX = unit.facing >= 0 ? target.x - gap : target.x + gap;
+                if (hasSiegePoint)
+                {
+                    desiredX = Mathf.Min(Mathf.Max(combatX, soldierFormationX), siegeX - SoldierFormationSiegeStandoffX);
+                }
+                else
+                {
+                    desiredX = combatX;
+                }
+            }
+
+            return Mathf.Clamp(desiredX, minX, maxX);
+        }
+
+        float stagger = (Noise(unit.id * 0.37f + unit.rank * 1.9f) - 0.5f) * 40f;
+        bool hasSiegePointFallback = TryGetEnemyCastleSiegePoint(unit, out float siegeXFallback, out _);
+        float desiredXFallback = hasSiegePointFallback ? siegeXFallback + stagger : unit.x + stagger;
+
+        if (target != null && engageEnemy)
+        {
+            float gap = HumanEngagementGap(unit.kind);
+            float combatX = (unit.facing >= 0 ? target.x - gap : target.x + gap) + stagger;
+            if (hasSiegePointFallback)
+            {
+                if (unit.facing >= 0)
+                {
+                    desiredXFallback = Mathf.Min(Mathf.Max(combatX, unit.x), siegeXFallback + stagger);
+                }
+                else
+                {
+                    desiredXFallback = Mathf.Max(Mathf.Min(combatX, unit.x), siegeXFallback + stagger);
+                }
+            }
+            else
+            {
+                desiredXFallback = combatX;
+            }
+        }
+
+        return Mathf.Clamp(desiredXFallback, minX, maxX);
     }
 
     private void AimUnitTowardCastle(BattleUnit unit, float dt)
@@ -185,6 +304,11 @@ public sealed partial class ApocalypseKingUnityGame
 
     private float HumanHoldZ(BattleUnit unit)
     {
+        if (TryGetHumanFormationSpawn(unit, out _, out float formationZ))
+        {
+            return formationZ;
+        }
+
         float wave = unit.kind == UnitKind.Aircraft ? 0f : Mathf.Sin(battleTime * 1.7f + unit.seed * 6f) * 5f;
         if (TryGetEnemyCastleSiegePoint(unit, out _, out float siegeZ))
         {
@@ -291,8 +415,28 @@ public sealed partial class ApocalypseKingUnityGame
             PlayBattleEffect(BattleEffectId.MuzzleTank, muzzle.x, muzzle.y, 0.78f, 0.40f, RotationFromDirection(barrelAim));
             PlayBattleEffect(BattleEffectId.ShellLaunchSmoke, muzzle.x, muzzle.y, 0.72f, 0.34f, RotationFromDirection(barrelAim));
             PlayBattleAudio(BattleAudioCueId.TankShot, muzzle.x, muzzle.y, 0.82f);
-            TriggerCameraShake(0.08f, 0.035f);
-            SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, scaledDamage, 52f, 520f, new Color(0.58f, 0.56f, 0.52f, 0.9f));
+            TriggerCameraShake(unit.combatVariant == UnitCombatVariant.RocketTruck ? 0.12f : 0.08f, 0.045f);
+            if (unit.combatVariant == UnitCombatVariant.RocketTruck)
+            {
+                SpawnProjectile(
+                    ProjectileKind.Rocket,
+                    ProjectileTarget.Giant,
+                    muzzle.x,
+                    muzzle.y,
+                    0.9f,
+                    target.x - barrelAim.x * 18f,
+                    target.z - barrelAim.y * 18f,
+                    2.1f,
+                    scaledDamage * 1.15f,
+                    52f,
+                    720f,
+                    new Color(0.94f, 0.48f, 0.16f, 1f));
+            }
+            else
+            {
+                SpawnProjectile(ProjectileKind.Shell, ProjectileTarget.Giant, muzzle.x, muzzle.y, 0.82f, target.x - barrelAim.x * 24f, target.z - barrelAim.y * 24f, 2.35f, scaledDamage, 52f, 520f, new Color(0.58f, 0.56f, 0.52f, 0.9f));
+            }
+
             return;
         }
 
@@ -405,7 +549,16 @@ public sealed partial class ApocalypseKingUnityGame
 
         if (engagementTarget != null && giant.attackCooldown <= 0f)
         {
-            PerformGiantMeleeAttack(giant, engagementTarget);
+            if (giant.combatVariant == UnitCombatVariant.RocketGiant
+                && (engagementTarget.kind == UnitKind.Aircraft
+                    || Distance(giant.x, giant.z, engagementTarget.x, engagementTarget.z) > GiantRocketPreferMeleeDistance))
+            {
+                PerformGiantRocketAttack(giant, engagementTarget);
+            }
+            else
+            {
+                PerformGiantMeleeAttack(giant, engagementTarget);
+            }
         }
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
