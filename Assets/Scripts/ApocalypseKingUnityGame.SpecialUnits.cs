@@ -6,9 +6,11 @@ public sealed partial class ApocalypseKingUnityGame
     private const float GiantRocketPreferMeleeDistance = 108f;
     private const float PterosaurRocketRangeBonus = 180f;
     private const float PterosaurSiegeStandoffX = 240f;
+    /// <summary>开战後自城堡門前最多向前巡逻的逻辑距离，避免飞到中场列队。</summary>
+    private const float PterosaurMaxAdvanceFromGateX = 95f;
     private const int PterosaurMassSpawnColumns = 5;
-    private const float PterosaurMassSpawnSpacingX = 26f;
-    private const float PterosaurMassSpawnSpacingZ = 32f * FormationWidthScale;
+    private const float PterosaurMassSpawnSpacingX = 22f;
+    private const float PterosaurMassSpawnSpacingZ = 26f * FormationWidthScale;
 
     private void LoadSpecialUnitPrototypes()
     {
@@ -321,15 +323,39 @@ public sealed partial class ApocalypseKingUnityGame
         return tinted;
     }
 
-    private void ApplyRocketTruckTint(GameObject model)
+    private void ApplyRocketTruckPresentation(GameObject model)
     {
         if (model == null)
         {
             return;
         }
 
-        Material olive = GetOpaqueMaterial(new Color(0.32f, 0.40f, 0.26f, 1f));
         var renderers = model.GetComponentsInChildren<Renderer>(true);
+        if (ModelHasEmbeddedTextures(model))
+        {
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                var materials = renderer.sharedMaterials;
+                for (int m = 0; m < materials.Length; m++)
+                {
+                    ApplyOpaqueDoubleSided(materials[m]);
+                }
+            }
+
+            return;
+        }
+
+        // 程序低模 / 无贴图 GLB：纯色军绿（勿用坦克贴图，易在 GLTF 材质上变黑）
+        Material hullMat = GetOpaqueMaterial(new Color(0.32f, 0.40f, 0.26f, 1f));
+        Material rackMat = GetOpaqueMaterial(new Color(0.24f, 0.28f, 0.20f, 1f));
+        Material rubberMat = GetOpaqueMaterial(new Color(0.14f, 0.14f, 0.14f, 1f));
+
         for (int i = 0; i < renderers.Length; i++)
         {
             Renderer renderer = renderers[i];
@@ -338,14 +364,40 @@ public sealed partial class ApocalypseKingUnityGame
                 continue;
             }
 
+            string partName = renderer.gameObject.name;
+            Material partMat = ResolveRocketTruckPartMaterial(partName, hullMat, rackMat, rubberMat);
             var materials = renderer.sharedMaterials;
             for (int m = 0; m < materials.Length; m++)
             {
-                materials[m] = olive;
+                materials[m] = partMat;
             }
 
             renderer.sharedMaterials = materials;
         }
+    }
+
+    private static Material ResolveRocketTruckPartMaterial(
+        string partName,
+        Material hullMat,
+        Material rackMat,
+        Material rubberMat)
+    {
+        if (ContainsNameToken(partName, "Wheel")
+            || ContainsNameToken(partName, "tyre")
+            || ContainsNameToken(partName, "tire")
+            || ContainsNameToken(partName, "Stabilizer"))
+        {
+            return rubberMat;
+        }
+
+        if (ContainsNameToken(partName, "Tube")
+            || ContainsNameToken(partName, "Launcher")
+            || ContainsNameToken(partName, "Rocket"))
+        {
+            return rackMat;
+        }
+
+        return hullMat;
     }
 
     private void GetPterosaurMassSpawn(int unitIndex, out float x, out float z)
@@ -353,32 +405,43 @@ public sealed partial class ApocalypseKingUnityGame
         unitIndex = Mathf.Max(0, unitIndex);
         int col = unitIndex % PterosaurMassSpawnColumns;
         int row = unitIndex / PterosaurMassSpawnColumns;
-        float anchorX = BeastCastleSpawnExitX() - 10f;
+        float anchorX = BeastCastleGateX - 14f;
         z = (col - (PterosaurMassSpawnColumns - 1) * 0.5f) * PterosaurMassSpawnSpacingZ;
         x = anchorX - row * PterosaurMassSpawnSpacingX;
     }
 
     private float ResolvePterosaurFormationDesiredX(BattleUnit unit, float formationX)
     {
-        if (!TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _))
+        if (matchPhase != MatchPhase.Battle)
         {
             return formationX;
         }
 
-        float advanceLineX = siegeX + PterosaurSiegeStandoffX;
-        return Mathf.Max(advanceLineX, Mathf.Min(formationX, unit.x));
+        float minX = BeastCastleGateX - PterosaurMaxAdvanceFromGateX;
+        if (!TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _))
+        {
+            return Mathf.Max(minX, formationX);
+        }
+
+        float forwardLimitX = formationX - PterosaurMaxAdvanceFromGateX;
+        float siegeApproachX = siegeX + PterosaurSiegeStandoffX;
+        float desiredX = Mathf.Max(siegeApproachX, forwardLimitX);
+        desiredX = Mathf.Min(formationX, desiredX);
+        return Mathf.Max(minX, desiredX);
     }
 
-    private const int RocketTruckMassSpawnColumns = 10;
-    private const float RocketTruckMassSpawnSpacingX = 34f;
-    private const float RocketTruckMassSpawnSpacingZ = 34f * FormationWidthScale;
+    private const int RocketTruckMassSpawnColumns = 9;
+    private const int RocketTruckMassSpawnRows = 2;
+    private const float RocketTruckMassSpawnSpacingX = 30f;
+    private const float RocketTruckMassSpawnSpacingZ = 30f * FormationWidthScale;
 
     private void GetHumanRocketTruckMassSpawn(int truckIndex, out float x, out float z)
     {
         truckIndex = Mathf.Max(0, truckIndex);
         int col = truckIndex % RocketTruckMassSpawnColumns;
         int row = truckIndex / RocketTruckMassSpawnColumns;
-        float anchorX = HumanTankFormationRearSpawnX() - RocketTruckBehindTankGapX;
+        row = Mathf.Clamp(row, 0, RocketTruckMassSpawnRows - 1);
+        float anchorX = HumanTankFormationRearSpawnX() - RocketTruckBehindTankGapX - 26f;
         z = (col - (RocketTruckMassSpawnColumns - 1) * 0.5f) * RocketTruckMassSpawnSpacingZ;
         x = anchorX - row * RocketTruckMassSpawnSpacingX;
     }
@@ -444,6 +507,7 @@ public sealed partial class ApocalypseKingUnityGame
             unit.team = TeamKind.Giant;
             unit.faction = FactionId.Zombie;
             GetPterosaurMassSpawn(i, out float x, out float z);
+            unit.baseZ = z;
             float hp = giantConfig != null ? giantConfig.MaxHp * 0.42f : 980f;
             float damage = giantConfig != null ? giantConfig.Damage * 1.05f : 72f;
             float speed = aircraftConfig != null ? aircraftConfig.MoveSpeed * 0.88f + i * 5f : 88f;
@@ -491,27 +555,37 @@ public sealed partial class ApocalypseKingUnityGame
         unit.attackCooldown = Mathf.Max(0f, unit.attackCooldown - dt);
         unit.attackVisualTimer = Mathf.Max(0f, unit.attackVisualTimer - dt);
 
+        GetPterosaurMassSpawn(unit.rank, out float formationX, out float formationZ);
+        float phase = battleTime > 0.01f ? battleTime : unit.animTimer;
+        float holdZ = formationZ + Mathf.Sin(phase * 1.6f + unit.seed * 5f) * 6f;
+
+        if (matchPhase != MatchPhase.Battle)
+        {
+            unit.x = formationX;
+            unit.z = formationZ;
+            unit.baseZ = formationZ;
+            unit.moveSpeed = 0f;
+            RefreshRuntimeStateFromMovement(unit);
+            UpdateUnitTransform(unit, dt);
+            return;
+        }
+
         var target = FindNearestHumanAirEnemy(unit);
         bool engage = target != null
             && DistanceSq(unit.x, unit.z, target.x, target.z) <= (unit.attackRange + target.radius * 0.55f) * (unit.attackRange + target.radius * 0.55f);
 
         float previousX = unit.x;
         float previousZ = unit.z;
+        float holdX = ResolvePterosaurFormationDesiredX(unit, formationX);
         float nextX = unit.x;
         float nextZ = unit.z;
 
-        GetPterosaurMassSpawn(unit.rank, out float formationX, out float formationZ);
-        float holdX = ResolvePterosaurFormationDesiredX(unit, formationX);
-        float phase = battleTime > 0.01f ? battleTime : unit.animTimer;
-        float holdZ = formationZ + Mathf.Sin(phase * 1.6f + unit.seed * 5f) * 8f;
-
         if (engage && target != null)
         {
-            float jitterX = (Noise(unit.id * 0.29f + unit.rank) - 0.5f) * 22f;
-            float jitterZ = (Noise(unit.id * 0.31f + unit.rank * 1.7f) - 0.5f) * 18f;
-            float desiredX = Mathf.Max(holdX - 40f, target.x + jitterX);
-            float desiredZ = target.z + jitterZ;
-            float step = unit.speed * dt;
+            float jitterZ = (Noise(unit.id * 0.31f + unit.rank * 1.7f) - 0.5f) * 14f;
+            float desiredX = holdX + (Noise(unit.id * 0.29f + unit.rank) - 0.5f) * 12f;
+            float desiredZ = holdZ + jitterZ;
+            float step = unit.speed * dt * 0.55f;
             nextX = unit.x + Mathf.Sign(desiredX - unit.x) * Mathf.Min(step, Mathf.Abs(desiredX - unit.x));
             nextZ = unit.z + Mathf.Sign(desiredZ - unit.z) * Mathf.Min(step, Mathf.Abs(desiredZ - unit.z));
 
@@ -528,7 +602,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         MoveUnitToAvoidingBuildings(unit, nextX, nextZ, unit.speed * dt * 1.2f);
-        unit.x = Mathf.Clamp(unit.x, BeastCastleGateX - 120f, Right - 40f);
+        unit.x = Mathf.Clamp(unit.x, BeastCastleGateX - PterosaurMaxAdvanceFromGateX - 30f, BeastCastleGateX + 40f);
 
         if (target != null)
         {

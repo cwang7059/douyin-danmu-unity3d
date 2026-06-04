@@ -60,8 +60,14 @@ public sealed partial class ApocalypseKingUnityGame
             unit.runtimeState = UnitRuntimeState.Attacking;
         }
 
+        bool rocketTruck = unit.kind == UnitKind.Tank && unit.combatVariant == UnitCombatVariant.RocketTruck;
+        float engageDistance = target != null
+            ? Mathf.Sqrt(DistanceSq(unit.x, unit.z, target.x, target.z))
+            : float.PositiveInfinity;
         bool tankAnchored = unit.kind == UnitKind.Tank && engageEnemy && target != null
-            && Mathf.Sqrt(DistanceSq(unit.x, unit.z, target.x, target.z)) <= unit.attackRange + target.radius * 0.55f;
+            && (rocketTruck
+                ? engageDistance <= unit.attackRange + target.radius * 0.45f
+                : engageDistance <= unit.attackRange + target.radius * 0.55f);
         float nextX = unit.x;
         float nextZ = unit.z;
         bool aircraftHoveringTarget = unit.kind == UnitKind.Aircraft && engageEnemy && target != null;
@@ -178,29 +184,26 @@ public sealed partial class ApocalypseKingUnityGame
             }
         }
 
-        float desiredX = advanceFrontX + depth;
         if (rearArtillery)
         {
-            GetHumanRocketTruckMassSpawn(0, out float rocketReferenceX, out _);
-            float rocketDepth = formationX - rocketReferenceX;
-            desiredX = formationX;
+            int truckIndex = Mathf.Max(0, unit.rank - TankCount);
+            GetHumanRocketTruckMassSpawn(truckIndex, out float spawnX, out _);
+            float truckDesiredX = spawnX;
             if (hasSiegePoint)
             {
-                desiredX = (siegeX - standoff) + rocketDepth;
+                float forwardCap = Mathf.Min(
+                    spawnX + RocketTruckMaxForwardFromSpawnX,
+                    siegeX - standoff - RocketTruckBehindTankGapX * 0.35f);
+                truckDesiredX = Mathf.Max(spawnX - 8f, forwardCap);
             }
 
             float tankFrontCap = hasSiegePoint
                 ? siegeX - TankFormationSiegeStandoffX - RocketTruckBehindTankGapX
-                : HumanTankFormationFrontSpawnX() - RocketTruckBehindTankGapX * 0.35f;
-            desiredX = Mathf.Min(desiredX, tankFrontCap);
-            desiredX = Mathf.Max(formationX - 6f, desiredX);
-        }
-        else
-        {
-            desiredX = Mathf.Max(formationX, desiredX);
+                : HumanTankFormationFrontSpawnX() - RocketTruckBehindTankGapX;
+            return Mathf.Min(truckDesiredX, tankFrontCap);
         }
 
-        return desiredX;
+        return Mathf.Max(formationX, advanceFrontX + depth);
     }
 
     private float HumanHoldX(BattleUnit unit, BattleUnit target, bool engageEnemy)
@@ -423,14 +426,14 @@ public sealed partial class ApocalypseKingUnityGame
                     ProjectileTarget.Giant,
                     muzzle.x,
                     muzzle.y,
-                    0.9f,
-                    target.x - barrelAim.x * 18f,
-                    target.z - barrelAim.y * 18f,
-                    2.1f,
-                    scaledDamage * 1.15f,
-                    52f,
-                    720f,
-                    new Color(0.94f, 0.48f, 0.16f, 1f));
+                    1.05f,
+                    target.x,
+                    target.z,
+                    1.2f,
+                    scaledDamage * 1.2f,
+                    58f,
+                    820f,
+                    TacticalRocketVisualColor);
             }
             else
             {

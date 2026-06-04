@@ -18,7 +18,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int TankCount = 50;
     private const int AircraftCount = 20;
     private const int PterosaurCount = 20;
-    private const int RocketTruckCount = 10;
+    private const int RocketTruckCount = 18;
+    private const float RocketTruckMoveSpeedRatio = 0.5f;
     private const int BaseGiantCount = 200;
     private const int RocketGiantCount = 20;
     private const int GiantCount = BaseGiantCount + RocketGiantCount;
@@ -36,9 +37,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float RocketTruckModelTargetHeight = 2.8f;
     /// <summary>火箭炮车 GLB 机头沿 +X 时用 -90° 对齐游戏 +Z 前向。</summary>
     private const float RocketTruckMeshYawOffset = 0f;
-    private const float RocketTruckAttackRangeBonus = 520f;
-    private const float RocketTruckSiegeStandoffX = 380f;
-    private const float RocketTruckBehindTankGapX = 118f;
+    private const float RocketTruckAttackRangeBonus = 620f;
+    private const float RocketTruckSiegeStandoffX = 420f;
+    private const float RocketTruckBehindTankGapX = 132f;
+    private const float RocketTruckMaxForwardFromSpawnX = 28f;
     private const float TankFormationSiegeStandoffX = 92f;
     private const float SoldierFormationSiegeStandoffX = 168f;
     private const float SpecialUnitBattleCenterX = 72f;
@@ -438,12 +440,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             ProcessPendingGiantBattleActivation();
         }
 
-        if (!paused && !ended)
-        {
-            float specialDt = Mathf.Min(Time.deltaTime, 0.045f);
-            UpdatePterosaurs(specialDt);
-        }
-
         if (Input.GetKeyDown(KeyCode.P) && !ended)
         {
             paused = !paused;
@@ -465,12 +461,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (matchPhase == MatchPhase.ModeSelect)
         {
             TickGiftFeedDisplay(Time.deltaTime);
+            UpdatePterosaurs(0f);
             RefreshHud();
             return;
         }
 
         if (paused || ended)
         {
+            UpdatePterosaurs(0f);
             RefreshHud();
             return;
         }
@@ -2537,7 +2535,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        if (kind == UnitKind.Tank)
+        bool isRocketTruckPrototype = prototype.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (kind == UnitKind.Tank && !isRocketTruckPrototype)
         {
             RemoveTankDisplayGeometry(prototype);
             if (HasRealisticTankInResources())
@@ -2564,8 +2563,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (prototype.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
         {
+            RemoveSketchfabSceneExtras(prototype);
             ApplyRocketTruckPrototypeBindRotation(prototype);
-            ApplyRocketTruckTint(prototype);
+            ApplyRocketTruckPresentation(prototype);
         }
 
         if (kind == UnitKind.Aircraft && prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) < 0)
@@ -3100,6 +3100,51 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return false;
     }
 
+    private static bool ModelHasEmbeddedTextures(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return false;
+        }
+
+        var renderers = prototype.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material material = materials[m];
+                if (material == null)
+                {
+                    continue;
+                }
+
+                if (material.mainTexture != null)
+                {
+                    return true;
+                }
+
+                if (material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null)
+                {
+                    return true;
+                }
+
+                if (material.HasProperty("_MainTex") && material.GetTexture("_MainTex") != null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static bool SoldierUsesBuiltInTextures(GameObject prototype)
     {
         if (prototype == null)
@@ -3133,7 +3178,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        return false;
+        return ModelHasEmbeddedTextures(prototype);
     }
 
     private void ApplyPixelhouseZombieMaterials(GameObject prototype)
@@ -5283,15 +5328,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         UnitKind kind = unit != null ? unit.kind : UnitKind.Soldier;
         bool isPterosaur = unit != null && unit.combatVariant == UnitCombatVariant.Pterosaur;
+        bool isRocketTruck = unit != null && unit.combatVariant == UnitCombatVariant.RocketTruck;
         StripImportedModelStrayComponents(model);
 
-        if (kind == UnitKind.Tank)
+        if (kind == UnitKind.Tank && !isRocketTruck)
         {
             RemoveTankDisplayGeometry(model);
             if (HasRealisticTankInResources())
             {
                 ApplyRealisticTankMaterials(model);
             }
+        }
+
+        if (isRocketTruck)
+        {
+            ApplyRocketTruckPresentation(model);
         }
 
         if (kind == UnitKind.Aircraft)
@@ -5324,6 +5375,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        if (kind == UnitKind.Tank && isRocketTruck)
+        {
+            FitModelToHeight(model, RocketTruckModelTargetHeight, kind);
+            GroundTankModelOnTerrain(model);
+            return;
+        }
+
         if (kind == UnitKind.Tank && HasRealisticTankInResources())
         {
             GroundTankModelOnTerrain(model);
@@ -5335,11 +5393,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             RemapPterosaurImportedMaterials(model);
             FitPterosaurRuntimeModel(model);
-        }
-        else if (kind == UnitKind.Tank && model.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            targetHeight = RocketTruckModelTargetHeight;
-            FitModelToHeight(model, targetHeight, kind);
         }
         else
         {
@@ -5507,7 +5560,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ResetRocketGiants();
         ResetGiants();
         RefreshHud();
-        ShowBanner("特殊兵种：翼龙×20 | 火箭丧尸×20 | 火箭炮车×10 已上阵", false, 2.6f);
+        ShowBanner("特殊兵种：翼龙×20 | 火箭丧尸×20 | 火箭炮车×18 已上阵", false, 2.6f);
     }
 
     private void ResetSoldiers()
@@ -5561,7 +5614,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                     z,
                     tankConfig.MaxHp * 0.92f,
                     tankConfig.Damage * 1.35f,
-                    tankConfig.MoveSpeed * 0.82f + Noise(i + 401f) * 4f,
+                    tankConfig.MoveSpeed * RocketTruckMoveSpeedRatio + Noise(i + 401f) * 2f,
                     tankConfig.Radius * 1.05f,
                     tankConfig.AttackRange + RocketTruckAttackRangeBonus,
                     tankConfig.AttackInterval * 1.15f + Noise(i + 503f) * 0.25f,
@@ -5826,6 +5879,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         PrewarmAircraftBombMesh();
         RebuildBombProjectilePool();
+        RebuildRocketProjectilePool();
 
         if (projectiles.Count > 0 || effects.Count > 0 || deathVisuals.Count > 0)
         {
@@ -5836,6 +5890,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         PrewarmProjectiles(ProjectileKind.Shell, PrewarmShellProjectiles, new Color(0.58f, 0.56f, 0.52f, 0.9f));
         PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, AircraftBombVisualColor);
         PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
+        PrewarmProjectiles(ProjectileKind.Rocket, PrewarmRocketProjectiles, TacticalRocketVisualColor);
         InitializeNuclearWarheadVisual();
 
         PrewarmFallbackEffectViews(PrewarmFallbackEffects);
