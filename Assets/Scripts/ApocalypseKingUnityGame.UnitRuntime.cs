@@ -528,15 +528,25 @@ public sealed partial class ApocalypseKingUnityGame
             bool marchCastle = TryGetEnemyCastleSiegePoint(giant, out float siegeX, out float siegeZ);
             if (marchCastle)
             {
-                goalX = siegeX;
-                goalZ = siegeZ;
-                if (giant.facing >= 0)
+                if (TryGetRocketGiantFormationSpawn(giant, out float formX, out float formZ))
                 {
-                    goalX = Mathf.Min(Mathf.Max(goalX, giant.x), siegeX);
+                    float frontX = RocketGiantFormationFrontSpawnX();
+                    goalX = siegeX + (formX - frontX);
+                    goalZ = formZ;
                 }
                 else
                 {
-                    goalX = Mathf.Max(Mathf.Min(goalX, giant.x), siegeX);
+                    goalX = siegeX;
+                    goalZ = siegeZ + GiantFormationZOffset(giant);
+                }
+
+                if (giant.facing >= 0)
+                {
+                    goalX = Mathf.Min(Mathf.Max(goalX, giant.x), siegeX + 48f);
+                }
+                else
+                {
+                    goalX = Mathf.Max(Mathf.Min(goalX, giant.x), siegeX - 48f);
                 }
             }
             else if (chaseTarget != null)
@@ -547,9 +557,7 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (marchCastle || chaseTarget != null)
             {
-                float formationZ = marchCastle
-                    ? Mathf.Clamp(goalZ, Bottom + 62f, Top - 88f)
-                    : Mathf.Clamp(goalZ + GiantFormationZOffset(giant), Bottom + 62f, Top - 88f);
+                float formationZ = Mathf.Clamp(goalZ, Bottom + 62f, Top - 88f);
                 Vector2 chase = DirectionTo(giant.x, giant.z, goalX, formationZ, giant.headingDegrees);
                 float nextX = giant.x + chase.x * giant.speed * dt;
                 float nextZ = giant.z + chase.y * giant.speed * dt;
@@ -577,6 +585,12 @@ public sealed partial class ApocalypseKingUnityGame
 
         RecordUnitMovement(giant, previousX, previousZ, dt);
         RefreshRuntimeStateFromMovement(giant);
+        if (giant.combatVariant == UnitCombatVariant.RocketGiant)
+        {
+            bool showLauncher = giant.runtimeState == UnitRuntimeState.Attacking || giant.attackVisualTimer > 0.05f;
+            SetGiantRocketLauncherVisible(giant, showLauncher);
+        }
+
         UpdateUnitTransform(giant, dt);
     }
 
