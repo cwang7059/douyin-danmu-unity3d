@@ -74,6 +74,10 @@ public sealed partial class ApocalypseKingUnityGame
             {
                 game.EnsureBombProjectileMeshVisual(projectile);
             }
+            else if (kind == ProjectileKind.Rocket)
+            {
+                game.EnsureRocketProjectileMeshVisual(projectile);
+            }
 
             ConfigureProjectileVisual(projectile, kind, color);
             float flightSeconds = Mathf.Max(0.04f, game.Distance(fromX, fromZ, toX, toZ) / speed);
@@ -174,7 +178,35 @@ public sealed partial class ApocalypseKingUnityGame
 
             Transform headTransform;
             bool usesBombMesh = false;
-            if (kind == ProjectileKind.Bomb)
+            bool usesRocketMesh = false;
+            if (kind == ProjectileKind.Rocket)
+            {
+                if (line != null)
+                {
+                    line.enabled = true;
+                    line.startWidth = 0.05f;
+                    line.endWidth = 0.02f;
+                }
+
+                headTransform = new GameObject("RocketBody").transform;
+                headTransform.SetParent(root.transform, false);
+                headTransform.localPosition = Vector3.zero;
+                headTransform.localRotation = Quaternion.identity;
+                headTransform.localScale = Vector3.one;
+                var rocketProjectile = new ProjectileView
+                {
+                    root = root,
+                    line = line,
+                    head = headTransform,
+                    active = false,
+                    kind = ProjectileKind.Rocket,
+                    usesRocketMesh = false,
+                };
+                game.EnsureRocketProjectileMeshVisual(rocketProjectile);
+                usesRocketMesh = rocketProjectile.usesRocketMesh;
+                headTransform = rocketProjectile.head;
+            }
+            else if (kind == ProjectileKind.Bomb)
             {
                 if (line != null)
                 {
@@ -216,6 +248,7 @@ public sealed partial class ApocalypseKingUnityGame
                 head = headTransform,
                 active = false,
                 usesBombMesh = usesBombMesh,
+                usesRocketMesh = usesRocketMesh,
             };
         }
 
@@ -228,11 +261,12 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (projectile.line != null)
             {
-                if (kind == ProjectileKind.Bomb && projectile.usesBombMesh)
+                if ((kind == ProjectileKind.Bomb && projectile.usesBombMesh)
+                    || (kind == ProjectileKind.Rocket && projectile.usesRocketMesh))
                 {
                     projectile.line.enabled = false;
                 }
-                else if (kind == ProjectileKind.Bomb)
+                else
                 {
                     projectile.line.enabled = true;
                 }
@@ -245,6 +279,12 @@ public sealed partial class ApocalypseKingUnityGame
                     startWidth = 0.028f;
                     endWidth = 0.018f;
                     lineColor = new Color(0.52f, 0.50f, 0.46f, 0.75f);
+                }
+                else if (kind == ProjectileKind.Rocket)
+                {
+                    startWidth = 0.06f;
+                    endWidth = 0.02f;
+                    lineColor = new Color(1f, 0.62f, 0.22f, 0.82f);
                 }
                 else
                 {
@@ -263,7 +303,9 @@ public sealed partial class ApocalypseKingUnityGame
                 projectile.line.endColor = lineColor;
             }
 
-            if (projectile.head != null && !(kind == ProjectileKind.Bomb && projectile.usesBombMesh))
+            if (projectile.head != null
+                && !(kind == ProjectileKind.Bomb && projectile.usesBombMesh)
+                && !(kind == ProjectileKind.Rocket && projectile.usesRocketMesh))
             {
                 float scale = ProjectileHeadScale(kind);
                 if (kind == ProjectileKind.Shell)
@@ -273,6 +315,10 @@ public sealed partial class ApocalypseKingUnityGame
                 else if (kind == ProjectileKind.Bomb)
                 {
                     projectile.head.localScale = Vector3.one * scale;
+                }
+                else if (kind == ProjectileKind.Rocket)
+                {
+                    projectile.head.localScale = new Vector3(scale * 0.35f, scale * 1.4f, scale * 0.35f);
                 }
                 else
                 {
@@ -285,7 +331,9 @@ public sealed partial class ApocalypseKingUnityGame
                         ? new Color(0.42f, 0.40f, 0.36f, 1f)
                         : kind == ProjectileKind.Bomb
                             ? AircraftBombVisualColor
-                            : color;
+                            : kind == ProjectileKind.Rocket
+                                ? TacticalRocketVisualColor
+                                : color;
                     renderer.sharedMaterial = game.GetOpaqueMaterial(headColor);
                 }
             }
@@ -323,7 +371,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             float pulse = shot.kind == ProjectileKind.Bullet ? 1f : 1f + Mathf.Sin(t * Mathf.PI) * 0.08f;
             float scale = ProjectileHeadScale(shot.kind) * pulse;
-            if (shot.kind == ProjectileKind.Bomb && shot.usesBombMesh)
+            if ((shot.kind == ProjectileKind.Bomb && shot.usesBombMesh)
+                || (shot.kind == ProjectileKind.Rocket && shot.usesRocketMesh))
             {
                 shot.head.localScale = Vector3.one;
             }
@@ -474,6 +523,8 @@ public sealed partial class ApocalypseKingUnityGame
                     return Mathf.Max(0.18f, AircraftModelTargetHeight * 0.42f);
                 case ProjectileKind.Rock:
                     return 0.26f;
+                case ProjectileKind.Rocket:
+                    return 0.22f;
                 case ProjectileKind.Shell:
                     return 0.11f;
                 default:

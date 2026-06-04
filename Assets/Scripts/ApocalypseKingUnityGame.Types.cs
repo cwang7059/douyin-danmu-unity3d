@@ -257,6 +257,7 @@ public sealed partial class ApocalypseKingUnityGame
         public Vector3 lastWorldPosition;
         public Vector3 worldPosition;
         public bool usesBombMesh;
+        public bool usesRocketMesh;
         public float bombHeadingYawDegrees;
     }
 
