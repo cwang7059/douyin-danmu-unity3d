@@ -432,8 +432,8 @@ public sealed partial class ApocalypseKingUnityGame
 
     private const int RocketTruckMassSpawnColumns = 9;
     private const int RocketTruckMassSpawnRows = 2;
-    private const float RocketTruckMassSpawnSpacingX = 30f;
-    private const float RocketTruckMassSpawnSpacingZ = 30f * FormationWidthScale;
+    private const float RocketTruckMassSpawnSpacingX = 64f;
+    private const float RocketTruckMassSpawnSpacingZ = 48f * FormationWidthScale;
 
     private void GetHumanRocketTruckMassSpawn(int truckIndex, out float x, out float z)
     {

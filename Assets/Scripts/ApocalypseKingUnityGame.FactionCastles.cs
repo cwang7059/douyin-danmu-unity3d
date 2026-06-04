@@ -524,8 +524,8 @@ public sealed partial class ApocalypseKingUnityGame
     private const int HumanTankMassSpawnColumns = 10;
     private const float HumanSoldierMassSpawnSpacingX = 20f;
     private const float HumanSoldierMassSpawnSpacingZ = 22f * FormationWidthScale;
-    private const float HumanTankMassSpawnSpacingX = 28f;
-    private const float HumanTankMassSpawnSpacingZ = 32f * FormationWidthScale;
+    private const float HumanTankMassSpawnSpacingX = 64f;
+    private const float HumanTankMassSpawnSpacingZ = 48f * FormationWidthScale;
     private const int HumanAircraftMassSpawnColumns = 10;
     private const float HumanAircraftMassSpawnSpacingX = 26f;
     private const float HumanAircraftMassSpawnSpacingZ = 28f * FormationWidthScale;
