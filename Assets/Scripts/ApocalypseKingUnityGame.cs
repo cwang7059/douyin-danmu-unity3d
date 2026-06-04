@@ -5713,6 +5713,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ended = false;
         battleTime = 0f;
         humanLosses = 0;
+        ResetTestBattleDeathCounter();
         loadingPulseTime = 0f;
 
         for (int i = 0; i < projectiles.Count; i++)
@@ -5927,6 +5928,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.trackScroll = 0f;
         unit.animationPresentationKey = -1;
         unit.infectionTimer = 0f;
+        unit.burnTimer = 0f;
+        unit.burnTickTimer = 0f;
+        unit.burnDamagePerTick = 0f;
         unit.preInfectionFaction = FactionId.Neutral;
         if (unit.faction == FactionId.Neutral)
         {
@@ -6082,6 +6086,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         PrewarmProjectiles(ProjectileKind.Bomb, PrewarmBombProjectiles, AircraftBombVisualColor);
         PrewarmProjectiles(ProjectileKind.Rock, PrewarmRockProjectiles, new Color(0.72f, 1f, 0.52f, 1f));
         PrewarmProjectiles(ProjectileKind.Rocket, PrewarmRocketProjectiles, TacticalRocketVisualColor);
+        PrewarmPterosaurFireballProjectiles();
         InitializeNuclearWarheadVisual();
 
         PrewarmFallbackEffectViews(PrewarmFallbackEffects);
@@ -7516,8 +7521,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         var shader = FindRuntimeShader("RuntimeMaterials/RuntimeOpaque", "Standard", "Legacy Shaders/Diffuse", "Unlit/Color", "Sprites/Default");
         material = new Material(shader);
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", color);
+        }
+
         material.color = color;
-        material.SetFloat("_Glossiness", 0.12f);
+        if (material.HasProperty("_Glossiness"))
+        {
+            material.SetFloat("_Glossiness", 0.12f);
+        }
         ApplyOpaqueDoubleSided(material);
         materialCache[key] = material;
         return material;
@@ -7625,6 +7638,25 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             if (resourceMaterial != null && resourceMaterial.shader != null)
             {
                 return resourceMaterial.shader;
+            }
+        }
+
+        if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+        {
+            string[] urpShaderNames =
+            {
+                "Universal Render Pipeline/Unlit",
+                "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Particles/Unlit",
+                "Sprites/Default",
+            };
+            for (int i = 0; i < urpShaderNames.Length; i++)
+            {
+                Shader urpShader = Shader.Find(urpShaderNames[i]);
+                if (urpShader != null)
+                {
+                    return urpShader;
+                }
             }
         }
 

@@ -670,7 +670,6 @@ public sealed partial class ApocalypseKingUnityGame
         return best;
     }
 
-    private static readonly Color PterosaurFireProjectileColor = new Color(1f, 0.52f, 0.1f, 1f);
     private static readonly string[] PterosaurMouthBoneHints =
     {
         "mouth", "jaw", "beak", "snout", "mandible", "head", "neck",
@@ -768,16 +767,16 @@ public sealed partial class ApocalypseKingUnityGame
         TryGetPterosaurMouthLaunchLogical(unit, aim, out float launchX, out float launchZ, out float launchHeight);
         launchHeight = Mathf.Max(PterosaurDefaultAltitude * 0.85f, launchHeight);
         PlayBattleEffect(
-            BattleEffectId.PterosaurFireBreath,
+            BattleEffectId.PterosaurFireballMuzzle,
             launchX,
             launchZ,
             launchHeight,
-            0.62f,
+            0.36f,
             RotationFromDirection(aim));
         PlayBattleAudio(BattleAudioCueId.OrcSkill, launchX, launchZ, launchHeight);
         float scaledDamage = ScaleOutgoingDamage(unit, target, unit.damage);
         SpawnProjectile(
-            ProjectileKind.Rock,
+            ProjectileKind.Fireball,
             ProjectileTarget.Human,
             launchX,
             launchZ,
@@ -786,9 +785,10 @@ public sealed partial class ApocalypseKingUnityGame
             target.z,
             Mathf.Max(1.2f, target.altitude * 0.55f),
             scaledDamage,
-            36f,
-            480f,
-            PterosaurFireProjectileColor);
+            PterosaurFireballHitRadius,
+            PterosaurFireballFlightSpeed,
+            PterosaurFireProjectileColor,
+            target.id);
     }
 
     private void PerformGiantRocketAttack(BattleUnit giant, BattleUnit target)

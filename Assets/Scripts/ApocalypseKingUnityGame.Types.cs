@@ -40,6 +40,7 @@ public sealed partial class ApocalypseKingUnityGame
         Rocket,
         Rock,
         Bomb,
+        Fireball,
     }
 
     private enum ProjectileTarget
@@ -102,6 +103,9 @@ public sealed partial class ApocalypseKingUnityGame
         public FactionId preInfectionFaction;
         public ApocalypseUnitRole apocalypseRole;
         public float infectionTimer;
+        public float burnTimer;
+        public float burnTickTimer;
+        public float burnDamagePerTick;
         public GameObject root;
         public Transform body;
         public GameObject modelInstance;
@@ -261,7 +265,18 @@ public sealed partial class ApocalypseKingUnityGame
         public Vector3 worldPosition;
         public bool usesBombMesh;
         public bool usesRocketMesh;
+        public bool usesFireballParticleVisual;
         public float bombHeadingYawDegrees;
+        public int homingTargetId;
+        public float fireballLogicalX;
+        public float fireballLogicalZ;
+        public float fireballLogicalHeight;
+        public float fireballGoalX;
+        public float fireballGoalZ;
+        public float fireballGoalHeight;
+        public float fireballFlightTime;
+        public float fireballMaxFlightTime;
+        public float fireballNearGoalTime;
     }
 
     private sealed class EffectView

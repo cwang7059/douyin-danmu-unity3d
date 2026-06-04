@@ -7,9 +7,9 @@ public sealed partial class ApocalypseKingUnityGame
         ProjectileResolver.PrewarmProjectiles(kind, count, color);
     }
 
-    private void SpawnProjectile(ProjectileKind kind, ProjectileTarget target, float fromX, float fromZ, float fromHeight, float toX, float toZ, float toHeight, float damage, float radius, float speed, Color color)
+    private void SpawnProjectile(ProjectileKind kind, ProjectileTarget target, float fromX, float fromZ, float fromHeight, float toX, float toZ, float toHeight, float damage, float radius, float speed, Color color, int homingTargetId = -1)
     {
-        ProjectileResolver.SpawnProjectile(kind, target, fromX, fromZ, fromHeight, toX, toZ, toHeight, damage, radius, speed, color);
+        ProjectileResolver.SpawnProjectile(kind, target, fromX, fromZ, fromHeight, toX, toZ, toHeight, damage, radius, speed, color, homingTargetId);
     }
 
     private void UpdateProjectiles(float dt)
@@ -34,7 +34,7 @@ public sealed partial class ApocalypseKingUnityGame
             }
         }
 
-        public void SpawnProjectile(ProjectileKind kind, ProjectileTarget target, float fromX, float fromZ, float fromHeight, float toX, float toZ, float toHeight, float damage, float radius, float speed, Color color)
+        public void SpawnProjectile(ProjectileKind kind, ProjectileTarget target, float fromX, float fromZ, float fromHeight, float toX, float toZ, float toHeight, float damage, float radius, float speed, Color color, int homingTargetId = -1)
         {
             if (game.projectiles.Count >= ApocalypseKingUnityGame.MaxProjectiles)
             {
@@ -78,6 +78,10 @@ public sealed partial class ApocalypseKingUnityGame
             {
                 game.EnsureRocketProjectileMeshVisual(projectile);
             }
+            else if (kind == ProjectileKind.Fireball)
+            {
+                game.EnsureFireballProjectileVisual(projectile);
+            }
 
             ConfigureProjectileVisual(projectile, kind, color);
             float flightSeconds = Mathf.Max(0.04f, game.Distance(fromX, fromZ, toX, toZ) / speed);
@@ -90,10 +94,23 @@ public sealed partial class ApocalypseKingUnityGame
                     ? Mathf.Atan2(dx, dz) * Mathf.Rad2Deg
                     : 0f;
             }
+            else if (kind == ProjectileKind.Fireball)
+            {
+                projectile.homingTargetId = homingTargetId;
+                projectile.fireballLogicalX = fromX;
+                projectile.fireballLogicalZ = fromZ;
+                projectile.fireballLogicalHeight = fromHeight;
+                projectile.fireballFlightTime = 0f;
+                projectile.speed = PterosaurFireballFlightSpeed;
+                projectile.radius = PterosaurFireballHitRadius;
+                game.InitializeFireballFlight(projectile, toX, toZ, toHeight);
+                flightSeconds = projectile.fireballMaxFlightTime;
+            }
 
             projectile.duration = flightSeconds;
             projectile.progress = 0f;
             projectile.trailTimer = 0f;
+            projectile.target = target;
             projectile.lastWorldPosition = game.ToWorldPoint(fromX, fromZ, fromHeight);
             projectile.worldPosition = projectile.lastWorldPosition;
             projectile.active = true;
@@ -111,29 +128,106 @@ public sealed partial class ApocalypseKingUnityGame
                     continue;
                 }
 
-                float deltaProgress = dt / Mathf.Max(0.04f, shot.duration);
-                float previousT = Mathf.Clamp01(shot.progress);
-                shot.progress += deltaProgress;
-                float t = Mathf.Clamp01(shot.progress);
-                float arc = shot.kind == ProjectileKind.Bomb
-                    ? Mathf.Sin(t * Mathf.PI) * 1.35f
-                    : shot.kind == ProjectileKind.Shell || shot.kind == ProjectileKind.Rock
-                        ? Mathf.Sin(t * Mathf.PI) * 1.45f
-                        : 0f;
-                shot.lastWorldPosition = shot.worldPosition;
-                Vector2 previousLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, previousT), Mathf.Lerp(shot.fromZ, shot.toZ, previousT));
-                Vector2 currentLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t));
-                shot.worldPosition = game.ToWorldPoint(currentLogical.x, currentLogical.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
-
                 bool impactedBuilding = false;
-                Vector2 buildingImpactPoint;
-                if (CanProjectileHitBuildingsInFlight(shot.kind)
-                    && TryFindProjectileBuildingImpact(previousLogical, currentLogical, ProjectileBuildingImpactRadius(shot.kind), out _, out buildingImpactPoint))
+                Vector2 previousLogical;
+                Vector2 currentLogical;
+                float t;
+                if (shot.kind == ProjectileKind.Fireball)
                 {
-                    impactedBuilding = true;
-                    shot.toX = buildingImpactPoint.x;
-                    shot.toZ = buildingImpactPoint.y;
-                    shot.worldPosition = game.ToWorldPoint(buildingImpactPoint.x, buildingImpactPoint.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+                    shot.fireballFlightTime += dt;
+                    previousLogical = new Vector2(shot.fireballLogicalX, shot.fireballLogicalZ);
+                    game.TryResolveFireballHomingTarget(shot, out float goalX, out float goalZ, out float goalHeight);
+                    Vector2 toGoal = new Vector2(goalX - shot.fireballLogicalX, goalZ - shot.fireballLogicalZ);
+                    float dist = toGoal.magnitude;
+                    float step = Mathf.Max(0.01f, shot.speed * dt);
+                    if (dist <= Mathf.Max(8f, shot.radius * 0.45f))
+                    {
+                        currentLogical = new Vector2(goalX, goalZ);
+                        shot.fireballLogicalHeight = goalHeight;
+                    }
+                    else
+                    {
+                        Vector2 delta = toGoal * (step / dist);
+                        currentLogical = previousLogical + delta;
+                        shot.fireballLogicalHeight = Mathf.Lerp(
+                            shot.fireballLogicalHeight,
+                            goalHeight,
+                            Mathf.Clamp01(step / Mathf.Max(dist, 1f)));
+                    }
+
+                    shot.fireballLogicalX = currentLogical.x;
+                    shot.fireballLogicalZ = currentLogical.y;
+                    float totalSpan = Mathf.Max(1f, game.Distance(shot.fromX, shot.fromZ, goalX, goalZ));
+                    t = Mathf.Clamp01(game.Distance(shot.fromX, shot.fromZ, shot.fireballLogicalX, shot.fireballLogicalZ) / totalSpan);
+                    shot.progress = t;
+                    float arc = Mathf.Sin(t * Mathf.PI) * 0.35f;
+                    shot.lastWorldPosition = shot.worldPosition;
+                    shot.worldPosition = game.ToWorldPoint(
+                        currentLogical.x,
+                        currentLogical.y,
+                        shot.fireballLogicalHeight + arc);
+
+                    BattleUnit hitUnit;
+                    Vector2 humanImpactPoint;
+                    if (game.TryFindFireballHumanImpact(previousLogical, currentLogical, shot.radius, out hitUnit, out humanImpactPoint))
+                    {
+                        impactedBuilding = true;
+                        shot.toX = humanImpactPoint.x;
+                        shot.toZ = humanImpactPoint.y;
+                        shot.toHeight = shot.fireballLogicalHeight;
+                        shot.homingTargetId = hitUnit.id;
+                        shot.worldPosition = game.ToWorldPoint(humanImpactPoint.x, humanImpactPoint.y, shot.fireballLogicalHeight + arc);
+                    }
+                    else if (dist <= Mathf.Max(10f, shot.radius * 0.5f))
+                    {
+                        shot.fireballNearGoalTime += dt;
+                        if (shot.fireballNearGoalTime >= PterosaurFireballNearGoalDetonateSeconds)
+                        {
+                            impactedBuilding = true;
+                            shot.toX = currentLogical.x;
+                            shot.toZ = currentLogical.y;
+                            shot.toHeight = shot.fireballLogicalHeight;
+                        }
+                    }
+                    else
+                    {
+                        shot.fireballNearGoalTime = 0f;
+                    }
+
+                    if (!impactedBuilding && shot.fireballFlightTime >= shot.fireballMaxFlightTime)
+                    {
+                        impactedBuilding = true;
+                        shot.toX = currentLogical.x;
+                        shot.toZ = currentLogical.y;
+                        shot.toHeight = shot.fireballLogicalHeight;
+                    }
+                }
+                else
+                {
+                    float deltaProgress = dt / Mathf.Max(0.04f, shot.duration);
+                    float previousT = Mathf.Clamp01(shot.progress);
+                    shot.progress += deltaProgress;
+                    t = Mathf.Clamp01(shot.progress);
+                    float arc = shot.kind == ProjectileKind.Bomb
+                        ? Mathf.Sin(t * Mathf.PI) * 1.35f
+                        : shot.kind == ProjectileKind.Shell
+                            || shot.kind == ProjectileKind.Rock
+                            ? Mathf.Sin(t * Mathf.PI) * 1.45f
+                            : 0f;
+                    shot.lastWorldPosition = shot.worldPosition;
+                    previousLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, previousT), Mathf.Lerp(shot.fromZ, shot.toZ, previousT));
+                    currentLogical = new Vector2(Mathf.Lerp(shot.fromX, shot.toX, t), Mathf.Lerp(shot.fromZ, shot.toZ, t));
+                    shot.worldPosition = game.ToWorldPoint(currentLogical.x, currentLogical.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+
+                    Vector2 buildingImpactPoint;
+                    if (CanProjectileHitBuildingsInFlight(shot.kind)
+                        && TryFindProjectileBuildingImpact(previousLogical, currentLogical, ProjectileBuildingImpactRadius(shot.kind), out _, out buildingImpactPoint))
+                    {
+                        impactedBuilding = true;
+                        shot.toX = buildingImpactPoint.x;
+                        shot.toZ = buildingImpactPoint.y;
+                        shot.worldPosition = game.ToWorldPoint(buildingImpactPoint.x, buildingImpactPoint.y, Mathf.Lerp(shot.fromHeight, shot.toHeight, t) + arc);
+                    }
                 }
 
                 if (shot.kind == ProjectileKind.Bomb)
@@ -151,7 +245,7 @@ public sealed partial class ApocalypseKingUnityGame
                 }
                 UpdateProjectileVisual(shot, t);
 
-                if (impactedBuilding || t >= 1f)
+                if (impactedBuilding || (shot.kind != ProjectileKind.Fireball && t >= 1f))
                 {
                     ResolveProjectileImpact(shot);
                 }
@@ -205,6 +299,42 @@ public sealed partial class ApocalypseKingUnityGame
                 game.EnsureRocketProjectileMeshVisual(rocketProjectile);
                 usesRocketMesh = rocketProjectile.usesRocketMesh;
                 headTransform = rocketProjectile.head;
+            }
+            else if (kind == ProjectileKind.Fireball)
+            {
+                if (line != null)
+                {
+                    line.enabled = true;
+                    line.startWidth = 0.04f;
+                    line.endWidth = 0.01f;
+                }
+
+                headTransform = new GameObject("FireballBody").transform;
+                headTransform.SetParent(root.transform, false);
+                headTransform.localPosition = Vector3.zero;
+                headTransform.localRotation = Quaternion.identity;
+                headTransform.localScale = Vector3.one;
+                var fireballProjectile = new ProjectileView
+                {
+                    root = root,
+                    line = line,
+                    head = headTransform,
+                    active = false,
+                    kind = ProjectileKind.Fireball,
+                    usesFireballParticleVisual = false,
+                };
+                game.EnsureFireballProjectileVisual(fireballProjectile);
+                headTransform = fireballProjectile.head;
+                root.SetActive(false);
+                return new ProjectileView
+                {
+                    kind = ProjectileKind.Fireball,
+                    root = root,
+                    line = line,
+                    head = headTransform,
+                    active = false,
+                    usesFireballParticleVisual = fireballProjectile.usesFireballParticleVisual,
+                };
             }
             else if (kind == ProjectileKind.Bomb)
             {
@@ -262,7 +392,8 @@ public sealed partial class ApocalypseKingUnityGame
             if (projectile.line != null)
             {
                 if ((kind == ProjectileKind.Bomb && projectile.usesBombMesh)
-                    || (kind == ProjectileKind.Rocket && projectile.usesRocketMesh))
+                    || (kind == ProjectileKind.Rocket && projectile.usesRocketMesh)
+                    || (kind == ProjectileKind.Fireball && projectile.usesFireballParticleVisual))
                 {
                     projectile.line.enabled = false;
                 }
@@ -286,6 +417,12 @@ public sealed partial class ApocalypseKingUnityGame
                     endWidth = 0.02f;
                     lineColor = new Color(1f, 0.62f, 0.22f, 0.82f);
                 }
+                else if (kind == ProjectileKind.Fireball)
+                {
+                    startWidth = 0.05f;
+                    endWidth = 0.015f;
+                    lineColor = new Color(color.r, color.g, color.b, 0.55f);
+                }
                 else
                 {
                     startWidth = kind == ProjectileKind.Bullet ? 0.015f : kind == ProjectileKind.Bomb ? 0.10f : 0.08f;
@@ -305,7 +442,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (projectile.head != null
                 && !(kind == ProjectileKind.Bomb && projectile.usesBombMesh)
-                && !(kind == ProjectileKind.Rocket && projectile.usesRocketMesh))
+                && !(kind == ProjectileKind.Rocket && projectile.usesRocketMesh)
+                && !(kind == ProjectileKind.Fireball && projectile.usesFireballParticleVisual))
             {
                 float scale = ProjectileHeadScale(kind);
                 if (kind == ProjectileKind.Shell)
@@ -376,6 +514,10 @@ public sealed partial class ApocalypseKingUnityGame
             {
                 shot.head.localScale = Vector3.one;
             }
+            else if (shot.kind == ProjectileKind.Fireball && shot.usesFireballParticleVisual)
+            {
+                shot.head.localScale = Vector3.one * game.GetPterosaurFireballVisualScale();
+            }
             else if (shot.kind == ProjectileKind.Bomb && !shot.usesBombMesh)
             {
                 shot.head.localScale = Vector3.one * scale;
@@ -392,6 +534,15 @@ public sealed partial class ApocalypseKingUnityGame
 
         private void ResolveProjectileImpact(ProjectileView shot)
         {
+            if (shot.kind == ProjectileKind.Fireball && shot.root != null)
+            {
+                TrailRenderer trail = shot.root.GetComponent<TrailRenderer>();
+                if (trail != null)
+                {
+                    trail.emitting = false;
+                }
+            }
+
             shot.active = false;
             shot.root.SetActive(false);
 
@@ -428,9 +579,32 @@ public sealed partial class ApocalypseKingUnityGame
                 return;
             }
 
-            game.PlayBattleEffect(shot.kind == ProjectileKind.Rock ? BattleEffectId.MonsterHammerImpact : BattleEffectId.ShellExplosionSmall, shot.toX, shot.toZ, 0.12f, shot.kind == ProjectileKind.Rock ? 0.95f : 0.82f, Quaternion.identity);
-            game.PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.12f);
-            game.TriggerCameraShake(0.12f, 0.08f);
+            if (shot.kind == ProjectileKind.Fireball)
+            {
+                game.PlayBattleEffect(
+                    BattleEffectId.PterosaurFireballImpact,
+                    shot.toX,
+                    shot.toZ,
+                    Mathf.Max(0.35f, shot.toHeight * 0.55f),
+                    0.92f,
+                    Quaternion.identity);
+                game.PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.22f);
+                game.TriggerCameraShake(0.14f, 0.09f);
+                game.ApplyFireballBurnAt(shot.toX, shot.toZ, shot.damage, shot.homingTargetId);
+            }
+            else
+            {
+                game.PlayBattleEffect(
+                    shot.kind == ProjectileKind.Rock ? BattleEffectId.MonsterHammerImpact : BattleEffectId.ShellExplosionSmall,
+                    shot.toX,
+                    shot.toZ,
+                    0.12f,
+                    shot.kind == ProjectileKind.Rock ? 0.95f : 0.82f,
+                    Quaternion.identity);
+                game.PlayBattleAudio(BattleAudioCueId.ExplosionSmall, shot.toX, shot.toZ, 0.12f);
+                game.TriggerCameraShake(0.12f, 0.08f);
+            }
+
             game.ApplyAreaDamageToHumans(shot.toX, shot.toZ, shot.radius, shot.damage, false, 36f);
         }
 
@@ -523,6 +697,8 @@ public sealed partial class ApocalypseKingUnityGame
                     return Mathf.Max(0.18f, AircraftModelTargetHeight * 0.42f);
                 case ProjectileKind.Rock:
                     return 0.26f;
+                case ProjectileKind.Fireball:
+                    return 0.34f;
                 case ProjectileKind.Rocket:
                     return 0.22f;
                 case ProjectileKind.Shell:
