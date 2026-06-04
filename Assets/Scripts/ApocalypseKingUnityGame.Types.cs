@@ -123,6 +123,9 @@ public sealed partial class ApocalypseKingUnityGame
         public Transform soldierMuzzleVisual;
         public float x;
         public float z;
+        /// <summary>渲染用平滑坐标，与逻辑 x/z 分离以减轻分离推挤抖动。</summary>
+        public float visualX;
+        public float visualZ;
         public float baseZ;
         public float altitude;
         public float hp;
