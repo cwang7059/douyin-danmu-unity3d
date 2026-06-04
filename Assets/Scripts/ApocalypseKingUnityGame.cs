@@ -17,11 +17,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int TankT55AkCount = 25;
     private const int TankCount = 50;
     private const int AircraftCount = 20;
-    private const int GiantCount = 200;
+    private const int PterosaurCount = 20;
+    private const int RocketTruckCount = 10;
+    private const int BaseGiantCount = 200;
+    private const int RocketGiantCount = 20;
+    private const int GiantCount = BaseGiantCount + RocketGiantCount;
     private const int MaxSoldierCount = 50;
-    private const int MaxTankCount = 50;
+    private const int MaxTankCount = TankCount + RocketTruckCount;
     private const int MaxAircraftCount = 20;
-    private const int MaxGiantCount = 200;
+    private const int MaxPterosaurCount = 20;
+    private const int MaxGiantCount = GiantCount;
+    private const float PterosaurDefaultAltitude = 6.2f;
+    private const float PterosaurModelTargetHeight = 4.0f;
+    /// <summary>GLB 机头若沿 -Z 导出，用 180；沿 +X 用 -90；已为 +Z 则 0。</summary>
+    private const float PterosaurMeshYawOffset = 0f;
+    /// <summary>翼龙模型局部最低点对齐 body 原点后，再上抬一点避免贴地/钻地。</summary>
+    private const float PterosaurModelHoverLift = 0.35f;
+    private const float RocketTruckModelTargetHeight = 2.8f;
+    /// <summary>火箭炮车 GLB 机头沿 +X 时用 -90° 对齐游戏 +Z 前向。</summary>
+    private const float RocketTruckMeshYawOffset = 0f;
+    private const float RocketTruckAttackRangeBonus = 520f;
+    private const float RocketTruckSiegeStandoffX = 380f;
+    private const float RocketTruckBehindTankGapX = 118f;
+    private const float TankFormationSiegeStandoffX = 92f;
+    private const float SoldierFormationSiegeStandoffX = 168f;
+    private const float SpecialUnitBattleCenterX = 72f;
+    private const string PterosaurResourceModelPath = "Monsters/Pterosaur/Pterosaur";
+    private const string PterosaurPteranodonResourceModelPath = "Monsters/Pterosaur/Pteranodon";
+    private const string RocketTruckResourceModelPath = "Vehicles/RocketTruck/RocketTruck";
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
     private const int MaxDeathVisuals = 56;
@@ -245,7 +268,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<BattleUnit> soldiers = new List<BattleUnit>(MaxSoldierCount);
     private readonly List<BattleUnit> tanks = new List<BattleUnit>(MaxTankCount);
     private readonly List<BattleUnit> aircraft = new List<BattleUnit>(MaxAircraftCount);
+    private readonly List<BattleUnit> pterosaurs = new List<BattleUnit>(MaxPterosaurCount);
     private readonly List<BattleUnit> giants = new List<BattleUnit>(MaxGiantCount);
+    private GameObject pterosaurPrototype;
+    private GameObject rocketTruckPrototype;
     private int pendingGiantBattleActivation;
     private const int GiantBattleActivationBatchSize = 200;
     private readonly List<BuildingObstacle> buildingObstacles = new List<BuildingObstacle>();
@@ -412,6 +438,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             ProcessPendingGiantBattleActivation();
         }
 
+        if (!paused && !ended)
+        {
+            float specialDt = Mathf.Min(Time.deltaTime, 0.045f);
+            UpdatePterosaurs(specialDt);
+        }
+
         if (Input.GetKeyDown(KeyCode.P) && !ended)
         {
             paused = !paused;
@@ -450,6 +482,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         DrainPendingSpawns();
         UpdateHumans(dt);
         UpdateGiants(dt);
+        UpdatePterosaurs(dt);
         ResolveUnitOverlaps();
         UpdateProjectiles(dt);
         UpdateEffects(dt);
@@ -463,6 +496,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         DisposeUnitAnimators(soldiers);
         DisposeUnitAnimators(tanks);
         DisposeUnitAnimators(aircraft);
+        DisposeUnitAnimators(pterosaurs);
         DisposeUnitAnimators(giants);
     }
 
@@ -486,6 +520,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         var cameraObject = new GameObject("Main Camera");
         cameraObject.tag = "MainCamera";
         mainCamera = cameraObject.AddComponent<Camera>();
+        if (cameraObject.GetComponent<AudioListener>() == null)
+        {
+            cameraObject.AddComponent<AudioListener>();
+        }
+
         mainCamera.clearFlags = CameraClearFlags.Skybox;
         mainCamera.backgroundColor = new Color(0.74f, 0.84f, 0.92f, 1f);
         mainCamera.nearClipPlane = 0.1f;
@@ -1311,6 +1350,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             aircraft.Add(CreateUnitShell(UnitKind.Aircraft));
         }
 
+        for (int i = 0; i < MaxPterosaurCount; i++)
+        {
+            var pterosaur = CreateUnitShell(UnitKind.Aircraft);
+            pterosaur.team = TeamKind.Giant;
+            pterosaur.faction = FactionId.Zombie;
+            pterosaur.combatVariant = UnitCombatVariant.Pterosaur;
+            pterosaurs.Add(pterosaur);
+        }
+
         for (int i = 0; i < MaxGiantCount; i++)
         {
             giants.Add(CreateUnitShell(UnitKind.Giant));
@@ -1428,6 +1476,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             id = nextId++,
             kind = kind,
+            combatVariant = UnitCombatVariant.Standard,
             tankModel = tankModel,
             team = kind == UnitKind.Giant ? TeamKind.Giant : TeamKind.Human,
             root = root,
@@ -1458,6 +1507,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             tankTurretVisual = tankTurretVisual,
             tankBarrelVisual = tankBarrelVisual,
             tankMuzzleVisual = tankMuzzleVisual,
+            soldierMuzzleVisual = null,
         };
     }
 
@@ -1538,6 +1588,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         ConfigureTankVariantPrototypes();
         ConfigureGiantVariantPrototypes();
+        LoadSpecialUnitPrototypes();
     }
 
     private string ResolveSoldierModelPath()
@@ -1754,7 +1805,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         prototype.name = $"{UnitKind.Soldier}_Prototype";
         prototype.hideFlags = HideFlags.HideInHierarchy;
         AttachResourceAnimationClips(prototype, resourceModelPath, resourceFolderPath);
-        if (!HasSoldierRunAnimation(prototype))
+        if (!SoldierPrototypeIsUsable(prototype))
         {
             Destroy(prototype);
             return null;
@@ -1765,19 +1816,43 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return prototype;
     }
 
-    private static bool HasSoldierRunAnimation(GameObject prototype)
+    private static bool SoldierPrototypeIsUsable(GameObject prototype)
     {
+        if (prototype == null)
+        {
+            return false;
+        }
+
+        if (prototype.GetComponentsInChildren<Renderer>(true).Length == 0)
+        {
+            return false;
+        }
+
         AnimationClip[] clips = CollectRuntimeAnimationClips(prototype);
+        if (clips.Length == 0)
+        {
+            return true;
+        }
+
         for (int i = 0; i < clips.Length; i++)
         {
             AnimationClip clip = clips[i];
-            if (clip != null && clip.name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (clip == null)
+            {
+                continue;
+            }
+
+            string name = clip.name;
+            if (name.IndexOf("Run", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Walk", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Idle", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Forward", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;
             }
         }
 
-        return false;
+        return true;
     }
 
     private static bool HasRealisticTankInResources()
@@ -2439,6 +2514,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private void ConfigureImportedPrototype(GameObject prototype, UnitKind kind)
     {
+        StripImportedModelStrayComponents(prototype);
+
         var renderers = prototype.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
@@ -2474,19 +2551,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             RemoveGiantStrayGeometry(prototype);
         }
 
-        if (kind == UnitKind.Soldier)
+        if (kind == UnitKind.Soldier && !SoldierUsesBuiltInTextures(prototype))
         {
-            if (SoldierUsesBuiltInTextures(prototype))
-            {
-                AttachSoldierM14Weapon(prototype);
-            }
-            else
-            {
-                ApplySoldierMilitaryTint(prototype);
-            }
+            ApplySoldierMilitaryTint(prototype);
         }
 
-        if (kind == UnitKind.Aircraft)
+        if (prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            RemoveSketchfabSceneExtras(prototype);
+            ApplyPterosaurAuthenticPresentation(prototype);
+        }
+
+        if (prototype.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            ApplyRocketTruckPrototypeBindRotation(prototype);
+            ApplyRocketTruckTint(prototype);
+        }
+
+        if (kind == UnitKind.Aircraft && prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) < 0)
         {
             RemoveAircraftStrayGeometry(prototype);
             if (HasRealisticAircraftInResources())
@@ -2499,7 +2581,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        NormalizePrototype(prototype, Poses[kind].TargetHeight, kind);
+        float normalizeHeight = kind == UnitKind.Aircraft && prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0
+            ? PterosaurModelTargetHeight
+            : Poses[kind].TargetHeight;
+        NormalizePrototype(prototype, normalizeHeight, kind);
+
+        if (kind == UnitKind.Soldier)
+        {
+            ConfigureSoldierWeaponPresentation(prototype);
+        }
     }
 
     private GameObject EnsureSoldierM14WeaponPrototype()
@@ -2525,38 +2615,180 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return soldierM14WeaponPrototype;
     }
 
+    private void ConfigureSoldierWeaponPresentation(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        EnsureSoldierWeaponOnModel(model);
+        ResolveSoldierMuzzleVisual(model);
+    }
+
+    private void EnsureSoldierWeaponOnModel(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        RemoveSoldierWeaponFromModel(model);
+        AttachSoldierM14Weapon(model);
+    }
+
+    private static void RemoveSoldierWeaponFromModel(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        var transforms = model.GetComponentsInChildren<Transform>(true);
+        for (int i = transforms.Length - 1; i >= 0; i--)
+        {
+            Transform part = transforms[i];
+            if (part != null
+                && (string.Equals(part.name, "SoldierWeapon_M14", StringComparison.Ordinal)
+                    || string.Equals(part.name, "SoldierAimMuzzle", StringComparison.Ordinal)))
+            {
+                Destroy(part.gameObject);
+            }
+        }
+    }
+
     private void AttachSoldierM14Weapon(GameObject prototype)
     {
         Transform hand = FindSoldierWeaponHand(prototype.transform);
         if (hand == null)
         {
-            return;
+            hand = FindSoldierWeaponArmFallback(prototype.transform) ?? prototype.transform;
+        }
+
+        float soldierHeight = SoldierModelTargetHeight;
+        if (TryComputeModelBounds(prototype, out Bounds soldierBounds))
+        {
+            soldierHeight = Mathf.Max(0.001f, soldierBounds.size.y);
         }
 
         GameObject m14Prototype = EnsureSoldierM14WeaponPrototype();
-        if (m14Prototype != null)
+        if (m14Prototype != null && SoldierWeaponPrefabHasMesh(m14Prototype))
         {
-            var weapon = Instantiate(m14Prototype, hand, false);
+            var weapon = Instantiate(m14Prototype);
             weapon.name = "SoldierWeapon_M14";
-            weapon.transform.localPosition = new Vector3(0.04f, 0.07f, 0.02f);
-            weapon.transform.localRotation = Quaternion.Euler(6f, 94f, -102f);
-            weapon.transform.localScale = Vector3.one;
+            weapon.transform.SetParent(hand, false);
+            weapon.transform.localPosition = new Vector3(0.06f, 0.09f, 0.12f);
+            weapon.transform.localRotation = Quaternion.Euler(8f, 96f, -98f);
             weapon.SetActive(true);
+            EnableSoldierWeaponRenderers(weapon);
+            ApplySoldierWeaponLocalScale(weapon.transform, soldierHeight, prototype.transform.lossyScale.y);
             return;
         }
 
         AttachSoldierM14FallbackPrimitives(hand);
+        Transform attached = FindSoldierWeaponRoot(prototype.transform);
+        if (attached != null)
+        {
+            EnableSoldierWeaponRenderers(attached.gameObject);
+            ApplySoldierWeaponLocalScale(attached, soldierHeight, prototype.transform.lossyScale.y);
+        }
+    }
+
+    private static bool SoldierWeaponPrefabHasMesh(GameObject weaponRoot)
+    {
+        if (weaponRoot == null)
+        {
+            return false;
+        }
+
+        return weaponRoot.GetComponentsInChildren<MeshFilter>(true).Length > 0
+            || weaponRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length > 0;
+    }
+
+    private static void ApplySoldierWeaponLocalScale(Transform weaponRoot, float soldierHeight, float soldierLossyScaleY)
+    {
+        if (weaponRoot == null)
+        {
+            return;
+        }
+
+        soldierHeight = Mathf.Max(0.001f, soldierHeight);
+        soldierLossyScaleY = Mathf.Max(0.001f, soldierLossyScaleY);
+        float targetRifleLength = soldierHeight * 0.62f;
+        float scale = targetRifleLength / (SoldierM14TargetLength * soldierLossyScaleY);
+        weaponRoot.localScale = Vector3.one * Mathf.Clamp(scale, 0.35f, 2.5f);
+    }
+
+    private static void EnableSoldierWeaponRenderers(GameObject weaponRoot)
+    {
+        if (weaponRoot == null)
+        {
+            return;
+        }
+
+        var renderers = weaponRoot.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer != null)
+            {
+                renderer.enabled = true;
+            }
+        }
+    }
+
+    private static Transform FindSoldierWeaponArmFallback(Transform root)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        Transform best = null;
+        int bestScore = 0;
+        var transforms = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform part = transforms[i];
+            if (part == null)
+            {
+                continue;
+            }
+
+            string name = part.name;
+            int score = 0;
+            if (ContainsNameToken(name, "rightforearm") || ContainsNameToken(name, "right_forearm"))
+            {
+                score += 70;
+            }
+            else if (ContainsNameToken(name, "right") && ContainsNameToken(name, "forearm"))
+            {
+                score += 60;
+            }
+            else if (ContainsNameToken(name, "right") && ContainsNameToken(name, "arm") && !ContainsNameToken(name, "forearm"))
+            {
+                score += 40;
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = part;
+            }
+        }
+
+        return best;
     }
 
     private void AttachSoldierM14FallbackPrimitives(Transform hand)
     {
         var weaponRoot = new GameObject("SoldierWeapon_M14");
         weaponRoot.transform.SetParent(hand, false);
-        weaponRoot.transform.localPosition = new Vector3(0.04f, 0.07f, 0.02f);
-        weaponRoot.transform.localRotation = Quaternion.Euler(6f, 94f, -102f);
-        weaponRoot.transform.localScale = Vector3.one;
+        weaponRoot.transform.localPosition = new Vector3(0.06f, 0.09f, 0.12f);
+        weaponRoot.transform.localRotation = Quaternion.Euler(8f, 96f, -98f);
+        weaponRoot.transform.localScale = Vector3.one * 1.35f;
 
-        Material metal = GetOpaqueMaterial(new Color(0.14f, 0.15f, 0.13f, 1f));
+        Material metal = GetOpaqueMaterial(new Color(0.22f, 0.24f, 0.20f, 1f));
         Material wood = GetOpaqueMaterial(new Color(0.34f, 0.22f, 0.12f, 1f));
         Material grip = GetOpaqueMaterial(new Color(0.10f, 0.11f, 0.09f, 1f));
 
@@ -2659,6 +2891,90 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private static Transform FindSoldierWeaponRoot(Transform root)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        var transforms = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform part = transforms[i];
+            if (part != null && string.Equals(part.name, "SoldierWeapon_M14", StringComparison.Ordinal))
+            {
+                return part;
+            }
+        }
+
+        return null;
+    }
+
+    private Transform ResolveSoldierMuzzleVisual(GameObject model)
+    {
+        if (model == null)
+        {
+            return null;
+        }
+
+        Transform weapon = FindSoldierWeaponRoot(model.transform);
+        if (weapon != null)
+        {
+            Transform barrel = FindDescendantByNameToken(weapon, "barrel");
+            if (barrel != null)
+            {
+                return barrel;
+            }
+
+            Transform muzzle = FindDescendantByNameToken(weapon, "muzzle");
+            if (muzzle != null)
+            {
+                return muzzle;
+            }
+
+            return weapon;
+        }
+
+        Transform hand = FindSoldierWeaponHand(model.transform);
+        if (hand == null)
+        {
+            return null;
+        }
+
+        Transform marker = hand.Find("SoldierAimMuzzle");
+        if (marker == null)
+        {
+            marker = new GameObject("SoldierAimMuzzle").transform;
+            marker.SetParent(hand, false);
+            marker.localPosition = new Vector3(0.03f, 0.08f, 0.38f);
+            marker.localRotation = Quaternion.Euler(8f, 92f, -95f);
+            marker.localScale = Vector3.one;
+        }
+
+        return marker;
+    }
+
+    private static Transform FindDescendantByNameToken(Transform root, string token)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        var transforms = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform part = transforms[i];
+            if (part != null && ContainsNameToken(part.name, token))
+            {
+                return part;
+            }
+        }
+
+        return null;
+    }
+
     private Transform FindSoldierWeaponHand(Transform root)
     {
         if (root == null)
@@ -2677,9 +2993,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            int score = 0;
             string name = part.name;
-            if (ContainsNameToken(name, "righthand"))
+            if (IsSoldierFingerBoneName(name))
+            {
+                continue;
+            }
+
+            int score = 0;
+            if (string.Equals(name, "mixamorig:RightHand", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "RightHand", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 200;
+            }
+            else if (ContainsNameToken(name, "righthand"))
             {
                 score += 120;
             }
@@ -2700,6 +3026,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return best;
+    }
+
+    private static bool IsSoldierFingerBoneName(string name)
+    {
+        return ContainsNameToken(name, "index")
+            || ContainsNameToken(name, "thumb")
+            || ContainsNameToken(name, "pinky")
+            || ContainsNameToken(name, "ring")
+            || ContainsNameToken(name, "middle");
     }
 
     private void DestroyCollider(GameObject part)
@@ -2906,6 +3241,62 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ApplyOpaqueDoubleSided(material);
         materialCache[key] = material;
         return material;
+    }
+
+    private static void RemoveSketchfabSceneExtras(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        var cameras = root.GetComponentsInChildren<Camera>(true);
+        for (int i = cameras.Length - 1; i >= 0; i--)
+        {
+            if (cameras[i] != null)
+            {
+                DestroyImmediate(cameras[i].gameObject);
+            }
+        }
+
+        var lights = root.GetComponentsInChildren<Light>(true);
+        for (int i = lights.Length - 1; i >= 0; i--)
+        {
+            if (lights[i] != null)
+            {
+                DestroyImmediate(lights[i].gameObject);
+            }
+        }
+
+        var audioSources = root.GetComponentsInChildren<AudioSource>(true);
+        for (int i = audioSources.Length - 1; i >= 0; i--)
+        {
+            if (audioSources[i] != null)
+            {
+                DestroyImmediate(audioSources[i]);
+            }
+        }
+
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = renderers.Length - 1; i >= 0; i--)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            string name = renderer.gameObject.name;
+            if (ContainsNameToken(name, "plane")
+                || ContainsNameToken(name, "ground")
+                || ContainsNameToken(name, "floor")
+                || ContainsNameToken(name, "shadow")
+                || ContainsNameToken(name, "quad")
+                || ContainsNameToken(name, "card"))
+            {
+                DestroyImmediate(renderer.gameObject);
+            }
+        }
     }
 
     private void RemoveGiantStrayGeometry(GameObject prototype)
@@ -3484,6 +3875,47 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return started;
     }
 
+    private static bool TryComputeModelBoundsInRootLocalSpace(GameObject root, out Bounds localBounds, bool includeTankDisplayGeometry = true)
+    {
+        localBounds = default;
+        if (root == null)
+        {
+            return false;
+        }
+
+        if (!TryComputeModelBounds(root, out Bounds worldBounds, includeTankDisplayGeometry))
+        {
+            return false;
+        }
+
+        Transform rootTransform = root.transform;
+        Vector3 center = worldBounds.center;
+        Vector3 extents = worldBounds.extents;
+        bool hasBounds = false;
+        for (int xi = -1; xi <= 1; xi += 2)
+        {
+            for (int yi = -1; yi <= 1; yi += 2)
+            {
+                for (int zi = -1; zi <= 1; zi += 2)
+                {
+                    Vector3 worldCorner = center + new Vector3(extents.x * xi, extents.y * yi, extents.z * zi);
+                    Vector3 localCorner = rootTransform.InverseTransformPoint(worldCorner);
+                    if (!hasBounds)
+                    {
+                        localBounds = new Bounds(localCorner, Vector3.zero);
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        localBounds.Encapsulate(localCorner);
+                    }
+                }
+            }
+        }
+
+        return hasBounds;
+    }
+
     private static bool ShouldSkipTankBoundsRenderer(Renderer renderer, Bounds localOrWorldBounds, bool includeTankDisplayGeometry)
     {
         if (!HasRealisticTankInResources())
@@ -3646,6 +4078,99 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         prototype.transform.localRotation = correction;
     }
 
+    private static float GetPterosaurBoundsHeight(GameObject model, Bounds bounds)
+    {
+        if (model != null && UnitModelUsesAuthoredTextures(model))
+        {
+            return Mathf.Max(0.001f, bounds.size.y);
+        }
+
+        return Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f));
+    }
+
+    private static bool PterosaurPrototypeLooksYUp(Bounds bounds)
+    {
+        Vector3 size = bounds.size;
+        float maxHorizontal = Mathf.Max(size.x, size.z);
+        return size.y >= maxHorizontal * 0.32f;
+    }
+
+    private static void ApplyRocketTruckPrototypeBindRotation(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        if (!TryComputeModelBounds(prototype, out Bounds bounds))
+        {
+            prototype.transform.localRotation = Quaternion.identity;
+            return;
+        }
+
+        Vector3 size = bounds.size;
+        prototype.transform.localRotation = size.x > size.z * 1.05f
+            ? Quaternion.Euler(0f, -90f, 0f)
+            : Quaternion.identity;
+    }
+
+    private static void ApplyPterosaurPrototypeBindRotation(GameObject prototype)
+    {
+        if (prototype == null)
+        {
+            return;
+        }
+
+        if (!TryComputeModelBounds(prototype, out Bounds bounds))
+        {
+            prototype.transform.localRotation = Quaternion.identity;
+            return;
+        }
+
+        if (UnitModelUsesAuthoredTextures(prototype))
+        {
+            // Sketchfab Pteranodon 已是正确朝向，勿按翼展最长轴再旋转（否则会侧翻并算错缩放）。
+            prototype.transform.localRotation = Quaternion.identity;
+            return;
+        }
+
+        Vector3 size = bounds.size;
+        if (PterosaurPrototypeLooksYUp(bounds))
+        {
+            if (size.x > size.z * 1.08f)
+            {
+                prototype.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            }
+            else
+            {
+                prototype.transform.localRotation = Quaternion.identity;
+            }
+
+            return;
+        }
+
+        int axis = 0;
+        float maxSize = size.x;
+        if (size.y > maxSize)
+        {
+            axis = 1;
+            maxSize = size.y;
+        }
+
+        if (size.z > maxSize)
+        {
+            axis = 2;
+        }
+
+        prototype.transform.localRotation = axis switch
+        {
+            // 资源/生成 GLB 机头沿 +X，需绕 Y -90° 对齐游戏 +Z 前向（+90° 会把机头翻到 -Z）。
+            1 => Quaternion.Euler(-90f, 0f, 0f),
+            0 => Quaternion.Euler(0f, -90f, 0f),
+            _ => Quaternion.identity,
+        };
+    }
+
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
         bool includeTankDisplayGeometry = !(HasRealisticTankInResources() && kind == UnitKind.Tank);
@@ -3656,14 +4181,26 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (kind == UnitKind.Aircraft)
         {
-            ApplyAircraftPrototypeBindRotation(prototype);
+            if (prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                ApplyPterosaurPrototypeBindRotation(prototype);
+            }
+            else
+            {
+                ApplyAircraftPrototypeBindRotation(prototype);
+            }
+
             if (!TryComputeModelBounds(prototype, out bounds))
             {
                 return;
             }
         }
 
-        float currentHeight = kind == UnitKind.Aircraft
+        bool normalizePterosaur = kind == UnitKind.Aircraft
+            && prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0;
+        float currentHeight = normalizePterosaur
+            ? GetPterosaurBoundsHeight(prototype, bounds)
+            : kind == UnitKind.Aircraft
             ? Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f))
             : kind == UnitKind.Tank
                 ? GetTankBoundsMetric(bounds)
@@ -3676,8 +4213,22 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        float lift = -bounds.min.y;
-        prototype.transform.localPosition += new Vector3(0f, lift, 0f);
+        if (kind == UnitKind.Aircraft && prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0
+            && TryComputeModelBoundsInRootLocalSpace(prototype, out Bounds localBounds))
+        {
+            prototype.transform.localPosition += new Vector3(
+                -localBounds.center.x,
+                -localBounds.min.y + PterosaurModelHoverLift,
+                -localBounds.center.z);
+        }
+        else if (TryComputeModelBoundsInRootLocalSpace(prototype, out Bounds groundedBounds))
+        {
+            prototype.transform.localPosition += new Vector3(0f, -groundedBounds.min.y, 0f);
+        }
+        else
+        {
+            prototype.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+        }
     }
 
     private GameObject CreateFallbackPrototype(UnitKind kind)
@@ -3764,6 +4315,26 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         AttachPrototypesToUnits();
     }
 
+    private void DetachUnitModelInstance(BattleUnit unit)
+    {
+        if (unit == null || unit.modelInstance == null)
+        {
+            return;
+        }
+
+        DisposeUnitAnimator(unit);
+        Destroy(unit.modelInstance);
+        unit.modelInstance = null;
+        unit.motionAccessoryRoot = null;
+        unit.aircraftRotorRoot = null;
+        unit.aircraftRotorBaseLocalRotation = Quaternion.identity;
+        unit.aircraftRotorRigs.Clear();
+        unit.tankMotionRig = null;
+        unit.soldierMuzzleVisual = null;
+        unit.currentAnimation = string.Empty;
+        unit.animationPresentationKey = -1;
+    }
+
     private void AttachUnitModel(BattleUnit unit)
     {
         if (unit == null)
@@ -3818,7 +4389,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             var model = Instantiate(prototype, unit.body, false);
             model.name = unit.kind.ToString();
             model.SetActive(true);
-            ConfigureRuntimeModel(model, unit.kind);
+            ConfigureRuntimeModel(model, unit);
             if (unit.kind == UnitKind.Tank && unit.tankAimRoot != null)
             {
                 unit.tankAimRoot.gameObject.SetActive(usingFallbackPrototype);
@@ -3860,7 +4431,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             var model = Instantiate(prototype, unit.body, false);
             model.name = unit.kind.ToString();
             model.SetActive(true);
-            ConfigureRuntimeModel(model, unit.kind);
+            ConfigureRuntimeModel(model, unit);
             if (unit.kind == UnitKind.Tank && unit.tankAimRoot != null)
             {
                 unit.tankAimRoot.gameObject.SetActive(usingFallbackPrototype);
@@ -3886,9 +4457,39 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.baseModelLocalPosition = model.transform.localPosition;
         unit.baseModelLocalRotation = model.transform.localRotation;
         unit.soldierUsesVanguardMesh = unit.kind == UnitKind.Soldier && SoldierUsesBuiltInTextures(model);
+        if (unit.kind == UnitKind.Soldier)
+        {
+            EnsureSoldierWeaponOnModel(model);
+            unit.soldierMuzzleVisual = ResolveSoldierMuzzleVisual(model);
+        }
+        else
+        {
+            unit.soldierMuzzleVisual = null;
+        }
+
+        if (unit.kind == UnitKind.Giant && unit.combatVariant == UnitCombatVariant.RocketGiant)
+        {
+            AttachGiantRocketLauncher(model);
+        }
+
+        if (unit.combatVariant == UnitCombatVariant.RocketTruck)
+        {
+            unit.modelYawOffset = RocketTruckMeshYawOffset;
+            unit.tankAimRoot = null;
+            unit.tankBarrelVisual = null;
+            unit.tankMuzzleVisual = null;
+        }
+
         unit.currentAnimation = string.Empty;
         ConfigureAnimatorPlayback(unit, model);
         ConfigureProceduralMotionRig(unit);
+        if (UnitUsesGroundAltitude(unit))
+        {
+            AlignModelBottomToLocalOrigin(model);
+            unit.baseModelLocalPosition = model.transform.localPosition;
+            unit.baseModelLocalRotation = model.transform.localRotation;
+        }
+
         SetUnitPlaceholderVisible(unit, usingFallbackPrototype);
         PlayUnitAnimation(unit);
     }
@@ -3919,7 +4520,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.animatorClips = null;
         unit.currentAnimatorClip = string.Empty;
 
-        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank && unit.kind != UnitKind.Giant) || model == null)
+        bool pterosaurAnimator = unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur;
+        if ((unit.kind != UnitKind.Soldier && unit.kind != UnitKind.Tank && unit.kind != UnitKind.Giant && !pterosaurAnimator) || model == null)
         {
             return;
         }
@@ -3927,6 +4529,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         AnimationClip[] clips = CollectRuntimeAnimationClips(model);
         if (clips.Length == 0)
         {
+            return;
+        }
+
+        if (pterosaurAnimator)
+        {
+            ConfigurePterosaurAnimatorPlayback(unit, model, clips);
             return;
         }
 
@@ -3959,6 +4567,37 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         animator.updateMode = AnimatorUpdateMode.Normal;
 
+        unit.animator = animator;
+        unit.animatorClips = clips;
+    }
+
+    private void ConfigurePterosaurAnimatorPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    {
+        if (unit.animations != null)
+        {
+            for (int i = 0; i < unit.animations.Length; i++)
+            {
+                if (unit.animations[i] != null)
+                {
+                    unit.animations[i].enabled = false;
+                }
+            }
+        }
+
+        var animator = model.GetComponentInChildren<Animator>(true);
+        if (animator == null)
+        {
+            animator = model.GetComponent<Animator>();
+        }
+
+        if (animator == null)
+        {
+            animator = model.AddComponent<Animator>();
+        }
+
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.updateMode = AnimatorUpdateMode.Normal;
         unit.animator = animator;
         unit.animatorClips = clips;
     }
@@ -4202,7 +4841,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        if (unit.kind == UnitKind.Tank)
+        if (unit.kind == UnitKind.Tank && unit.combatVariant != UnitCombatVariant.RocketTruck)
         {
             ConfigureTankMotionRig(unit, UsesAnimatorPlayback(unit));
         }
@@ -4554,6 +5193,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private GameObject ResolvePrototypeForUnit(BattleUnit unit)
     {
+        if (unit != null && unit.combatVariant == UnitCombatVariant.Pterosaur && pterosaurPrototype != null)
+        {
+            return pterosaurPrototype;
+        }
+
+        if (unit != null && unit.combatVariant == UnitCombatVariant.RocketTruck && rocketTruckPrototype != null)
+        {
+            return rocketTruckPrototype;
+        }
+
         if (unit.kind == UnitKind.Tank)
         {
             if (HasRealisticTankInResources())
@@ -4595,8 +5244,47 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return modelPrototypes.TryGetValue(unit.kind, out prototype) ? prototype : null;
     }
 
-    private void ConfigureRuntimeModel(GameObject model, UnitKind kind)
+    private static void StripImportedModelStrayComponents(GameObject root)
     {
+        if (root == null)
+        {
+            return;
+        }
+
+        var audioSources = root.GetComponentsInChildren<AudioSource>(true);
+        for (int i = 0; i < audioSources.Length; i++)
+        {
+            if (audioSources[i] != null)
+            {
+                Destroy(audioSources[i]);
+            }
+        }
+
+        var listeners = root.GetComponentsInChildren<AudioListener>(true);
+        for (int i = 0; i < listeners.Length; i++)
+        {
+            if (listeners[i] != null)
+            {
+                Destroy(listeners[i]);
+            }
+        }
+
+        var lights = root.GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+        {
+            if (lights[i] != null)
+            {
+                Destroy(lights[i]);
+            }
+        }
+    }
+
+    private void ConfigureRuntimeModel(GameObject model, BattleUnit unit)
+    {
+        UnitKind kind = unit != null ? unit.kind : UnitKind.Soldier;
+        bool isPterosaur = unit != null && unit.combatVariant == UnitCombatVariant.Pterosaur;
+        StripImportedModelStrayComponents(model);
+
         if (kind == UnitKind.Tank)
         {
             RemoveTankDisplayGeometry(model);
@@ -4609,13 +5297,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (kind == UnitKind.Aircraft)
         {
             RemoveAircraftStrayGeometry(model);
-            if (HasRealisticAircraftInResources())
+            if (!isPterosaur)
             {
-                ApplyRealisticAircraftMaterials(model);
-            }
-            else
-            {
-                ApplyAircraftHelicopterMaterials(model);
+                if (HasRealisticAircraftInResources())
+                {
+                    ApplyRealisticAircraftMaterials(model);
+                }
+                else
+                {
+                    ApplyAircraftHelicopterMaterials(model);
+                }
             }
         }
 
@@ -4639,8 +5330,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        var pose = Poses[kind];
-        FitModelToHeight(model, pose.TargetHeight, kind);
+        float targetHeight = Poses[kind].TargetHeight;
+        if (isPterosaur)
+        {
+            RemapPterosaurImportedMaterials(model);
+            FitPterosaurRuntimeModel(model);
+        }
+        else if (kind == UnitKind.Tank && model.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            targetHeight = RocketTruckModelTargetHeight;
+            FitModelToHeight(model, targetHeight, kind);
+        }
+        else
+        {
+            FitModelToHeight(model, targetHeight, kind);
+        }
+
+        if (kind == UnitKind.Soldier)
+        {
+            ConfigureSoldierWeaponPresentation(model);
+            AlignModelBottomToLocalOrigin(model);
+        }
+    }
+
+    private static bool UnitUsesGroundAltitude(BattleUnit unit)
+    {
+        return unit != null
+            && unit.kind != UnitKind.Aircraft
+            && unit.combatVariant != UnitCombatVariant.Pterosaur;
     }
 
     private void GroundTankModelOnTerrain(GameObject model)
@@ -4653,6 +5370,49 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
     }
 
+    private static void AlignModelBottomToLocalOrigin(GameObject model)
+    {
+        if (model == null || !TryComputeModelBoundsInRootLocalSpace(model, out Bounds bounds))
+        {
+            return;
+        }
+
+        float bottom = bounds.min.y;
+        if (Mathf.Abs(bottom) > 0.001f)
+        {
+            model.transform.localPosition += new Vector3(0f, -bottom, 0f);
+        }
+    }
+
+    private static void FitPterosaurRuntimeModel(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        if (!TryComputeModelBoundsInRootLocalSpace(model, out Bounds bounds))
+        {
+            return;
+        }
+
+        float currentHeight = GetPterosaurBoundsHeight(model, bounds);
+        if (Mathf.Abs(currentHeight - PterosaurModelTargetHeight) > 0.08f)
+        {
+            float uniformScale = PterosaurModelTargetHeight / currentHeight;
+            model.transform.localScale *= uniformScale;
+            if (!TryComputeModelBoundsInRootLocalSpace(model, out bounds))
+            {
+                return;
+            }
+        }
+
+        model.transform.localPosition += new Vector3(
+            -bounds.center.x,
+            -bounds.min.y + PterosaurModelHoverLift,
+            -bounds.center.z);
+    }
+
     private void FitModelToHeight(GameObject model, float targetHeight, UnitKind kind = UnitKind.Soldier)
     {
         if (!TryComputeModelBounds(model, out Bounds bounds))
@@ -4662,22 +5422,42 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         float currentHeight = kind == UnitKind.Tank
             ? GetTankBoundsMetric(bounds)
-            : Mathf.Max(0.001f, bounds.size.y);
+            : kind == UnitKind.Aircraft
+                ? Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f))
+                : Mathf.Max(0.001f, bounds.size.y);
         if (Mathf.Abs(currentHeight - targetHeight) < 0.08f)
         {
-            model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+            ApplyModelGroundLift(model, kind);
             return;
         }
 
         float uniformScale = targetHeight / currentHeight;
         model.transform.localScale = model.transform.localScale * uniformScale;
+        ApplyModelGroundLift(model, kind);
+    }
 
-        if (!TryComputeModelBounds(model, out bounds))
+    private static void ApplyModelGroundLift(GameObject model, UnitKind kind)
+    {
+        float maxLift = kind == UnitKind.Soldier ? 1.25f : kind == UnitKind.Giant ? 2.5f : 4f;
+        if (kind == UnitKind.Aircraft && TryComputeModelBoundsInRootLocalSpace(model, out Bounds localBounds))
         {
+            float lift = Mathf.Clamp(-localBounds.min.y, 0f, maxLift);
+            model.transform.localPosition += new Vector3(0f, lift, 0f);
             return;
         }
 
-        model.transform.localPosition += new Vector3(0f, -bounds.min.y, 0f);
+        if (TryComputeModelBoundsInRootLocalSpace(model, out Bounds groundedBounds))
+        {
+            float lift = Mathf.Clamp(-groundedBounds.min.y, 0f, maxLift);
+            model.transform.localPosition += new Vector3(0f, lift, 0f);
+            return;
+        }
+
+        if (TryComputeModelBounds(model, out Bounds bounds))
+        {
+            float lift = Mathf.Clamp(-bounds.min.y, 0f, maxLift);
+            model.transform.localPosition += new Vector3(0f, lift, 0f);
+        }
     }
 
     private void ResetBattle()
@@ -4723,9 +5503,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         ResetSoldiers();
         ResetTanks();
         ResetAircraft();
+        ResetPterosaurs();
+        ResetRocketGiants();
         ResetGiants();
         RefreshHud();
-        ShowBanner("Battle start", false, 1.8f);
+        ShowBanner("特殊兵种：翼龙×20 | 火箭丧尸×20 | 火箭炮车×10 已上阵", false, 2.6f);
     }
 
     private void ResetSoldiers()
@@ -4739,25 +5521,72 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
-            int rank = i / HumanFormationLanesPerRow;
+            unit.combatVariant = UnitCombatVariant.Standard;
+            unit.kind = UnitKind.Soldier;
+            DetachUnitModelInstance(unit);
             GetHumanSoldierMassSpawn(i, out float x, out float z);
-            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 8f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, rank, 1, 0f);
+            ActivateUnit(unit, x, z, soldierConfig.MaxHp, soldierConfig.Damage, soldierConfig.MoveSpeed + Noise(i + 73f) * 8f, soldierConfig.Radius, soldierConfig.AttackRange + Noise(i + 101f) * 34f, soldierConfig.AttackInterval + Noise(i + 131f) * 0.22f, i, 1, 0f);
+            unit.headingDegrees = DirectionYawDegrees(
+                BeastCastleGateX - x,
+                BeastCastleCenterZ - z,
+                unit.headingDegrees);
+            unit.turretYawDegrees = unit.headingDegrees;
+            EnsureUnitModelAttached(unit);
         }
     }
 
     private void ResetTanks()
     {
+        int activeTanks = TankCount + RocketTruckCount;
         for (int i = 0; i < tanks.Count; i++)
         {
-            if (i >= TankCount)
+            if (i >= activeTanks)
             {
                 DeactivatePooledUnit(tanks[i]);
                 continue;
             }
 
-            int rank = i / HumanFormationTanksPerRow;
-            GetHumanTankMassSpawn(i, out float x, out float z);
-            ActivateUnit(tanks[i], x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 6f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
+            var unit = tanks[i];
+            unit.kind = UnitKind.Tank;
+            DetachUnitModelInstance(unit);
+            bool rocketTruck = i >= TankCount;
+            unit.combatVariant = rocketTruck ? UnitCombatVariant.RocketTruck : UnitCombatVariant.Standard;
+            int spawnIndex = rocketTruck ? i - TankCount : i;
+            if (rocketTruck)
+            {
+                GetHumanRocketTruckMassSpawn(spawnIndex, out float x, out float z);
+                ActivateUnit(
+                    unit,
+                    x,
+                    z,
+                    tankConfig.MaxHp * 0.92f,
+                    tankConfig.Damage * 1.35f,
+                    tankConfig.MoveSpeed * 0.82f + Noise(i + 401f) * 4f,
+                    tankConfig.Radius * 1.05f,
+                    tankConfig.AttackRange + RocketTruckAttackRangeBonus,
+                    tankConfig.AttackInterval * 1.15f + Noise(i + 503f) * 0.25f,
+                    TankCount + spawnIndex,
+                    1,
+                    0f);
+                unit.modelYawOffset = RocketTruckMeshYawOffset;
+                unit.headingDegrees = DirectionYawDegrees(
+                    BeastCastleGateX - x,
+                    BeastCastleCenterZ - z,
+                    unit.headingDegrees);
+                unit.turretYawDegrees = unit.headingDegrees;
+                EnsureUnitModelAttached(unit);
+            }
+            else
+            {
+                GetHumanTankMassSpawn(spawnIndex, out float x, out float z);
+                ActivateUnit(unit, x, z, tankConfig.MaxHp, tankConfig.Damage, tankConfig.MoveSpeed + Noise(i + 401f) * 6f, tankConfig.Radius, tankConfig.AttackRange, tankConfig.AttackInterval + Noise(i + 503f) * 0.3f, i, 1, 0f);
+                unit.headingDegrees = DirectionYawDegrees(
+                    BeastCastleGateX - x,
+                    BeastCastleCenterZ - z,
+                    unit.headingDegrees);
+                unit.turretYawDegrees = unit.headingDegrees;
+                EnsureUnitModelAttached(unit);
+            }
         }
     }
 
@@ -4771,8 +5600,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 continue;
             }
 
+            var unit = aircraft[i];
+            unit.combatVariant = UnitCombatVariant.Standard;
+            unit.kind = UnitKind.Aircraft;
+            DetachUnitModelInstance(unit);
             GetHumanAircraftMassSpawn(i, out float x, out float z);
-            ActivateUnit(aircraft[i], x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, AircraftDefaultAltitude);
+            ActivateUnit(unit, x, z, aircraftConfig.MaxHp, aircraftConfig.Damage, aircraftConfig.MoveSpeed + i * 7f, aircraftConfig.Radius, aircraftConfig.AttackRange, aircraftConfig.AttackInterval + i * 0.12f, i, 1, AircraftDefaultAltitude);
         }
     }
 
@@ -4784,7 +5617,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             DeactivatePooledUnit(giants[i]);
         }
 
-        pendingGiantBattleActivation = GiantCount;
+        pendingGiantBattleActivation = BaseGiantCount;
     }
 
     private void ProcessPendingGiantBattleActivation()
@@ -4794,20 +5627,22 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        int start = GiantCount - pendingGiantBattleActivation;
+        int start = BaseGiantCount - pendingGiantBattleActivation;
         int batch = Mathf.Min(GiantBattleActivationBatchSize, pendingGiantBattleActivation);
         for (int b = 0; b < batch; b++)
         {
             int i = start + b;
-            if (i >= giants.Count)
+            if (i >= BaseGiantCount)
             {
                 pendingGiantBattleActivation = 0;
                 return;
             }
 
             GetGiantMassSpawn(i, out float x, out float z);
-            ActivateUnit(giants[i], x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
-            giants[i].attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
+            var giant = giants[i];
+            giant.combatVariant = UnitCombatVariant.Standard;
+            ActivateUnit(giant, x, z, giantConfig.MaxHp, giantConfig.Damage, giantConfig.MoveSpeed + Noise(i + 207f) * 4f, giantConfig.Radius, giantConfig.AttackRange, giantConfig.AttackInterval + Noise(i + 307f) * 0.18f, i, -1, 0f);
+            giant.attackCooldown = 2.2f + Noise(i + 907f) * 1.4f;
         }
 
         pendingGiantBattleActivation -= batch;
@@ -4835,7 +5670,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.rank = rank;
         unit.facing = facing;
         unit.animTimer = Noise(unit.id * 11.3f) * 2f;
-        unit.altitude = altitude;
+        unit.altitude = unit.kind == UnitKind.Aircraft && altitude <= 0.01f
+            ? AircraftDefaultAltitude
+            : unit.kind == UnitKind.Aircraft
+                ? altitude
+                : 0f;
         unit.headingDegrees = facing < 0 ? -90f : 90f;
         unit.turretYawDegrees = unit.headingDegrees;
         unit.moveSpeed = 0f;
@@ -4850,13 +5689,33 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.faction = unit.team == TeamKind.Giant ? FactionId.Zombie : FactionId.Blue;
         }
 
-        if (unit.modelInstance == null)
-        {
-            TryAttachCachedUnitModel(unit);
-        }
+        EnsureUnitModelAttached(unit);
 
         UpdateUnitTransform(unit, 0f);
         PlayUnitAnimation(unit);
+    }
+
+    private void EnsureUnitModelAttached(BattleUnit unit)
+    {
+        if (unit == null || !unit.active || unit.body == null)
+        {
+            return;
+        }
+
+        if (unit.modelInstance != null)
+        {
+            return;
+        }
+
+        if (!TryAttachCachedUnitModel(unit))
+        {
+            AttachUnitModel(unit);
+        }
+
+        if (unit.kind == UnitKind.Giant && unit.combatVariant == UnitCombatVariant.RocketGiant && unit.modelInstance != null)
+        {
+            AttachGiantRocketLauncher(unit.modelInstance);
+        }
     }
 
     private void DeactivatePooledUnit(BattleUnit unit)
@@ -4875,6 +5734,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.attackCooldown = 0f;
         unit.moveSpeed = 0f;
         unit.animationPresentationKey = -1;
+        unit.altitude = unit.kind == UnitKind.Aircraft ? AircraftDefaultAltitude : 0f;
+        DetachUnitModelInstance(unit);
         if (unit.root != null)
         {
             unit.root.SetActive(false);
@@ -4890,9 +5751,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         int soldierIndex = CountActive(soldiers);
-        int rank = soldierIndex / HumanFormationLanesPerRow;
         GetHumanSoldierMassSpawn(soldierIndex, out float x, out float z);
-        ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 6f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, rank, 1, 0f);
+        ActivateUnit(unit, x, z, soldierConfig.MaxHp + 4f, soldierConfig.Damage + 1f, soldierConfig.MoveSpeed + 6f, soldierConfig.Radius, soldierConfig.AttackRange + 26f, soldierConfig.AttackInterval - 0.08f, soldierIndex, 1, 0f);
+        unit.headingDegrees = DirectionYawDegrees(
+            BeastCastleGateX - x,
+            BeastCastleCenterZ - z,
+            unit.headingDegrees);
+        unit.turretYawDegrees = unit.headingDegrees;
+        EnsureUnitModelAttached(unit);
         PlayDanmuSpawnEffect(BattleEffectId.HumanSummon, x, z, 0.92f);
         return true;
     }
@@ -5433,8 +6299,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         bool animatorMotion = UsesAnimatorPlayback(unit);
         float moveFactor = Mathf.Clamp01(unit.moveSpeed / Mathf.Max(1f, unit.speed * 0.75f));
         float cycle = unit.animTimer * MotionCycleSpeed(unit.kind, moveFactor) + unit.seed * Mathf.PI * 2f;
+        float airPhase = battleTime > 0.01f ? battleTime : unit.animTimer;
         float bob = unit.kind == UnitKind.Aircraft
-            ? Mathf.Sin(battleTime * 4.8f + unit.seed * 12f) * 0.16f
+            ? Mathf.Sin(airPhase * 4.8f + unit.seed * 12f) * (unit.combatVariant == UnitCombatVariant.Pterosaur ? 0.28f : 0.16f)
             : unit.kind == UnitKind.Soldier && !animatorMotion
                 ? Mathf.Abs(Mathf.Sin(cycle)) * 0.045f * moveFactor
                 : unit.kind == UnitKind.Giant && !UnitUsesGiantSkinnedLocomotion(unit)
@@ -5443,7 +6310,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                         ? Mathf.Sin(cycle * 0.45f) * 0.018f * moveFactor
                         : 0f;
 
-        unit.body.localPosition = new Vector3(0f, unit.altitude + bob, 0f);
+        float bodyAltitude = UnitUsesGroundAltitude(unit) ? 0f : unit.altitude;
+        if (UnitUsesGroundAltitude(unit) && unit.altitude > 0.01f)
+        {
+            unit.altitude = 0f;
+        }
+
+        unit.body.localPosition = new Vector3(0f, bodyAltitude + bob, 0f);
         if (unit.kind == UnitKind.Tank)
         {
             unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + unit.modelYawOffset, 0f);
@@ -5452,7 +6325,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + AircraftEngagementYawOffset, 0f);
         }
-        else if (unit.kind == UnitKind.Giant)
+        else if (unit.kind == UnitKind.Giant || unit.kind == UnitKind.Soldier)
         {
             unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees, 0f);
         }
@@ -5481,16 +6354,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             var pose = Poses[unit.kind];
             float mirrorYaw = pose.MirrorWithFacing && unit.facing < 0 ? 180f : 0f;
-            float wobble = unit.kind == UnitKind.Aircraft ? Mathf.Sin(battleTime * 3.2f + unit.seed * 11f) * 3f : 0f;
+            float wobble = unit.kind == UnitKind.Aircraft
+                ? Mathf.Sin(airPhase * 3.2f + unit.seed * 11f) * (unit.combatVariant == UnitCombatVariant.Pterosaur ? 6f : 3f)
+                : 0f;
             float hitBoost = unit.kind == UnitKind.Giant && unit.hitFlashTimer > 0f ? 1.08f : 1f;
             float attackBoost = unit.attackVisualTimer > 0f ? (unit.kind == UnitKind.Giant ? 1.04f : 1.02f) : 1f;
-            float modelYaw = unit.kind == UnitKind.Tank || unit.kind == UnitKind.Aircraft
+            float modelYaw = unit.kind == UnitKind.Tank
                 ? wobble
-                : unit.kind == UnitKind.Giant
-                    ? (UnitModelUsesAuthoredTextures(unit.modelInstance)
-                        ? GiantPixelhouseMeshYawOffset
-                        : GiantKenneyMeshYawOffset) + wobble
-                    : UsesEngagementHeading(unit.kind)
+                : unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur
+                    ? PterosaurMeshYawOffset + wobble
+                    : unit.kind == UnitKind.Aircraft
+                        ? wobble
+                : unit.kind == UnitKind.Soldier || unit.kind == UnitKind.Giant
+                    ? wobble + (unit.kind == UnitKind.Giant
+                        ? (UnitModelUsesAuthoredTextures(unit.modelInstance)
+                            ? GiantPixelhouseMeshYawOffset
+                            : GiantKenneyMeshYawOffset)
+                        : 0f)
+                : UsesEngagementHeading(unit.kind)
                         ? unit.headingDegrees + wobble
                         : pose.Yaw + mirrorYaw + wobble;
             if (unit.kind == UnitKind.Soldier && unit.soldierUsesVanguardMesh)
@@ -5499,9 +6380,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             Vector3 modelLocalPosition = unit.baseModelLocalPosition;
-            Quaternion facingRotation = Quaternion.Euler(pose.Pitch, modelYaw, pose.Roll);
+            float modelPitch = unit.combatVariant == UnitCombatVariant.Pterosaur ? 0f : pose.Pitch;
+            float modelRoll = unit.combatVariant == UnitCombatVariant.Pterosaur ? 0f : pose.Roll;
+            Quaternion facingRotation = Quaternion.Euler(modelPitch, modelYaw, modelRoll);
             Quaternion modelRotation = facingRotation * unit.baseModelLocalRotation;
-            if (!animatorMotion && !UnitUsesGiantSkinnedLocomotion(unit))
+            if (!animatorMotion && !UnitUsesGiantSkinnedLocomotion(unit)
+                && !(unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur))
             {
                 ApplyProceduralModelMotion(unit, cycle, moveFactor, ref modelLocalPosition, ref modelRotation);
             }
@@ -5509,6 +6393,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             {
                 modelLocalPosition = unit.baseModelLocalPosition;
             }
+            if (UnitUsesGroundAltitude(unit))
+            {
+                float groundedY = unit.baseModelLocalPosition.y;
+                if (modelLocalPosition.y > groundedY + 0.35f || modelLocalPosition.y < groundedY - 0.15f)
+                {
+                    modelLocalPosition.y = groundedY;
+                }
+            }
+
             unit.modelInstance.transform.localScale = unit.baseModelScale * hitBoost * attackBoost;
             unit.modelInstance.transform.localPosition = modelLocalPosition;
             unit.modelInstance.transform.localRotation = modelRotation;
@@ -5925,6 +6818,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private AnimationClip SelectAnimatorClip(BattleUnit unit, bool attacking, bool moving)
     {
+        if (unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur)
+        {
+            return SelectPterosaurAnimatorClip(unit);
+        }
+
         if (unit.kind == UnitKind.Tank)
         {
             return SelectTankAnimatorClip(unit, attacking, moving);
@@ -5946,6 +6844,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return FindAnimatorClip(unit, "Run_Gun", "Run Forward", "Running", "Run", "Walk_Gun", "Walk");
+    }
+
+    private AnimationClip SelectPterosaurAnimatorClip(BattleUnit unit)
+    {
+        return FindAnimatorClip(
+            unit,
+            "Fly",
+            "Flight",
+            "Flap",
+            "Glide",
+            "Soar",
+            "Hover",
+            "Gliding",
+            "Wing",
+            "Idle");
     }
 
     private AnimationClip SelectTankAnimatorClip(BattleUnit unit, bool attacking, bool moving)
@@ -6095,6 +7008,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 }
 
                 return moving ? "walk" : "Fury";
+            case UnitKind.Aircraft:
+                return "Fly";
             default:
                 return string.Empty;
         }
@@ -6467,6 +7382,213 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         throw new InvalidOperationException("No usable Unity shader could be found for runtime materials.");
+    }
+
+    private static Texture GetImportedMaterialMainTexture(Material material)
+    {
+        if (material == null)
+        {
+            return null;
+        }
+
+        if (material.mainTexture != null)
+        {
+            return material.mainTexture;
+        }
+
+        if (material.HasProperty("_MainTex"))
+        {
+            Texture mainTex = material.GetTexture("_MainTex");
+            if (mainTex != null)
+            {
+                return mainTex;
+            }
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            return material.GetTexture("_BaseMap");
+        }
+
+        return null;
+    }
+
+    private static bool ImportedMaterialNeedsRuntimeRemap(Material material)
+    {
+        if (material == null)
+        {
+            return true;
+        }
+
+        if (material.shader == null || !material.shader.isSupported)
+        {
+            return true;
+        }
+
+        string shaderName = material.shader.name;
+        if (shaderName.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0
+            || shaderName.IndexOf("GLTF", StringComparison.OrdinalIgnoreCase) >= 0
+            || shaderName.IndexOf("glTF", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        return GetImportedMaterialMainTexture(material) != null
+            && !shaderName.StartsWith("Standard", StringComparison.OrdinalIgnoreCase)
+            && shaderName.IndexOf("Legacy", StringComparison.OrdinalIgnoreCase) < 0;
+    }
+
+    private Material CreateRemappedOpaqueMaterialFromImported(Material source)
+    {
+        Texture main = GetImportedMaterialMainTexture(source);
+        Texture normal = null;
+        if (source != null)
+        {
+            if (source.HasProperty("_BumpMap"))
+            {
+                normal = source.GetTexture("_BumpMap");
+            }
+            else if (source.HasProperty("_NormalMap"))
+            {
+                normal = source.GetTexture("_NormalMap");
+            }
+        }
+
+        string key = $"import-remap:{main?.GetInstanceID()}:{normal?.GetInstanceID()}:{source?.color}";
+        if (materialCache.TryGetValue(key, out Material cached))
+        {
+            return cached;
+        }
+
+        Color tint = source != null ? source.color : Color.white;
+        if (source != null && source.HasProperty("_BaseColor"))
+        {
+            tint = source.GetColor("_BaseColor");
+        }
+
+        Shader shader = FindRuntimeShader(
+            "RuntimeMaterials/RuntimeGltfPbrMetallicRoughness",
+            "GLTF/PbrMetallicRoughness",
+            "Standard",
+            "Legacy Shaders/Diffuse",
+            "Unlit/Texture");
+        Material material = new Material(shader);
+        material.color = tint;
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", tint);
+        }
+
+        if (main != null)
+        {
+            if (material.HasProperty("_MainTex"))
+            {
+                material.SetTexture("_MainTex", main);
+            }
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", main);
+            }
+        }
+
+        if (normal != null)
+        {
+            if (material.HasProperty("_BumpMap"))
+            {
+                material.SetTexture("_BumpMap", normal);
+                material.EnableKeyword("_NORMALMAP");
+            }
+
+            if (material.HasProperty("_NormalMap"))
+            {
+                material.SetTexture("_NormalMap", normal);
+            }
+        }
+
+        if (material.HasProperty("_Glossiness"))
+        {
+            material.SetFloat("_Glossiness", 0.22f);
+        }
+
+        if (material.HasProperty("_Metallic") && source != null && source.HasProperty("_Metallic"))
+        {
+            material.SetFloat("_Metallic", source.GetFloat("_Metallic"));
+        }
+
+        if (source != null)
+        {
+            Color emissionColor = source.HasProperty("_EmissionColor") ? source.GetColor("_EmissionColor") : Color.black;
+            bool hasEmission = source.IsKeywordEnabled("_EMISSION")
+                || Mathf.Max(emissionColor.r, emissionColor.g, emissionColor.b) > 0.02f;
+            if (hasEmission)
+            {
+                emissionColor *= 1.35f;
+                material.EnableKeyword("_EMISSION");
+                if (material.HasProperty("_EmissionColor"))
+                {
+                    material.SetColor("_EmissionColor", emissionColor);
+                }
+
+                if (material.HasProperty("_EmissionMap") && source.HasProperty("_EmissionMap"))
+                {
+                    Texture emission = source.GetTexture("_EmissionMap");
+                    if (emission != null)
+                    {
+                        material.SetTexture("_EmissionMap", emission);
+                    }
+                }
+            }
+        }
+
+        ApplyOpaqueDoubleSided(material);
+        materialCache[key] = material;
+        return material;
+    }
+
+    private void RemapPterosaurImportedMaterials(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        RemoveSketchfabSceneExtras(model);
+        var renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            var materials = renderer.sharedMaterials;
+            bool changed = false;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material source = materials[m];
+                if (source == null)
+                {
+                    continue;
+                }
+
+                if (ImportedMaterialNeedsRuntimeRemap(source))
+                {
+                    materials[m] = CreateRemappedOpaqueMaterialFromImported(source);
+                    changed = true;
+                }
+                else
+                {
+                    ApplyOpaqueDoubleSided(materials[m]);
+                }
+            }
+
+            if (changed)
+            {
+                renderer.sharedMaterials = materials;
+            }
+        }
     }
 
     private void ApplyOpaqueDoubleSided(Material material)
@@ -7046,6 +8168,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private Vector2 SoldierMuzzlePoint(BattleUnit unit, Vector2 direction)
     {
+        if (TryGetSoldierMuzzleLogical(unit, out Vector2 muzzle))
+        {
+            return muzzle;
+        }
+
         if (direction.sqrMagnitude <= 0.0001f)
         {
             direction = DirectionFromYaw(unit.headingDegrees);
@@ -7057,6 +8184,31 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return new Vector2(
             unit.x + direction.x * 25f + side.x * shoulderOffset,
             unit.z + direction.y * 25f + side.y * shoulderOffset);
+    }
+
+    private bool TryGetSoldierMuzzleLogical(BattleUnit unit, out Vector2 logical)
+    {
+        logical = default;
+        if (unit == null)
+        {
+            return false;
+        }
+
+        Transform muzzle = unit.soldierMuzzleVisual;
+        if (muzzle == null && unit.modelInstance != null)
+        {
+            muzzle = ResolveSoldierMuzzleVisual(unit.modelInstance);
+            unit.soldierMuzzleVisual = muzzle;
+        }
+
+        if (muzzle == null)
+        {
+            return false;
+        }
+
+        Vector3 world = muzzle.position;
+        logical = new Vector2(world.x / LogicalToWorld, world.z / LogicalToWorld);
+        return true;
     }
 
     private Vector2 TankMuzzlePoint(BattleUnit unit)
