@@ -6,8 +6,8 @@ public sealed partial class ApocalypseKingUnityGame
     private const float GiantRocketPreferMeleeDistance = 108f;
     private const float PterosaurRocketRangeBonus = 180f;
     private const float PterosaurSiegeStandoffX = 240f;
-    /// <summary>开战後自城堡門前最多向前巡逻的逻辑距离，避免飞到中场列队。</summary>
-    private const float PterosaurMaxAdvanceFromGateX = 95f;
+    /// <summary>翼龙编队纵深：各行允许比出生点更靠近人族城堡的最大逻辑距离。</summary>
+    private const float PterosaurFormationRankAdvanceX = 120f;
     private const int PterosaurMassSpawnColumns = 5;
     private const float PterosaurMassSpawnSpacingX = 22f;
     private const float PterosaurMassSpawnSpacingZ = 26f * FormationWidthScale;
@@ -176,6 +176,10 @@ public sealed partial class ApocalypseKingUnityGame
         jaw.transform.localScale = new Vector3(0.18f, 0.06f, 0.10f);
         jaw.transform.localPosition = new Vector3(0.52f, -0.02f, 0f);
         jaw.GetComponent<Renderer>().sharedMaterial = crestMat;
+
+        var mouth = new GameObject("Mouth");
+        mouth.transform.SetParent(root.transform, false);
+        mouth.transform.localPosition = new Vector3(0.58f, 0.02f, 0f);
 
         var crest = CreatePrimitive(PrimitiveType.Cube, "Crest", root.transform);
         crest.transform.localScale = new Vector3(0.22f, 0.20f, 0.06f);
@@ -410,6 +414,17 @@ public sealed partial class ApocalypseKingUnityGame
         x = anchorX - row * PterosaurMassSpawnSpacingX;
     }
 
+    private static float PterosaurPatrolSpanX()
+    {
+        float span = BeastCastleGateX - HumanCastleGateX - CastleSiegeStandoffX - PterosaurSiegeStandoffX - 40f;
+        return Mathf.Max(600f, span);
+    }
+
+    private static float PterosaurMinAdvanceX()
+    {
+        return BeastCastleGateX - PterosaurPatrolSpanX();
+    }
+
     private float ResolvePterosaurFormationDesiredX(BattleUnit unit, float formationX)
     {
         if (matchPhase != MatchPhase.Battle)
@@ -417,17 +432,16 @@ public sealed partial class ApocalypseKingUnityGame
             return formationX;
         }
 
-        float minX = BeastCastleGateX - PterosaurMaxAdvanceFromGateX;
+        float rearLimitX = formationX;
+        float minAdvanceX = PterosaurMinAdvanceX();
+        float rankAdvanceX = formationX - PterosaurFormationRankAdvanceX;
         if (!TryGetEnemyCastleSiegePoint(unit, out float siegeX, out _))
         {
-            return Mathf.Max(minX, formationX);
+            return Mathf.Clamp(rankAdvanceX, minAdvanceX, rearLimitX);
         }
 
-        float forwardLimitX = formationX - PterosaurMaxAdvanceFromGateX;
         float siegeApproachX = siegeX + PterosaurSiegeStandoffX;
-        float desiredX = Mathf.Max(siegeApproachX, forwardLimitX);
-        desiredX = Mathf.Min(formationX, desiredX);
-        return Mathf.Max(minX, desiredX);
+        return Mathf.Clamp(siegeApproachX, minAdvanceX, rearLimitX);
     }
 
     private const int RocketTruckMassSpawnColumns = 9;
@@ -621,7 +635,7 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (unit.attackCooldown <= 0f)
             {
-                PerformPterosaurRocketAttack(unit, target);
+                PerformPterosaurFireAttack(unit, target);
             }
         }
         else
@@ -632,7 +646,7 @@ public sealed partial class ApocalypseKingUnityGame
         }
 
         MoveUnitToAvoidingBuildings(unit, nextX, nextZ, unit.speed * dt * 1.2f);
-        unit.x = Mathf.Clamp(unit.x, BeastCastleGateX - PterosaurMaxAdvanceFromGateX - 30f, BeastCastleGateX + 40f);
+        unit.x = Mathf.Clamp(unit.x, PterosaurMinAdvanceX() - 30f, BeastCastleGateX + 40f);
 
         if (target != null)
         {
@@ -656,7 +670,90 @@ public sealed partial class ApocalypseKingUnityGame
         return best;
     }
 
-    private void PerformPterosaurRocketAttack(BattleUnit unit, BattleUnit target)
+    private static readonly Color PterosaurFireProjectileColor = new Color(1f, 0.52f, 0.1f, 1f);
+    private static readonly string[] PterosaurMouthBoneHints =
+    {
+        "mouth", "jaw", "beak", "snout", "mandible", "head", "neck",
+    };
+
+    private static Transform FindPterosaurMouthTransform(Transform root)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < PterosaurMouthBoneHints.Length; i++)
+        {
+            Transform hit = FindChildTransformByNameHint(root, PterosaurMouthBoneHints[i]);
+            if (hit != null)
+            {
+                return hit;
+            }
+        }
+
+        return null;
+    }
+
+    private static Transform FindChildTransformByNameHint(Transform root, string hint)
+    {
+        if (root == null || string.IsNullOrEmpty(hint))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name.IndexOf(hint, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return child;
+            }
+
+            Transform nested = FindChildTransformByNameHint(child, hint);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetPterosaurMouthLaunchLogical(BattleUnit unit, Vector2 aim, out float x, out float z, out float height)
+    {
+        x = unit.x;
+        z = unit.z;
+        height = Mathf.Max(PterosaurDefaultAltitude, unit.altitude);
+        if (unit?.body == null)
+        {
+            return false;
+        }
+
+        float aimLen = aim.magnitude;
+        Vector3 forward = aimLen > 0.001f
+            ? new Vector3(aim.x / aimLen, 0f, aim.y / aimLen)
+            : unit.body.forward;
+        Vector3 launchWorld = unit.body.position
+            + Vector3.up * (PterosaurModelTargetHeight * 0.2f)
+            + forward * (PterosaurModelTargetHeight * 0.38f);
+
+        if (unit.modelInstance != null)
+        {
+            Transform mouth = FindPterosaurMouthTransform(unit.modelInstance.transform);
+            if (mouth != null)
+            {
+                launchWorld = mouth.position + mouth.forward * 0.12f + Vector3.up * 0.04f;
+            }
+        }
+
+        x = launchWorld.x / LogicalToWorld;
+        z = launchWorld.z / LogicalToWorld;
+        height = launchWorld.y - SampleBattlefieldGroundHeightWorld(launchWorld.x, launchWorld.z);
+        return true;
+    }
+
+    private void PerformPterosaurFireAttack(BattleUnit unit, BattleUnit target)
     {
         if (unit == null || target == null)
         {
@@ -665,27 +762,33 @@ public sealed partial class ApocalypseKingUnityGame
 
         unit.runtimeState = UnitRuntimeState.Attacking;
         unit.attackCooldown = unit.attackInterval * (0.95f + Noise(battleTime * 17f + unit.id) * 0.2f);
-        unit.attackVisualTimer = 0.42f;
+        unit.attackVisualTimer = 0.55f;
 
         Vector2 aim = DirectionTo(unit.x, unit.z, target.x, target.z, unit.headingDegrees);
-        TryGetUnitBodyLaunchLogical(unit, out float launchX, out float launchZ, out float launchHeight);
-        launchHeight = Mathf.Max(PterosaurDefaultAltitude, launchHeight);
-        PlayBattleEffect(BattleEffectId.MuzzleTank, launchX, launchZ, launchHeight, 0.48f, RotationFromDirection(aim));
-        PlayBattleAudio(BattleAudioCueId.TankShot, launchX, launchZ, launchHeight);
+        TryGetPterosaurMouthLaunchLogical(unit, aim, out float launchX, out float launchZ, out float launchHeight);
+        launchHeight = Mathf.Max(PterosaurDefaultAltitude * 0.85f, launchHeight);
+        PlayBattleEffect(
+            BattleEffectId.PterosaurFireBreath,
+            launchX,
+            launchZ,
+            launchHeight,
+            0.62f,
+            RotationFromDirection(aim));
+        PlayBattleAudio(BattleAudioCueId.OrcSkill, launchX, launchZ, launchHeight);
         float scaledDamage = ScaleOutgoingDamage(unit, target, unit.damage);
         SpawnProjectile(
-            ProjectileKind.Rocket,
+            ProjectileKind.Rock,
             ProjectileTarget.Human,
             launchX,
             launchZ,
             launchHeight,
             target.x,
             target.z,
-            1.05f,
+            Mathf.Max(1.2f, target.altitude * 0.55f),
             scaledDamage,
-            38f,
-            540f,
-            new Color(0.95f, 0.42f, 0.18f, 1f));
+            36f,
+            480f,
+            PterosaurFireProjectileColor);
     }
 
     private void PerformGiantRocketAttack(BattleUnit giant, BattleUnit target)
