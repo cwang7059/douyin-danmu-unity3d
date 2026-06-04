@@ -446,14 +446,44 @@ public sealed partial class ApocalypseKingUnityGame
         x = anchorX - row * RocketTruckMassSpawnSpacingX;
     }
 
+    private const int RocketGiantMassSpawnColumns = 10;
+    private const float RocketGiantMassSpawnSpacingX = 48f;
+    private const float RocketGiantMassSpawnSpacingZ = 40f * FormationWidthScale;
+
+    private static float RocketGiantMassSpawnAnchorX()
+    {
+        return BeastCastleSpawnExitX() - 14f;
+    }
+
+    private static float RocketGiantFormationFrontSpawnX()
+    {
+        int rows = (RocketGiantCount + RocketGiantMassSpawnColumns - 1) / RocketGiantMassSpawnColumns;
+        return RocketGiantMassSpawnAnchorX() - Mathf.Max(0, rows - 1) * RocketGiantMassSpawnSpacingX;
+    }
+
     private void GetRocketGiantMassSpawn(int rocketIndex, out float x, out float z)
     {
         rocketIndex = Mathf.Max(0, rocketIndex);
-        int col = rocketIndex % 10;
-        int row = rocketIndex / 10;
-        float anchorX = BeastCastleSpawnExitX() - 14f;
-        z = (col - 4.5f) * 34f * FormationWidthScale;
-        x = anchorX - row * 24f;
+        int col = rocketIndex % RocketGiantMassSpawnColumns;
+        int row = rocketIndex / RocketGiantMassSpawnColumns;
+        float anchorX = RocketGiantMassSpawnAnchorX();
+        z = (col - (RocketGiantMassSpawnColumns - 1) * 0.5f) * RocketGiantMassSpawnSpacingZ;
+        x = anchorX - row * RocketGiantMassSpawnSpacingX;
+    }
+
+    private bool TryGetRocketGiantFormationSpawn(BattleUnit giant, out float spawnX, out float spawnZ)
+    {
+        spawnX = 0f;
+        spawnZ = 0f;
+        if (giant == null
+            || giant.combatVariant != UnitCombatVariant.RocketGiant
+            || giant.rank < BaseGiantCount)
+        {
+            return false;
+        }
+
+        GetRocketGiantMassSpawn(giant.rank - BaseGiantCount, out spawnX, out spawnZ);
+        return true;
     }
 
     private void ResetRocketGiants()
@@ -708,30 +738,47 @@ public sealed partial class ApocalypseKingUnityGame
 
         var launcher = new GameObject("GiantRocketLauncher");
         launcher.transform.SetParent(model.transform, false);
-        launcher.transform.localPosition = new Vector3(0.12f, 0.95f, 0.42f);
-        launcher.transform.localRotation = Quaternion.Euler(-8f, 90f, 0f);
-        launcher.transform.localScale = Vector3.one * 2.4f;
+        launcher.transform.localPosition = new Vector3(-0.08f, 1.05f, 0.28f);
+        launcher.transform.localRotation = Quaternion.Euler(-12f, 90f, 0f);
+        launcher.transform.localScale = Vector3.one * 1.35f;
+        launcher.SetActive(false);
 
         Material tube = GetOpaqueMaterial(new Color(0.22f, 0.24f, 0.20f, 1f));
         Material warhead = GetOpaqueMaterial(new Color(0.92f, 0.38f, 0.12f, 1f));
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 2; i++)
         {
             var pipe = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pipe.name = $"RocketTube_{i}";
             pipe.transform.SetParent(launcher.transform, false);
-            pipe.transform.localScale = new Vector3(0.09f, 0.42f, 0.09f);
-            pipe.transform.localPosition = new Vector3(-0.12f + i * 0.08f, 0.18f, 0.22f);
-            pipe.transform.localRotation = Quaternion.Euler(78f, 0f, 0f);
+            pipe.transform.localScale = new Vector3(0.08f, 0.36f, 0.08f);
+            pipe.transform.localPosition = new Vector3(-0.05f + i * 0.10f, 0.16f, 0.18f);
+            pipe.transform.localRotation = Quaternion.Euler(72f, 0f, 0f);
             pipe.GetComponent<Renderer>().sharedMaterial = tube;
             DestroyCollider(pipe);
 
             var tip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             tip.name = $"RocketTip_{i}";
             tip.transform.SetParent(pipe.transform, false);
-            tip.transform.localPosition = new Vector3(0f, 0.62f, 0f);
-            tip.transform.localScale = Vector3.one * 0.55f;
+            tip.transform.localPosition = new Vector3(0f, 0.58f, 0f);
+            tip.transform.localScale = Vector3.one * 0.48f;
             tip.GetComponent<Renderer>().sharedMaterial = warhead;
             DestroyCollider(tip);
+        }
+    }
+
+    private void SetGiantRocketLauncherVisible(BattleUnit giant, bool visible)
+    {
+        if (giant == null
+            || giant.combatVariant != UnitCombatVariant.RocketGiant
+            || giant.modelInstance == null)
+        {
+            return;
+        }
+
+        Transform launcher = giant.modelInstance.transform.Find("GiantRocketLauncher");
+        if (launcher != null)
+        {
+            launcher.gameObject.SetActive(visible);
         }
     }
 }
