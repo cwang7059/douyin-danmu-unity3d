@@ -63,6 +63,14 @@ public sealed partial class ApocalypseKingUnityGame
         Dead,
     }
 
+    private enum UnitCombatVariant
+    {
+        Standard,
+        Pterosaur,
+        RocketGiant,
+        RocketTruck,
+    }
+
     private sealed class ModelPose
     {
         public readonly float TargetHeight;
@@ -87,6 +95,7 @@ public sealed partial class ApocalypseKingUnityGame
     {
         public int id;
         public UnitKind kind;
+        public UnitCombatVariant combatVariant;
         public TankModelVariant tankModel;
         public TeamKind team;
         public FactionId faction;
@@ -111,6 +120,7 @@ public sealed partial class ApocalypseKingUnityGame
         public Transform tankTurretVisual;
         public Transform tankBarrelVisual;
         public Transform tankMuzzleVisual;
+        public Transform soldierMuzzleVisual;
         public float x;
         public float z;
         public float baseZ;
