@@ -27,7 +27,8 @@ function Install-HelicopterMesh {
     if (-not (Test-Path $Source)) { return $false }
     $ext = [System.IO.Path]::GetExtension($Source).ToLowerInvariant()
     if ($ext -ne ".glb" -and $ext -ne ".fbx") { return $false }
-    $destName = "BlackHawk$ext"
+    # Keep BlackHawk.fbx for Attack Chopper; GLB uses a separate name to avoid Resources.Load clash.
+    $destName = if ($ext -eq ".glb") { "BlackHawkSketchfab.glb" } else { "BlackHawk$ext" }
     $dest = Join-Path $ResourcesDir $destName
     $stream = Join-Path $StreamingDir $destName
     Copy-Item $Source $dest -Force
@@ -65,6 +66,11 @@ for fn in os.listdir(tex_src):
         continue
     shutil.copy2(os.path.join(tex_src, fn), os.path.join(res, fn))
     shutil.copy2(os.path.join(tex_src, fn), os.path.join(stream, fn))
+preferred = 'Apache_Texture_BlueLightning.png'
+if os.path.isfile(os.path.join(tex_src, preferred)):
+    for folder in (res, stream):
+        shutil.copy2(os.path.join(tex_src, preferred), os.path.join(folder, preferred))
+    print('[Helicopter] default body texture:', preferred)
 print('[Helicopter] BlackHawk.fbx + textures from Attack Chopper')
 "@ | Out-Null
 
@@ -129,5 +135,5 @@ if (-not $installed) {
 }
 
 Write-Host "[Helicopter] Installed to $ResourcesDir"
-Write-Host "[Helicopter] Game prefers RealisticAircraft over KumaSousa LowPolyHelicopter."
+Write-Host "[Helicopter] Game prefers RealisticAircraft/BlackHawk.fbx (Attack Chopper), then BlackHawkSketchfab.glb, then KumaSousa."
 Write-Host "[Helicopter] Unity: Reimport RealisticAircraft, then Stop/Play."
