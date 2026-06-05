@@ -49,7 +49,7 @@ public sealed partial class ApocalypseKingUnityGame
                 changed |= ResolveWithinGroup(game.aircraft, 1.08f);
                 if (game.matchPhase == MatchPhase.Battle)
                 {
-                    changed |= ResolveWithinGroup(game.pterosaurs, 1.04f);
+                    changed |= ResolveWithinGroup(game.pterosaurs, 1.32f);
                 }
 
                 changed |= ResolveBetweenGroups(game.aircraft, game.soldiers, 1.16f);

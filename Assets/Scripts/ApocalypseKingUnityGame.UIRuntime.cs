@@ -48,6 +48,7 @@ public sealed partial class ApocalypseKingUnityGame
             int soldierAlive = game.CountActive(game.soldiers);
             int tankAlive = game.CountActive(game.tanks);
             int airAlive = game.CountActive(game.aircraft);
+            int pterosaurAlive = game.CountActive(game.pterosaurs);
             int humanAlive = soldierAlive + tankAlive + airAlive;
             int humanTotal = ApocalypseKingUnityGame.MaxSoldierCount + ApocalypseKingUnityGame.MaxTankCount + ApocalypseKingUnityGame.MaxAircraftCount;
             int giantAlive = game.CountActive(game.giants);
@@ -70,7 +71,7 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.rightTeamLabel != null)
             {
-                game.rightTeamLabel.text = $"绿军 {greenBasePct * 100f:0}% | 丧尸 {zombieBasePct * 100f:0}%";
+                game.rightTeamLabel.text = $"绿军 {greenBasePct * 100f:0}% | 丧尸 {zombieBasePct * 100f:0}% | 翼龙 {pterosaurAlive}";
             }
 
             if (game.battlePhaseLabel != null)
@@ -103,7 +104,8 @@ public sealed partial class ApocalypseKingUnityGame
 
             if (game.giantLabel != null)
             {
-                game.giantLabel.text = $"丧尸 {giantAlive}/{ApocalypseKingUnityGame.MaxGiantCount} HP {giantHp:0}";
+                game.giantLabel.text =
+                    $"丧尸 {giantAlive}/{ApocalypseKingUnityGame.MaxGiantCount}  翼龙 {pterosaurAlive}/{ApocalypseKingUnityGame.PterosaurCount} HP {giantHp:0}";
             }
 
             if (game.statusLabel != null)

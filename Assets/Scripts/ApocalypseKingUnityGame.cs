@@ -30,13 +30,20 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const int MaxGiantCount = GiantCount;
     /// <summary>直升机与翼龙共用巡航高度（逻辑单位）。</summary>
     private const float SharedAirUnitDefaultAltitude = 7.2f;
-    private const float PterosaurDefaultAltitude = SharedAirUnitDefaultAltitude;
+    /// <summary>与直升机同高度带，避免飞得过高在默认镜头外。</summary>
+    private const float PterosaurDefaultAltitude = SharedAirUnitDefaultAltitude + 0.6f;
     /// <summary>空中单位巡航时机身底部相对 body 原点的高度（翼龙/直升机共用底线）。</summary>
     private const float AirUnitCruiseBottomY = 0.5f;
     private const float AirUnitAltitudeBobAmplitude = 0.22f;
-    private const float PterosaurModelTargetHeight = 3.15f;
-    /// <summary>GLB 机头若沿 -Z 导出，用 180；沿 +X 用 -90；已为 +Z 则 0。</summary>
+    private const float PterosaurModelTargetHeight = 4.2f;
+    /// <summary>翼龙飞行动画播放倍率（GLB 含飞行动画时使用）。</summary>
+    private const float PterosaurWingFlapAnimSpeed = 1.95f;
+    /// <summary>无骨骼飞行动画时，程序化扇翼频率（Hz）。</summary>
+    private const float PterosaurWingFlapFrequencyHz = 4.2f;
+    private const float PterosaurWingFlapDegrees = 26f;
+    /// <summary>GLB 机头沿 +X 时，原型已 -90° 对齐 +Z；此处仅做微调。</summary>
     private const float PterosaurMeshYawOffset = 0f;
+    private const float PterosaurGlbBindYawDegrees = -90f;
     private const float RocketTruckModelTargetHeight = 2.8f;
     /// <summary>火箭炮车 GLB 机头沿 +X 时用 -90° 对齐游戏 +Z 前向。</summary>
     private const float RocketTruckMeshYawOffset = 0f;
@@ -49,6 +56,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private const float SpecialUnitBattleCenterX = 72f;
     private const string PterosaurResourceModelPath = "Monsters/Pterosaur/Pterosaur";
     private const string PterosaurPteranodonResourceModelPath = "Monsters/Pterosaur/Pteranodon";
+    private const string PterosaurTextureResourcePath = "Monsters/Pterosaur/Textures";
     private const string RocketTruckResourceModelPath = "Vehicles/RocketTruck/RocketTruck";
     private const int MaxProjectiles = 220;
     private const int MaxEffects = 48;
@@ -282,6 +290,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private readonly List<BattleUnit> pterosaurs = new List<BattleUnit>(MaxPterosaurCount);
     private readonly List<BattleUnit> giants = new List<BattleUnit>(MaxGiantCount);
     private GameObject pterosaurPrototype;
+    private GameObject pterosaurVisibilityFallbackPrototype;
     private GameObject rocketTruckPrototype;
     private int pendingGiantBattleActivation;
     private const int GiantBattleActivationBatchSize = 200;
@@ -505,6 +514,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         DisposeUnitAnimators(aircraft);
         DisposeUnitAnimators(pterosaurs);
         DisposeUnitAnimators(giants);
+        ClearRuntimeMaterialCache();
+    }
+
+    private void ClearRuntimeMaterialCache()
+    {
+        foreach (KeyValuePair<string, Material> entry in materialCache)
+        {
+            SafeDestroyUnityObject(entry.Value);
+        }
+
+        materialCache.Clear();
+    }
+
+    private static void SafeDestroyUnityObject(UnityEngine.Object target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        if (Application.isPlaying)
+        {
+            Destroy(target);
+        }
+        else
+        {
+            DestroyImmediate(target);
+        }
     }
 
     private static void DisposeUnitAnimators(List<BattleUnit> units)
@@ -2645,7 +2682,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (prototype.name.IndexOf("Pterosaur", StringComparison.OrdinalIgnoreCase) >= 0)
         {
             RemoveSketchfabSceneExtras(prototype);
-            ApplyPterosaurAuthenticPresentation(prototype);
+            ApplyPterosaurGltfTextures(prototype, PterosaurPteranodonResourceModelPath);
+            RemapPterosaurImportedMaterials(prototype);
         }
 
         if (prototype.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -3393,7 +3431,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             if (cameras[i] != null)
             {
-                DestroyImmediate(cameras[i].gameObject);
+                SafeDestroyUnityObject(cameras[i].gameObject);
             }
         }
 
@@ -3402,7 +3440,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             if (lights[i] != null)
             {
-                DestroyImmediate(lights[i].gameObject);
+                SafeDestroyUnityObject(lights[i].gameObject);
             }
         }
 
@@ -3411,7 +3449,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             if (audioSources[i] != null)
             {
-                DestroyImmediate(audioSources[i]);
+                SafeDestroyUnityObject(audioSources[i]);
             }
         }
 
@@ -3432,7 +3470,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 || ContainsNameToken(name, "quad")
                 || ContainsNameToken(name, "card"))
             {
-                DestroyImmediate(renderer.gameObject);
+                SafeDestroyUnityObject(renderer.gameObject);
             }
         }
     }
@@ -4262,11 +4300,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static float GetPterosaurBoundsHeight(GameObject model, Bounds bounds)
     {
-        if (model != null && UnitModelUsesAuthoredTextures(model))
+        if (model != null && TryGetPterosaurFuselageLocalBounds(model, out Bounds fuselage))
         {
-            return Mathf.Max(0.001f, bounds.size.y);
+            return Mathf.Max(0.001f, Mathf.Max(fuselage.size.x, fuselage.size.z, fuselage.size.y * 0.72f));
         }
 
+        // 滑翔姿态翼展沿 X/Z，单独用 size.y 会把缩放放大到数十倍并叠成灰团。
         return Mathf.Max(0.001f, Mathf.Max(bounds.size.x, bounds.size.z, bounds.size.y * 0.55f));
     }
 
@@ -4319,48 +4358,21 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        if (UnitModelUsesAuthoredTextures(prototype))
+        Vector3 size = bounds.size;
+        // Sketchfab Pteranodon：滑翔姿态翼展沿 X、机头朝 +X，统一绕 Y 对齐游戏 +Z 前进方向。
+        if (size.x >= size.z * 0.9f)
         {
-            // Sketchfab Pteranodon 已是正确朝向，勿按翼展最长轴再旋转（否则会侧翻并算错缩放）。
+            prototype.transform.localRotation = Quaternion.Euler(0f, PterosaurGlbBindYawDegrees, 0f);
+            return;
+        }
+
+        if (size.z > size.x * 1.08f)
+        {
             prototype.transform.localRotation = Quaternion.identity;
             return;
         }
 
-        Vector3 size = bounds.size;
-        if (PterosaurPrototypeLooksYUp(bounds))
-        {
-            if (size.x > size.z * 1.08f)
-            {
-                prototype.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
-            }
-            else
-            {
-                prototype.transform.localRotation = Quaternion.identity;
-            }
-
-            return;
-        }
-
-        int axis = 0;
-        float maxSize = size.x;
-        if (size.y > maxSize)
-        {
-            axis = 1;
-            maxSize = size.y;
-        }
-
-        if (size.z > maxSize)
-        {
-            axis = 2;
-        }
-
-        prototype.transform.localRotation = axis switch
-        {
-            // 资源/生成 GLB 机头沿 +X，需绕 Y -90° 对齐游戏 +Z 前向（+90° 会把机头翻到 -Z）。
-            1 => Quaternion.Euler(-90f, 0f, 0f),
-            0 => Quaternion.Euler(0f, -90f, 0f),
-            _ => Quaternion.identity,
-        };
+        prototype.transform.localRotation = Quaternion.Euler(0f, PterosaurGlbBindYawDegrees, 0f);
     }
 
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
@@ -4542,6 +4554,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             modelPrototypes[UnitKind.Smoke] = CreateFallbackPrototype(UnitKind.Smoke);
         }
 
+        SetupPterosaurBattlePrototype();
         AttachPrototypesToUnits();
     }
 
@@ -4559,6 +4572,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.aircraftRotorRoot = null;
         unit.aircraftRotorBaseLocalRotation = Quaternion.identity;
         unit.aircraftRotorRigs.Clear();
+        unit.pterosaurWingRigs.Clear();
         unit.tankMotionRig = null;
         unit.soldierMuzzleVisual = null;
         unit.currentAnimation = string.Empty;
@@ -4607,6 +4621,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.aircraftRotorRoot = null;
             unit.aircraftRotorBaseLocalRotation = Quaternion.identity;
             unit.aircraftRotorRigs.Clear();
+            unit.pterosaurWingRigs.Clear();
             unit.tankMotionRig = null;
 
             GameObject prototype = ResolvePrototypeForUnit(unit);
@@ -4727,8 +4742,328 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.baseModelLocalRotation = model.transform.localRotation;
         }
 
-        SetUnitPlaceholderVisible(unit, usingFallbackPrototype);
+        SetUnitPlaceholderVisible(unit, unit.modelInstance == null);
+        if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+        {
+            FinalizePterosaurUnitModel(unit, unit.modelInstance);
+        }
+
         PlayUnitAnimation(unit);
+    }
+
+    private void FinalizePterosaurUnitModel(BattleUnit unit, GameObject model)
+    {
+        if (unit == null || model == null)
+        {
+            return;
+        }
+
+        ApplyPterosaurPrototypeBindRotation(model);
+        EnsureMinimumPterosaurModelScale(unit, model);
+        EnsurePterosaurRenderersVisible(model);
+        if (pterosaurVisibilityFallbackPrototype != null
+            && model.name.IndexOf("Fallback", StringComparison.OrdinalIgnoreCase) < 0
+            && !PterosaurModelIsProceduralBattleMesh(model)
+            && !PterosaurModelWorldSpanLooksValid(model))
+        {
+            AttachPterosaurVisibilityFallback(unit, model);
+            SetPterosaurGltfRenderersEnabled(model, false);
+        }
+    }
+
+    private void RefreshPterosaurUnitDisplay(BattleUnit unit)
+    {
+        if (unit == null || !unit.active)
+        {
+            return;
+        }
+
+        if (unit.modelInstance == null)
+        {
+            EnsureUnitModelAttached(unit);
+        }
+
+        EnsurePterosaurUnitDisplay(unit);
+    }
+
+    private void EnsurePterosaurUnitDisplay(BattleUnit unit)
+    {
+        if (unit == null || !unit.active || unit.body == null)
+        {
+            return;
+        }
+
+        if (unit.modelInstance != null
+            && PterosaurRuntimeModelIsVisible(unit.modelInstance)
+            && PterosaurModelWorldSpanLooksValid(unit.modelInstance))
+        {
+            FinalizePterosaurUnitModel(unit, unit.modelInstance);
+            return;
+        }
+
+        if (unit.modelInstance != null)
+        {
+            Destroy(unit.modelInstance);
+            unit.modelInstance = null;
+        }
+
+        if (pterosaurVisibilityFallbackPrototype == null)
+        {
+            Debug.LogWarning($"[ApocalypseKing] Pterosaur unit {unit.id} invisible and no fallback prototype.");
+            return;
+        }
+
+        var fallback = Instantiate(pterosaurVisibilityFallbackPrototype, unit.body, false);
+        fallback.name = "Pterosaur_FallbackRuntime";
+        fallback.SetActive(true);
+        ConfigureRuntimeModel(fallback, unit);
+        FinalizeAttachedUnitModel(unit, fallback, usingFallbackPrototype: true);
+        Debug.LogWarning($"[ApocalypseKing] Pterosaur unit {unit.id} uses runtime fallback mesh at ({unit.x:F0},{unit.z:F0}) alt={unit.altitude:F1}");
+    }
+
+    private static bool PterosaurSkinnedMeshCollapsed(GameObject model)
+    {
+        if (model == null)
+        {
+            return true;
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        if (skinnedMeshes.Length == 0)
+        {
+            return false;
+        }
+
+        bool hasSkinned = false;
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[i];
+            if (skinned == null || !skinned.enabled || skinned.sharedMesh == null)
+            {
+                continue;
+            }
+
+            hasSkinned = true;
+            Bounds meshBounds = skinned.sharedMesh.bounds;
+            float extent = Mathf.Max(meshBounds.size.x, meshBounds.size.y, meshBounds.size.z)
+                * Mathf.Max(0.001f, skinned.transform.lossyScale.magnitude);
+            if (extent >= 0.22f)
+            {
+                return false;
+            }
+        }
+
+        return hasSkinned;
+    }
+
+    private static bool PterosaurRuntimeModelIsVisible(GameObject model)
+    {
+        if (model == null)
+        {
+            return false;
+        }
+
+        int enabledRenderers = 0;
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null && renderers[i].enabled)
+            {
+                enabledRenderers++;
+            }
+        }
+
+        if (enabledRenderers == 0)
+        {
+            return false;
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[i];
+            if (skinned == null || !skinned.enabled || skinned.sharedMesh == null)
+            {
+                continue;
+            }
+
+            Vector3 meshSize = skinned.sharedMesh.bounds.size;
+            float extent = Mathf.Max(meshSize.x, meshSize.y, meshSize.z) * Mathf.Max(0.001f, skinned.transform.lossyScale.magnitude);
+            if (extent >= 0.12f)
+            {
+                return true;
+            }
+        }
+
+        if (!TryComputeModelBounds(model, out Bounds bounds))
+        {
+            return enabledRenderers > 0;
+        }
+
+        float span = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+        return span >= 0.22f;
+    }
+
+    private void AttachPterosaurVisibilityFallback(BattleUnit unit, GameObject model)
+    {
+        if (unit == null || model == null || pterosaurVisibilityFallbackPrototype == null)
+        {
+            return;
+        }
+
+        Transform existing = model.transform.Find("PterosaurVisibilityFallback");
+        if (existing != null)
+        {
+            return;
+        }
+
+        var shell = Instantiate(pterosaurVisibilityFallbackPrototype, model.transform, false);
+        shell.name = "PterosaurVisibilityFallback";
+        shell.transform.localPosition = Vector3.zero;
+        shell.transform.localRotation = Quaternion.identity;
+        float parentMaxScale = GetMaxAbsVectorComponent(model.transform.lossyScale);
+        shell.transform.localScale = parentMaxScale < 0.85f
+            ? Vector3.one * Mathf.Clamp(1f / Mathf.Max(0.05f, parentMaxScale), 1f, 6f)
+            : Vector3.one;
+        shell.SetActive(true);
+        ApplyPterosaurProceduralBattleMaterials(shell);
+        EnsurePterosaurRenderersVisible(shell);
+    }
+
+    private static float GetMaxAbsVectorComponent(Vector3 value)
+    {
+        return Mathf.Max(Mathf.Abs(value.x), Mathf.Abs(value.y), Mathf.Abs(value.z));
+    }
+
+    private void EnsureMinimumPterosaurModelScale(BattleUnit unit, GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        Vector3 scale = model.transform.localScale;
+        float maxScale = GetMaxAbsVectorComponent(scale);
+        if (maxScale < 0.12f)
+        {
+            float boost = 1.35f / Mathf.Max(0.001f, maxScale);
+            model.transform.localScale = scale * Mathf.Min(boost, 6f);
+        }
+        else if (maxScale > 12f)
+        {
+            model.transform.localScale = scale * (6f / maxScale);
+        }
+
+        if (unit != null)
+        {
+            unit.baseModelScale = model.transform.localScale;
+            unit.baseModelLocalPosition = model.transform.localPosition;
+            unit.baseModelLocalRotation = model.transform.localRotation;
+        }
+    }
+
+    private static bool TryComputePterosaurDisplayBounds(GameObject model, out Bounds bounds)
+    {
+        bounds = default;
+        if (model == null)
+        {
+            return false;
+        }
+
+        bool wasActive = model.activeSelf;
+        if (!wasActive)
+        {
+            model.SetActive(true);
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int i = 0; i < skinnedMeshes.Length; i++)
+        {
+            if (skinnedMeshes[i] != null)
+            {
+                skinnedMeshes[i].updateWhenOffscreen = true;
+            }
+        }
+
+        bool hasBounds = TryComputeModelBounds(model, out bounds);
+        if (!wasActive)
+        {
+            model.SetActive(false);
+        }
+
+        return hasBounds;
+    }
+
+    private static bool PterosaurModelWorldSpanLooksValid(GameObject model)
+    {
+        if (!TryComputePterosaurDisplayBounds(model, out Bounds bounds))
+        {
+            return false;
+        }
+
+        Vector3 size = bounds.size;
+        float height = size.y;
+        float wingspan = Mathf.Max(size.x, size.z);
+        if (height < 0.28f || wingspan < 0.28f)
+        {
+            return false;
+        }
+
+        // 目标身高约 4.2；翼展可达体长 2~3 倍，不能按单一 max span 7.5 拒绝。
+        return height <= 10f && wingspan <= 22f;
+    }
+
+    private static string DescribePterosaurBounds(GameObject model)
+    {
+        if (!TryComputePterosaurDisplayBounds(model, out Bounds bounds))
+        {
+            return "no-bounds";
+        }
+
+        Vector3 size = bounds.size;
+        return $"size=({size.x:F2},{size.y:F2},{size.z:F2})";
+    }
+
+    private static void SetPterosaurGltfRenderersEnabled(GameObject model, bool enabled)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null || renderer.transform == null)
+            {
+                continue;
+            }
+
+            if (renderer.transform.name.IndexOf("PterosaurVisibilityFallback", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                continue;
+            }
+
+            renderer.enabled = enabled;
+        }
+    }
+
+    private static void EnsurePterosaurRenderersVisible(GameObject model)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+            {
+                renderers[i].enabled = true;
+            }
+        }
     }
 
     private static void SetUnitPlaceholderVisible(BattleUnit unit, bool visible)
@@ -4808,6 +5143,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.animatorClips = clips;
     }
 
+    private static bool PterosaurSupportsAnimatorPlayable(Animator animator)
+    {
+        return animator != null;
+    }
+
     private void ConfigurePterosaurAnimatorPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
     {
         if (unit.animations != null)
@@ -4821,21 +5161,75 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        var animator = model.GetComponentInChildren<Animator>(true);
-        if (animator == null)
+        if (model != null)
         {
-            animator = model.GetComponent<Animator>();
+            Animator[] animators = model.GetComponentsInChildren<Animator>(true);
+            for (int i = 0; i < animators.Length; i++)
+            {
+                if (animators[i] != null)
+                {
+                    animators[i].enabled = false;
+                    animators[i].applyRootMotion = false;
+                }
+            }
         }
 
-        if (animator == null)
+        unit.animator = null;
+        unit.animatorClips = clips;
+        unit.animations = null;
+        unit.currentAnimation = string.Empty;
+    }
+
+    private static void ConfigurePterosaurLegacyFlyingPlayback(BattleUnit unit, GameObject model, AnimationClip[] clips)
+    {
+        if (unit == null || model == null || clips == null || clips.Length == 0)
         {
-            animator = model.AddComponent<Animator>();
+            return;
         }
 
-        animator.applyRootMotion = false;
-        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-        animator.updateMode = AnimatorUpdateMode.Normal;
-        unit.animator = animator;
+        Animator[] animators = model.GetComponentsInChildren<Animator>(true);
+        for (int i = 0; i < animators.Length; i++)
+        {
+            if (animators[i] != null)
+            {
+                animators[i].enabled = false;
+            }
+        }
+
+        Animation animation = model.GetComponent<Animation>();
+        if (animation == null)
+        {
+            animation = model.AddComponent<Animation>();
+        }
+
+        animation.enabled = true;
+        animation.playAutomatically = false;
+        animation.cullingType = AnimationCullingType.AlwaysAnimate;
+        animation.animatePhysics = false;
+
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip == null)
+            {
+                continue;
+            }
+
+            string clipKey = clip.name;
+            if (animation.GetClip(clipKey) != null)
+            {
+                continue;
+            }
+
+            AnimationClip runtimeClip = Instantiate(clip);
+            runtimeClip.name = clipKey;
+            runtimeClip.legacy = true;
+            runtimeClip.wrapMode = WrapMode.Loop;
+            animation.AddClip(runtimeClip, clipKey);
+        }
+
+        unit.animations = new[] { animation };
+        unit.animator = null;
         unit.animatorClips = clips;
     }
 
@@ -5071,6 +5465,12 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.kind == UnitKind.Aircraft)
         {
+            if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+            {
+                ConfigurePterosaurWingRig(unit);
+                return;
+            }
+
             if (!TryBindAircraftRotorRig(unit))
             {
                 ConfigureAircraftRotorRig(unit);
@@ -5583,7 +5983,16 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float targetHeight = Poses[kind].TargetHeight;
         if (isPterosaur)
         {
-            RemapPterosaurImportedMaterials(model);
+            if (PterosaurModelIsProceduralBattleMesh(model))
+            {
+                ApplyPterosaurProceduralBattleMaterials(model);
+            }
+            else
+            {
+                ApplyPterosaurGltfTextures(model, PterosaurPteranodonResourceModelPath);
+                RemapPterosaurImportedMaterials(model);
+            }
+
             FitPterosaurRuntimeModel(model);
         }
         else
@@ -5644,7 +6053,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         float currentHeight = GetPterosaurBoundsHeight(model, bounds);
         if (Mathf.Abs(currentHeight - PterosaurModelTargetHeight) > 0.08f)
         {
-            float uniformScale = PterosaurModelTargetHeight / currentHeight;
+            float uniformScale = PterosaurModelTargetHeight / Mathf.Max(0.02f, currentHeight);
+            uniformScale = Mathf.Clamp(uniformScale, 0.12f, 6f);
             model.transform.localScale *= uniformScale;
             if (!TryComputeModelBoundsInRootLocalSpace(model, out bounds))
             {
@@ -5950,6 +6360,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
+        if (unit.combatVariant == UnitCombatVariant.Pterosaur && pterosaurPrototype == null)
+        {
+            SetupPterosaurBattlePrototype();
+        }
+
         if (unit.modelInstance != null)
         {
             return;
@@ -5958,6 +6373,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (!TryAttachCachedUnitModel(unit))
         {
             AttachUnitModel(unit);
+        }
+
+        if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+        {
+            EnsurePterosaurUnitDisplay(unit);
         }
 
         if (unit.kind == UnitKind.Giant && unit.combatVariant == UnitCombatVariant.RocketGiant && unit.modelInstance != null)
@@ -6616,7 +7036,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
-        if (unit.modelInstance != null)
+        if (unit.modelInstance)
         {
             var pose = Poses[unit.kind];
             float mirrorYaw = pose.MirrorWithFacing && unit.facing < 0 ? 180f : 0f;
@@ -6674,6 +7094,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             unit.modelInstance.transform.localRotation = modelRotation;
             UpdateProceduralMotionRig(unit, dt, moveFactor);
             PlayUnitAnimation(unit);
+            if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+            {
+                UpdatePterosaurWingFlap(unit, moveFactor);
+            }
+
             EnsureGiantLegacyAnimationPlaying(unit);
         }
         else if (unit.modelInstance == null)
@@ -6745,12 +7170,317 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
     }
 
+    private static bool PterosaurUnitHasEmbeddedFlyClip(BattleUnit unit)
+    {
+        if (unit == null || unit.combatVariant != UnitCombatVariant.Pterosaur)
+        {
+            return false;
+        }
+
+        if (UsesAnimatorPlayback(unit))
+        {
+            return true;
+        }
+
+        return unit.animations != null
+            && unit.animations.Length > 0
+            && unit.animatorClips != null
+            && unit.animatorClips.Length > 0
+            && FindPterosaurFlyClip(unit.animatorClips) != null;
+    }
+
+    private static AnimationClip FindPterosaurFlyClip(AnimationClip[] clips)
+    {
+        if (clips == null)
+        {
+            return null;
+        }
+
+        string[] preferred =
+        {
+            "flying", "Flying", "Fly", "Flight", "Flap", "Glide", "Soar", "Hover", "Gliding", "Wing",
+        };
+        for (int p = 0; p < preferred.Length; p++)
+        {
+            for (int i = 0; i < clips.Length; i++)
+            {
+                AnimationClip clip = clips[i];
+                if (clip != null && string.Equals(clip.name, preferred[p], StringComparison.OrdinalIgnoreCase))
+                {
+                    return clip;
+                }
+            }
+        }
+
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AnimationClip clip = clips[i];
+            if (clip == null)
+            {
+                continue;
+            }
+
+            string name = clip.name.ToLowerInvariant();
+            if (name.Contains("fly") || name.Contains("flap") || name.Contains("glide") || name.Contains("soar"))
+            {
+                return clip;
+            }
+        }
+
+        return clips.Length > 0 ? clips[0] : null;
+    }
+
+    private void ConfigurePterosaurWingRig(BattleUnit unit)
+    {
+        unit.pterosaurWingRigs.Clear();
+        if (unit == null || unit.modelInstance == null)
+        {
+            return;
+        }
+
+        if (PterosaurUnitHasEmbeddedFlyClip(unit))
+        {
+            return;
+        }
+
+        TryBindPterosaurPrimaryWingRoots(unit);
+        TryBindPterosaurWingTransform(unit, "Wing_L", -1f, 1f);
+        TryBindPterosaurWingTransform(unit, "Wing_R", 1f, 1f);
+        TryBindPterosaurWingTransform(unit, "WingFinger_L", -1f, 1.18f);
+        TryBindPterosaurWingTransform(unit, "WingFinger_R", 1f, 1.18f);
+
+        if (unit.pterosaurWingRigs.Count >= 2)
+        {
+            return;
+        }
+
+        Transform[] transforms = unit.modelInstance.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform candidate = transforms[i];
+            if (candidate == null || candidate == unit.modelInstance.transform)
+            {
+                continue;
+            }
+
+            string name = candidate.name;
+            if (name.IndexOf("wing", StringComparison.OrdinalIgnoreCase) < 0
+                || name.IndexOf("tail", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                continue;
+            }
+
+            float sideSign = ResolvePterosaurWingSideSign(candidate, name);
+            if (Mathf.Approximately(sideSign, 0f))
+            {
+                continue;
+            }
+
+            bool finger = name.IndexOf("finger", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("phalange", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool membrane = name.IndexOf("membrane", StringComparison.OrdinalIgnoreCase) >= 0;
+            float amp = finger ? 1.18f : membrane ? 1.08f : 1f;
+            RegisterPterosaurWingRig(unit, candidate, sideSign, amp);
+        }
+
+        if (unit.pterosaurWingRigs.Count < 2)
+        {
+            TryBindPterosaurWingBonesFromSkinnedMeshes(unit);
+        }
+
+        if (unit.pterosaurWingRigs.Count == 0)
+        {
+            Debug.LogWarning(
+                $"[ApocalypseKing] 翼龙未绑定到翅膀节点，无法程序化扇翼：{unit.modelInstance.name}。"
+                + " 请确认 GLB 含 Wing_L/Wing_R 或名称带 wing 的子物体。");
+        }
+    }
+
+    private static void TryBindPterosaurWingBonesFromSkinnedMeshes(BattleUnit unit)
+    {
+        if (unit == null || unit.modelInstance == null)
+        {
+            return;
+        }
+
+        SkinnedMeshRenderer[] skinnedMeshes = unit.modelInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        for (int m = 0; m < skinnedMeshes.Length; m++)
+        {
+            SkinnedMeshRenderer skinned = skinnedMeshes[m];
+            if (skinned == null || skinned.bones == null)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < skinned.bones.Length; i++)
+            {
+                Transform bone = skinned.bones[i];
+                if (bone == null)
+                {
+                    continue;
+                }
+
+                string name = bone.name;
+                if (name.IndexOf("wing", StringComparison.OrdinalIgnoreCase) < 0
+                    || name.IndexOf("tail", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    continue;
+                }
+
+                float sideSign = ResolvePterosaurWingSideSign(bone, name);
+                if (Mathf.Approximately(sideSign, 0f))
+                {
+                    continue;
+                }
+
+                bool finger = name.IndexOf("finger", StringComparison.OrdinalIgnoreCase) >= 0;
+                RegisterPterosaurWingRig(unit, bone, sideSign, finger ? 1.12f : 1f);
+            }
+        }
+    }
+
+    private static float ResolvePterosaurWingSideSign(Transform wing, string name)
+    {
+        string lower = name.ToLowerInvariant();
+        if (lower.Contains("_l") || lower.EndsWith("_l") || lower.Contains("left") || lower.Contains("_l_"))
+        {
+            return -1f;
+        }
+
+        if (lower.Contains("_r") || lower.EndsWith("_r") || lower.Contains("right") || lower.Contains("_r_"))
+        {
+            return 1f;
+        }
+
+        return wing.localPosition.z < -0.02f ? -1f : wing.localPosition.z > 0.02f ? 1f : 0f;
+    }
+
+    private static Transform FindChildTransformByName(Transform root, string exactName)
+    {
+        if (root == null || string.IsNullOrEmpty(exactName))
+        {
+            return null;
+        }
+
+        if (string.Equals(root.name, exactName, StringComparison.Ordinal))
+        {
+            return root;
+        }
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform found = FindChildTransformByName(root.GetChild(i), exactName);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private static void TryBindPterosaurPrimaryWingRoots(BattleUnit unit)
+    {
+        if (unit == null || unit.modelInstance == null)
+        {
+            return;
+        }
+
+        Transform[] transforms = unit.modelInstance.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform bone = transforms[i];
+            if (bone == null)
+            {
+                continue;
+            }
+
+            string name = bone.name;
+            if (name.StartsWith("Lwing01", StringComparison.OrdinalIgnoreCase))
+            {
+                RegisterPterosaurWingRig(unit, bone, -1f, 1f);
+            }
+            else if (name.StartsWith("Rwing01", StringComparison.OrdinalIgnoreCase))
+            {
+                RegisterPterosaurWingRig(unit, bone, 1f, 1f);
+            }
+        }
+    }
+
+    private static void TryBindPterosaurWingTransform(BattleUnit unit, string exactName, float sideSign, float amplitudeScale)
+    {
+        if (unit == null || unit.modelInstance == null)
+        {
+            return;
+        }
+
+        Transform wing = FindChildTransformByName(unit.modelInstance.transform, exactName);
+        if (wing != null)
+        {
+            RegisterPterosaurWingRig(unit, wing, sideSign, amplitudeScale);
+        }
+    }
+
+    private static void RegisterPterosaurWingRig(BattleUnit unit, Transform wing, float sideSign, float amplitudeScale)
+    {
+        if (unit == null || wing == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < unit.pterosaurWingRigs.Count; i++)
+        {
+            if (unit.pterosaurWingRigs[i].wing == wing)
+            {
+                return;
+            }
+        }
+
+        unit.pterosaurWingRigs.Add(new PterosaurWingRig
+        {
+            wing = wing,
+            baseLocalRotation = wing.localRotation,
+            sideSign = sideSign,
+            amplitudeScale = amplitudeScale,
+        });
+    }
+
+    private void UpdatePterosaurWingFlap(BattleUnit unit, float moveFactor)
+    {
+        if (unit == null
+            || unit.combatVariant != UnitCombatVariant.Pterosaur
+            || PterosaurUnitHasEmbeddedFlyClip(unit)
+            || unit.pterosaurWingRigs.Count == 0)
+        {
+            return;
+        }
+
+        float phaseSource = battleTime > 0.01f ? battleTime : unit.animTimer;
+        float speedBoost = Mathf.Lerp(0.92f, 1.18f, moveFactor);
+        float phase = phaseSource * (Mathf.PI * 2f * PterosaurWingFlapFrequencyHz * speedBoost) + unit.seed * 1.73f;
+        float flap = Mathf.Sin(phase) * PterosaurWingFlapDegrees;
+
+        for (int i = 0; i < unit.pterosaurWingRigs.Count; i++)
+        {
+            PterosaurWingRig rig = unit.pterosaurWingRigs[i];
+            if (rig == null || rig.wing == null)
+            {
+                continue;
+            }
+
+            float angle = flap * rig.sideSign * rig.amplitudeScale;
+            rig.wing.localRotation = rig.baseLocalRotation * Quaternion.Euler(angle * 0.35f, 0f, angle);
+        }
+    }
+
     private void UpdateProceduralMotionRig(BattleUnit unit, float dt, float moveFactor)
     {
         if (unit == null || dt <= 0f)
         {
             return;
         }
+
+        UpdatePterosaurWingFlap(unit, moveFactor);
 
         if (unit.aircraftRotorRigs != null && unit.aircraftRotorRigs.Count > 0)
         {
@@ -6852,6 +7582,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         int presentationKey = ((int)unit.runtimeState << 4) | (int)unit.kind;
         if (unit.animationPresentationKey == presentationKey)
         {
+            if (unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur)
+            {
+                RefreshPterosaurAnimatorClipSpeed(unit);
+            }
+
             if (unit.kind != UnitKind.Giant || GiantAnimatorClipMatchesState(unit, attacking, moving))
             {
                 return;
@@ -6861,6 +7596,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         unit.animationPresentationKey = presentationKey;
 
         if (TryPlayAnimatorAnimation(unit, attacking, moving))
+        {
+            return;
+        }
+
+        if (unit.combatVariant == UnitCombatVariant.Pterosaur && TryPlayPterosaurLegacyAnimation(unit))
         {
             return;
         }
@@ -7073,7 +7813,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.animationPlayable.IsValid())
         {
-            unit.animationPlayable.SetSpeed(GetAnimatorClipSpeed(unit, clip));
+            float clipSpeed = GetAnimatorClipSpeed(unit, clip);
+            unit.animationPlayable.SetSpeed(clipSpeed);
             if (!unit.animationGraph.IsPlaying())
             {
                 unit.animationGraph.Play();
@@ -7081,6 +7822,34 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         return true;
+    }
+
+    private void RefreshPterosaurAnimatorClipSpeed(BattleUnit unit)
+    {
+        if (!UsesAnimatorPlayback(unit)
+            || unit.kind != UnitKind.Aircraft
+            || unit.combatVariant != UnitCombatVariant.Pterosaur
+            || !unit.animationPlayable.IsValid()
+            || unit.animatorClips == null
+            || unit.animatorClips.Length == 0)
+        {
+            return;
+        }
+
+        AnimationClip clip = unit.animatorClips[0];
+        for (int i = 0; i < unit.animatorClips.Length; i++)
+        {
+            AnimationClip candidate = unit.animatorClips[i];
+            if (candidate != null
+                && !string.IsNullOrEmpty(unit.currentAnimatorClip)
+                && string.Equals(candidate.name, unit.currentAnimatorClip, StringComparison.Ordinal))
+            {
+                clip = candidate;
+                break;
+            }
+        }
+
+        unit.animationPlayable.SetSpeed(GetAnimatorClipSpeed(unit, clip));
     }
 
     private AnimationClip SelectAnimatorClip(BattleUnit unit, bool attacking, bool moving)
@@ -7117,6 +7886,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         return FindAnimatorClip(
             unit,
+            "flying",
+            "Flying",
             "Fly",
             "Flight",
             "Flap",
@@ -7125,6 +7896,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             "Hover",
             "Gliding",
             "Wing",
+            "walking",
             "Idle");
     }
 
@@ -7205,6 +7977,19 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
 
         float normalizedSpeed = Mathf.Clamp(unit.moveSpeed / Mathf.Max(1f, unit.speed), 0.55f, 1.45f);
+        if (unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur)
+        {
+            string clipName = clip.name ?? string.Empty;
+            if (clipName.IndexOf("fly", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("flap", StringComparison.OrdinalIgnoreCase) >= 0
+                || clipName.IndexOf("glide", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return Mathf.Clamp(normalizedSpeed, 0.88f, 1.18f);
+            }
+
+            return PterosaurWingFlapAnimSpeed * Mathf.Clamp(normalizedSpeed, 0.92f, 1.12f);
+        }
+
         if (unit.kind == UnitKind.Tank)
         {
             return Mathf.Clamp(normalizedSpeed, 0.6f, 1.55f);
@@ -7230,10 +8015,58 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
     private static bool UsesAnimatorPlayback(BattleUnit unit)
     {
-        return unit != null
-            && unit.animator != null
-            && unit.animatorClips != null
-            && unit.animatorClips.Length > 0;
+        if (unit == null
+            || unit.animator == null
+            || unit.animatorClips == null
+            || unit.animatorClips.Length == 0)
+        {
+            return false;
+        }
+
+        if (unit.kind == UnitKind.Aircraft && unit.combatVariant == UnitCombatVariant.Pterosaur)
+        {
+            return PterosaurSupportsAnimatorPlayable(unit.animator);
+        }
+
+        return true;
+    }
+
+    private bool TryPlayPterosaurLegacyAnimation(BattleUnit unit)
+    {
+        if (unit == null || unit.animations == null || unit.animations.Length == 0)
+        {
+            return false;
+        }
+
+        AnimationClip clip = SelectPterosaurAnimatorClip(unit);
+        if (clip == null)
+        {
+            return false;
+        }
+
+        string clipName = clip.name;
+        for (int i = 0; i < unit.animations.Length; i++)
+        {
+            Animation animation = unit.animations[i];
+            if (animation == null || animation.GetClip(clipName) == null)
+            {
+                continue;
+            }
+
+            if (!string.Equals(unit.currentAnimation, clipName, StringComparison.Ordinal))
+            {
+                animation.CrossFade(clipName, 0.12f, PlayMode.StopSameLayer);
+                unit.currentAnimation = clipName;
+            }
+            else if (!animation.isPlaying)
+            {
+                animation.Play(clipName);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     private static void DisposeUnitAnimator(BattleUnit unit)
@@ -7245,7 +8078,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
         if (unit.animationGraph.IsValid())
         {
-            unit.animationGraph.Destroy();
+            try
+            {
+                unit.animationGraph.Destroy();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ApocalypseKing] Skip stale PlayableGraph dispose: {ex.Message}");
+            }
         }
 
         unit.animationPlayable = default;
@@ -7727,16 +8567,23 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return true;
         }
 
+        if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
+            && (shaderName.StartsWith("Standard", StringComparison.OrdinalIgnoreCase)
+                || shaderName.IndexOf("Autodesk", StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            return true;
+        }
+
         return GetImportedMaterialMainTexture(material) != null
             && !shaderName.StartsWith("Standard", StringComparison.OrdinalIgnoreCase)
             && shaderName.IndexOf("Legacy", StringComparison.OrdinalIgnoreCase) < 0;
     }
 
-    private Material CreateRemappedOpaqueMaterialFromImported(Material source)
+    private Material CreateRemappedOpaqueMaterialFromImported(Material source, Texture2D forceAlbedo = null, Texture2D forceNormal = null)
     {
-        Texture main = GetImportedMaterialMainTexture(source);
-        Texture normal = null;
-        if (source != null)
+        Texture main = forceAlbedo != null ? forceAlbedo : GetImportedMaterialMainTexture(source);
+        Texture normal = forceNormal;
+        if (normal == null && source != null)
         {
             if (source.HasProperty("_BumpMap"))
             {
@@ -7760,12 +8607,14 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             tint = source.GetColor("_BaseColor");
         }
 
-        Shader shader = FindRuntimeShader(
-            "RuntimeMaterials/RuntimeGltfPbrMetallicRoughness",
-            "GLTF/PbrMetallicRoughness",
-            "Standard",
-            "Legacy Shaders/Diffuse",
-            "Unlit/Texture");
+        Shader shader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
+            ? FindRuntimeShader(null, "Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit", "Standard", "Unlit/Texture")
+            : FindRuntimeShader(
+                "RuntimeMaterials/RuntimeGltfPbrMetallicRoughness",
+                "GLTF/PbrMetallicRoughness",
+                "Standard",
+                "Legacy Shaders/Diffuse",
+                "Unlit/Texture");
         Material material = new Material(shader);
         material.color = tint;
         if (material.HasProperty("_BaseColor"))
@@ -7840,6 +8689,209 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return material;
     }
 
+    private void ApplyPterosaurGltfTextures(GameObject model, string resourcePath)
+    {
+        if (model == null)
+        {
+            return;
+        }
+
+        var textures = new HashSet<Texture>();
+        CollectPterosaurTexturesFromResource(resourcePath, textures);
+        CollectPterosaurTexturesFromResource(PterosaurTextureResourcePath, textures);
+        CollectPterosaurTexturesFromResource("Monsters/Pterosaur", textures);
+        CollectPterosaurTexturesFromRenderers(model, textures);
+
+        Texture2D albedo = SelectPterosaurAlbedoTexture(textures);
+        Texture2D normal = SelectPterosaurNormalTexture(textures);
+        if (albedo == null)
+        {
+            RemapPterosaurImportedMaterials(model);
+            return;
+        }
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            bool changed = false;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                Material source = materials[m];
+                materials[m] = CreateRemappedOpaqueMaterialFromImported(source, albedo, normal);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                renderer.sharedMaterials = materials;
+            }
+        }
+    }
+
+    private static void CollectPterosaurTexturesFromResource(string resourcePath, HashSet<Texture> textures)
+    {
+        if (textures == null || string.IsNullOrEmpty(resourcePath))
+        {
+            return;
+        }
+
+        Texture2D[] textureAssets = Resources.LoadAll<Texture2D>(resourcePath);
+        for (int i = 0; i < textureAssets.Length; i++)
+        {
+            if (textureAssets[i] != null)
+            {
+                textures.Add(textureAssets[i]);
+            }
+        }
+
+        Material[] materials = Resources.LoadAll<Material>(resourcePath);
+        for (int i = 0; i < materials.Length; i++)
+        {
+            CollectPterosaurTexturesFromMaterial(materials[i], textures);
+        }
+    }
+
+    private static void CollectPterosaurTexturesFromRenderers(GameObject model, HashSet<Texture> textures)
+    {
+        if (model == null || textures == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Material[] materials = renderers[i] != null ? renderers[i].sharedMaterials : null;
+            if (materials == null)
+            {
+                continue;
+            }
+
+            for (int m = 0; m < materials.Length; m++)
+            {
+                CollectPterosaurTexturesFromMaterial(materials[m], textures);
+            }
+        }
+    }
+
+    private static void CollectPterosaurTexturesFromMaterial(Material material, HashSet<Texture> textures)
+    {
+        if (material == null || textures == null)
+        {
+            return;
+        }
+
+        Texture main = GetImportedMaterialMainTexture(material);
+        if (main != null)
+        {
+            textures.Add(main);
+        }
+
+        string[] textureProps =
+        {
+            "_MainTex", "_BaseMap", "_BumpMap", "_NormalMap", "_MetallicGlossMap", "_OcclusionMap", "_EmissionMap",
+        };
+        for (int i = 0; i < textureProps.Length; i++)
+        {
+            if (!material.HasProperty(textureProps[i]))
+            {
+                continue;
+            }
+
+            Texture texture = material.GetTexture(textureProps[i]);
+            if (texture != null)
+            {
+                textures.Add(texture);
+            }
+        }
+    }
+
+    private static Texture2D SelectPterosaurAlbedoTexture(IEnumerable<Texture> textures)
+    {
+        Texture2D best = null;
+        int bestScore = -1;
+        if (textures == null)
+        {
+            return null;
+        }
+
+        foreach (Texture texture in textures)
+        {
+            if (texture is not Texture2D candidate)
+            {
+                continue;
+            }
+
+            string name = candidate.name.ToLowerInvariant();
+            if (name.Contains("normal") || name.Contains("nrm") || name.Contains("rough") || name.Contains("metal")
+                || name.Contains("occlusion") || name.Contains("ao") || name.Contains("orm"))
+            {
+                continue;
+            }
+
+            int score = candidate.width * candidate.height;
+            if (name.Contains("base") || name.Contains("color") || name.Contains("albedo") || name.Contains("diffuse"))
+            {
+                score += 500000;
+            }
+
+            if (score > bestScore)
+            {
+                best = candidate;
+                bestScore = score;
+            }
+        }
+
+        return best;
+    }
+
+    private static Texture2D SelectPterosaurNormalTexture(IEnumerable<Texture> textures)
+    {
+        if (textures == null)
+        {
+            return null;
+        }
+
+        foreach (Texture texture in textures)
+        {
+            if (texture is not Texture2D candidate)
+            {
+                continue;
+            }
+
+            string name = candidate.name.ToLowerInvariant();
+            if (name.Contains("normal") || name.Contains("nrm"))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private Material ResolvePterosaurSolidPartMaterial(string partName)
+    {
+        bool isWing = partName.IndexOf("wing", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool isCrest = partName.IndexOf("crest", StringComparison.OrdinalIgnoreCase) >= 0;
+        bool isBeak = partName.IndexOf("beak", StringComparison.OrdinalIgnoreCase) >= 0
+            || partName.IndexOf("skull", StringComparison.OrdinalIgnoreCase) >= 0;
+        Color color = isCrest
+            ? new Color(0.58f, 0.50f, 0.42f, 1f)
+            : isBeak
+                ? new Color(0.48f, 0.42f, 0.36f, 1f)
+                : isWing
+                    ? new Color(0.44f, 0.38f, 0.32f, 1f)
+                    : new Color(0.52f, 0.44f, 0.36f, 1f);
+        return GetOpaqueMaterial(color);
+    }
+
     private void RemapPterosaurImportedMaterials(GameObject model)
     {
         if (model == null)
@@ -7864,18 +8916,20 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 Material source = materials[m];
                 if (source == null)
                 {
+                    materials[m] = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
+                    changed = true;
                     continue;
                 }
 
-                if (ImportedMaterialNeedsRuntimeRemap(source))
+                Material remapped = CreateRemappedOpaqueMaterialFromImported(source);
+                if (GetImportedMaterialMainTexture(source) == null && GetImportedMaterialMainTexture(remapped) == null)
                 {
-                    materials[m] = CreateRemappedOpaqueMaterialFromImported(source);
-                    changed = true;
+                    remapped = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
                 }
-                else
-                {
-                    ApplyOpaqueDoubleSided(materials[m]);
-                }
+
+                ApplyOpaqueDoubleSided(remapped);
+                materials[m] = remapped;
+                changed = true;
             }
 
             if (changed)

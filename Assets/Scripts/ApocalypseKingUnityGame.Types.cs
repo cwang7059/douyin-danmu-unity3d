@@ -161,8 +161,17 @@ public sealed partial class ApocalypseKingUnityGame
         public Transform aircraftRotorRoot;
         public Quaternion aircraftRotorBaseLocalRotation;
         public readonly List<AircraftRotorRig> aircraftRotorRigs = new List<AircraftRotorRig>(2);
+        public readonly List<PterosaurWingRig> pterosaurWingRigs = new List<PterosaurWingRig>(4);
         public TankMotionRig tankMotionRig;
         public GameObject motionAccessoryRoot;
+    }
+
+    private sealed class PterosaurWingRig
+    {
+        public Transform wing;
+        public Quaternion baseLocalRotation;
+        public float sideSign;
+        public float amplitudeScale;
     }
 
     private sealed class AircraftRotorRig
