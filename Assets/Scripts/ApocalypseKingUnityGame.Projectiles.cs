@@ -479,7 +479,7 @@ public sealed partial class ApocalypseKingUnityGame
 
         private void UpdateProjectileVisual(ProjectileView shot, float t)
         {
-            if (!shot.active || shot.root == null)
+            if (!shot.active || shot.root == null || shot.head == null)
             {
                 return;
             }

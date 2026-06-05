@@ -81,6 +81,12 @@ public sealed partial class ApocalypseKingUnityGame
 
         EnsureFireballProjectileHeadAnchor(projectile);
         DisableFireballProjectileTrailRenderer(projectile);
+        if (projectile.head == null)
+        {
+            projectile.usesFireballParticleVisual = false;
+            return;
+        }
+
         if (pterosaurFireballVfxPrototype == null)
         {
             pterosaurFireballVfxPrototype = CreatePterosaurFireballVfxTemplate();
@@ -92,9 +98,27 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        Transform existingVfx = projectile.head.Find("FireballVfx");
+        if (existingVfx != null)
+        {
+            projectile.usesFireballParticleVisual = true;
+            projectile.head.localScale = Vector3.one * GetPterosaurFireballVisualScale();
+            if (projectile.line != null)
+            {
+                projectile.line.enabled = false;
+            }
+
+            RestartFireballParticleSystems(existingVfx.gameObject);
+            return;
+        }
+
         for (int i = projectile.head.childCount - 1; i >= 0; i--)
         {
-            Destroy(projectile.head.GetChild(i).gameObject);
+            Transform child = projectile.head.GetChild(i);
+            if (child != null)
+            {
+                Destroy(child.gameObject);
+            }
         }
 
         var visual = Instantiate(pterosaurFireballVfxPrototype, projectile.head, false);
@@ -158,6 +182,12 @@ public sealed partial class ApocalypseKingUnityGame
                 continue;
             }
 
+            if (ps.isPlaying)
+            {
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                ps.Clear(true);
+            }
+
             ParticleSystem.MainModule main = ps.main;
             ParticleSystem.MinMaxGradient startColor = main.startColor;
             if (startColor.mode == ParticleSystemGradientMode.Color)
@@ -198,6 +228,7 @@ public sealed partial class ApocalypseKingUnityGame
                 continue;
             }
 
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ps.Clear(true);
             ps.Play(true);
         }
@@ -210,10 +241,13 @@ public sealed partial class ApocalypseKingUnityGame
             return;
         }
 
+        // 仅当锚点缺失或旧版布局（锚点自身带 Mesh/Renderer）时重建；勿因子物体 FireballVfx 含粒子而销毁 head。
         bool needsFreshAnchor = projectile.head == null
-            || projectile.head.GetComponentInChildren<ParticleSystem>() != null
-            || projectile.head.GetComponent<Renderer>() != null
             || !string.Equals(projectile.head.name, "FireballBody", System.StringComparison.Ordinal);
+        if (!needsFreshAnchor && projectile.head.GetComponent<Renderer>() != null)
+        {
+            needsFreshAnchor = true;
+        }
 
         if (!needsFreshAnchor)
         {
@@ -223,6 +257,7 @@ public sealed partial class ApocalypseKingUnityGame
         if (projectile.head != null)
         {
             Destroy(projectile.head.gameObject);
+            projectile.head = null;
         }
 
         var headAnchor = new GameObject("FireballBody");

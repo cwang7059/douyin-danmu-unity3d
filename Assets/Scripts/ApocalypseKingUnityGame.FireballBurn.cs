@@ -158,9 +158,12 @@ public sealed partial class ApocalypseKingUnityGame
         }
     }
 
-    private float ComputeFireballMaxFlightSeconds(float fromX, float fromZ, float goalX, float goalZ)
+    // Static: safe to call from ProjectileSystem without a game instance.
+    private static float ComputeFireballMaxFlightSeconds(float fromX, float fromZ, float goalX, float goalZ)
     {
-        float travel = Distance(fromX, fromZ, goalX, goalZ);
+        float dx = goalX - fromX;
+        float dz = goalZ - fromZ;
+        float travel = Mathf.Sqrt(dx * dx + dz * dz);
         float seconds = travel / PterosaurFireballFlightSpeed + 12f;
         return Mathf.Clamp(seconds, PterosaurFireballMinFlightSeconds, PterosaurFireballMaxFlightSecondsCap);
     }
