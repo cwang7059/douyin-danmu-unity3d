@@ -8615,6 +8615,24 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
                 "Standard",
                 "Legacy Shaders/Diffuse",
                 "Unlit/Texture");
+        bool invalidShader = shader == null
+            || !shader.isSupported
+            || shader.name.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0
+            || shader.name.IndexOf("Hidden/InternalErrorShader", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (invalidShader)
+        {
+            shader = Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Sprites/Default")
+                ?? Shader.Find("Standard")
+                ?? Shader.Find("Legacy Shaders/Diffuse");
+        }
+        if (shader == null)
+        {
+            Material fallback = GetOpaqueMaterial(tint);
+            materialCache[key] = fallback;
+            return fallback;
+        }
         Material material = new Material(shader);
         material.color = tint;
         if (material.HasProperty("_BaseColor"))
@@ -8689,6 +8707,20 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return material;
     }
 
+    private static bool IsRuntimeUsableShader(Shader shader)
+    {
+        if (shader == null || !shader.isSupported)
+        {
+            return false;
+        }
+
+        string shaderName = shader.name ?? string.Empty;
+        return shaderName.IndexOf("Error", StringComparison.OrdinalIgnoreCase) < 0
+            && shaderName.IndexOf("Hidden/InternalErrorShader", StringComparison.OrdinalIgnoreCase) < 0
+            && shaderName.IndexOf("GLTF", StringComparison.OrdinalIgnoreCase) < 0
+            && shaderName.IndexOf("glTF", StringComparison.OrdinalIgnoreCase) < 0;
+    }
+
     private void ApplyPterosaurGltfTextures(GameObject model, string resourcePath)
     {
         if (model == null)
@@ -8724,7 +8756,13 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             for (int m = 0; m < materials.Length; m++)
             {
                 Material source = materials[m];
-                materials[m] = CreateRemappedOpaqueMaterialFromImported(source, albedo, normal);
+                Material remapped = CreateRemappedOpaqueMaterialFromImported(source, albedo, normal);
+                if (!IsRuntimeUsableShader(remapped != null ? remapped.shader : null))
+                {
+                    remapped = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
+                }
+
+                materials[m] = remapped;
                 changed = true;
             }
 
@@ -8923,6 +8961,10 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
 
                 Material remapped = CreateRemappedOpaqueMaterialFromImported(source);
                 if (GetImportedMaterialMainTexture(source) == null && GetImportedMaterialMainTexture(remapped) == null)
+                {
+                    remapped = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
+                }
+                else if (!IsRuntimeUsableShader(remapped != null ? remapped.shader : null))
                 {
                     remapped = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
                 }
