@@ -171,7 +171,6 @@ public sealed partial class ApocalypseKingUnityGame
         StripImportedModelStrayComponents(model);
         RemoveSketchfabSceneExtras(model);
         ApplyPterosaurGltfTextures(model, resourcePath);
-        RemapPterosaurImportedMaterials(model);
 
         Animator[] animators = model.GetComponentsInChildren<Animator>(true);
         for (int i = 0; i < animators.Length; i++)

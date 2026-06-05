@@ -280,6 +280,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     private GameObject soldierM14WeaponPrototype;
     private Material aircraftHelicopterMaterial;
     private Material realisticAircraftBodyMaterial;
+    private Material pterosaurGlbBodyMaterial;
+    private Texture2D pterosaurGlbBodyAlbedo;
+    private Texture2D pterosaurGlbBodyNormal;
     private Material realisticAircraftRotorMaterial;
     private GameObject tankT55AkPrototype;
     private readonly List<GameObject> tankVariantPrototypes = new List<GameObject>();
@@ -2683,7 +2686,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             RemoveSketchfabSceneExtras(prototype);
             ApplyPterosaurGltfTextures(prototype, PterosaurPteranodonResourceModelPath);
-            RemapPterosaurImportedMaterials(prototype);
         }
 
         if (prototype.name.IndexOf("RocketTruck", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -4764,7 +4766,8 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         if (pterosaurVisibilityFallbackPrototype != null
             && model.name.IndexOf("Fallback", StringComparison.OrdinalIgnoreCase) < 0
             && !PterosaurModelIsProceduralBattleMesh(model)
-            && !PterosaurModelWorldSpanLooksValid(model))
+            && !PterosaurModelWorldSpanLooksValid(model)
+            && !PterosaurModelUsesAuthoredTextures(model))
         {
             AttachPterosaurVisibilityFallback(unit, model);
             SetPterosaurGltfRenderersEnabled(model, false);
@@ -5990,7 +5993,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             else
             {
                 ApplyPterosaurGltfTextures(model, PterosaurPteranodonResourceModelPath);
-                RemapPterosaurImportedMaterials(model);
             }
 
             FitPterosaurRuntimeModel(model);
@@ -8481,31 +8483,31 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
         }
 
+        for (int i = 0; i < shaderNames.Length; i++)
+        {
+            var shader = Shader.Find(shaderNames[i]);
+            if (shader != null && shader.isSupported)
+            {
+                return shader;
+            }
+        }
+
         if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
         {
             string[] urpShaderNames =
             {
-                "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Lit",
+                "Universal Render Pipeline/Unlit",
                 "Universal Render Pipeline/Particles/Unlit",
                 "Sprites/Default",
             };
             for (int i = 0; i < urpShaderNames.Length; i++)
             {
                 Shader urpShader = Shader.Find(urpShaderNames[i]);
-                if (urpShader != null)
+                if (urpShader != null && urpShader.isSupported)
                 {
                     return urpShader;
                 }
-            }
-        }
-
-        for (int i = 0; i < shaderNames.Length; i++)
-        {
-            var shader = Shader.Find(shaderNames[i]);
-            if (shader != null)
-            {
-                return shader;
             }
         }
 
@@ -8721,27 +8723,99 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             && shaderName.IndexOf("glTF", StringComparison.OrdinalIgnoreCase) < 0;
     }
 
-    private void ApplyPterosaurGltfTextures(GameObject model, string resourcePath)
+    private Material GetOrCreatePterosaurGlbMaterial(Texture2D albedo, Texture2D normal)
+    {
+        if (albedo == null)
+        {
+            return GetOpaqueMaterial(new Color(0.52f, 0.44f, 0.36f, 1f));
+        }
+
+        if (pterosaurGlbBodyMaterial != null
+            && pterosaurGlbBodyAlbedo == albedo
+            && pterosaurGlbBodyNormal == normal)
+        {
+            return pterosaurGlbBodyMaterial;
+        }
+
+        string cacheKey = $"pterosaur-glb:{albedo.GetInstanceID()}:{normal?.GetInstanceID() ?? 0}";
+        if (materialCache.TryGetValue(cacheKey, out Material cached) && cached != null)
+        {
+            pterosaurGlbBodyMaterial = cached;
+            pterosaurGlbBodyAlbedo = albedo;
+            pterosaurGlbBodyNormal = normal;
+            return cached;
+        }
+
+        Material material = GetOpaqueMaterial(Color.white);
+        ApplyAlbedoToMaterial(material, albedo);
+        if (normal != null)
+        {
+            if (material.HasProperty("_BumpMap"))
+            {
+                material.SetTexture("_BumpMap", normal);
+                material.EnableKeyword("_NORMALMAP");
+            }
+
+            if (material.HasProperty("_NormalMap"))
+            {
+                material.SetTexture("_NormalMap", normal);
+            }
+        }
+
+        if (material.HasProperty("_Smoothness"))
+        {
+            material.SetFloat("_Smoothness", 0.28f);
+        }
+
+        if (material.HasProperty("_Glossiness"))
+        {
+            material.SetFloat("_Glossiness", 0.22f);
+        }
+
+        ApplyOpaqueDoubleSided(material);
+        materialCache[cacheKey] = material;
+        pterosaurGlbBodyMaterial = material;
+        pterosaurGlbBodyAlbedo = albedo;
+        pterosaurGlbBodyNormal = normal;
+        return material;
+    }
+
+    private void CollectPterosaurTextureCandidates(string resourcePath, GameObject model, HashSet<Texture> textures)
+    {
+        if (textures == null)
+        {
+            return;
+        }
+
+        CollectPterosaurTexturesFromResource(resourcePath, textures);
+        CollectPterosaurTexturesFromResource(PterosaurTextureResourcePath, textures);
+        CollectPterosaurTexturesFromResource("Monsters/Pterosaur", textures);
+        CollectPterosaurTexturesFromRenderers(model, textures);
+    }
+
+    private bool TryGetPterosaurAuthoredTextures(string resourcePath, GameObject model, out Texture2D albedo, out Texture2D normal)
+    {
+        var textures = new HashSet<Texture>();
+        CollectPterosaurTextureCandidates(resourcePath, model, textures);
+        albedo = SelectPterosaurAlbedoTexture(textures);
+        normal = SelectPterosaurNormalTexture(textures);
+        return albedo != null;
+    }
+
+    private void ApplyPterosaurAuthoredMaterials(GameObject model, string resourcePath)
     {
         if (model == null)
         {
             return;
         }
 
-        var textures = new HashSet<Texture>();
-        CollectPterosaurTexturesFromResource(resourcePath, textures);
-        CollectPterosaurTexturesFromResource(PterosaurTextureResourcePath, textures);
-        CollectPterosaurTexturesFromResource("Monsters/Pterosaur", textures);
-        CollectPterosaurTexturesFromRenderers(model, textures);
-
-        Texture2D albedo = SelectPterosaurAlbedoTexture(textures);
-        Texture2D normal = SelectPterosaurNormalTexture(textures);
-        if (albedo == null)
+        if (!TryGetPterosaurAuthoredTextures(resourcePath, model, out Texture2D albedo, out Texture2D normal))
         {
             RemapPterosaurImportedMaterials(model);
             return;
         }
 
+        Material shared = GetOrCreatePterosaurGlbMaterial(albedo, normal);
         Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
         {
@@ -8752,25 +8826,18 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             Material[] materials = renderer.sharedMaterials;
-            bool changed = false;
             for (int m = 0; m < materials.Length; m++)
             {
-                Material source = materials[m];
-                Material remapped = CreateRemappedOpaqueMaterialFromImported(source, albedo, normal);
-                if (!IsRuntimeUsableShader(remapped != null ? remapped.shader : null))
-                {
-                    remapped = ResolvePterosaurSolidPartMaterial(renderer.gameObject.name);
-                }
-
-                materials[m] = remapped;
-                changed = true;
+                materials[m] = shared;
             }
 
-            if (changed)
-            {
-                renderer.sharedMaterials = materials;
-            }
+            renderer.sharedMaterials = materials;
         }
+    }
+
+    private void ApplyPterosaurGltfTextures(GameObject model, string resourcePath)
+    {
+        ApplyPterosaurAuthoredMaterials(model, resourcePath);
     }
 
     private static void CollectPterosaurTexturesFromResource(string resourcePath, HashSet<Texture> textures)
@@ -8875,6 +8942,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             }
 
             int score = candidate.width * candidate.height;
+            if (name.Contains("pteranodon") || name.Contains("pterosaur"))
+            {
+                score += 350000;
+            }
+
             if (name.Contains("base") || name.Contains("color") || name.Contains("albedo") || name.Contains("diffuse"))
             {
                 score += 500000;
@@ -8934,6 +9006,30 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     {
         if (model == null)
         {
+            return;
+        }
+
+        if (TryGetPterosaurAuthoredTextures(PterosaurPteranodonResourceModelPath, model, out Texture2D albedo, out Texture2D normal))
+        {
+            Material shared = GetOrCreatePterosaurGlbMaterial(albedo, normal);
+            Renderer[] texturedRenderers = model.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < texturedRenderers.Length; i++)
+            {
+                Renderer renderer = texturedRenderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                Material[] materials = renderer.sharedMaterials;
+                for (int m = 0; m < materials.Length; m++)
+                {
+                    materials[m] = shared;
+                }
+
+                renderer.sharedMaterials = materials;
+            }
+
             return;
         }
 
