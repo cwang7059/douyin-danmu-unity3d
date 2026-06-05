@@ -13,7 +13,8 @@ param(
     [string]$GlbPath = "",
     [string]$SourceDir = "",
     [string]$SketchfabUid = "c9d423e6e27d4334963c6abe86bbf85d",
-    [switch]$PreferAnimated
+    [switch]$PreferAnimated,
+    [switch]$PreferStatic
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,11 +42,44 @@ function Install-Glb {
     if (-not (Test-GlbReady $Source)) { return $false }
     Copy-Item $Source $ManualDrop -Force
     Copy-Item $Source $PterosaurDest -Force
+    Export-PterosaurTexturesFromGlb $ManualDrop
     $bytes = (Get-Item $ManualDrop).Length
     Write-Host "[Pteranodon] Installed $Label ($bytes bytes)"
     Write-Host "  -> Assets/Resources/Monsters/Pterosaur/Pteranodon.glb"
     Write-Host "  -> Assets/Resources/Monsters/Pterosaur/Pterosaur.glb"
     return $true
+}
+
+function Export-PterosaurTexturesFromGlb {
+    param([string]$GlbPath)
+    $texDir = Join-Path $Root "Assets\Resources\Monsters\Pterosaur\Textures"
+    $extractScript = Join-Path $DownloadDir "extract_pterosaur_textures.py"
+    @"
+import struct, json
+from pathlib import Path
+glb = Path(r'$($GlbPath.Replace("'", "''"))')
+out = Path(r'$($texDir.Replace("'", "''"))')
+out.mkdir(parents=True, exist_ok=True)
+with open(glb, 'rb') as f:
+    f.read(12)
+    jl, jt = struct.unpack('<I4s', f.read(8))
+    json_data = f.read(jl)
+    bl, bt = struct.unpack('<I4s', f.read(8))
+    bin_data = f.read(bl)
+j = json.loads(json_data.decode())
+for i, img in enumerate(j.get('images', [])):
+    bv = img.get('bufferView')
+    if bv is None:
+        continue
+    bv_info = j['bufferViews'][bv]
+    start = bv_info.get('byteOffset', 0)
+    length = bv_info['byteLength']
+    chunk = bin_data[start:start + length]
+    ext = 'png' if 'png' in img.get('mimeType', '') else 'jpg'
+    (out / ('Pteranodon_%d.%s' % (i, ext))).write_bytes(chunk)
+print('textures exported to', out)
+"@ | Set-Content -Path $extractScript -Encoding UTF8
+    python $extractScript 2>&1 | Out-Host
 }
 
 function Try-DownloadSketchfabGlb {
@@ -98,8 +132,9 @@ foreach ($c in $dropCandidates) {
     }
 }
 
-# --- Sketchfab API ---
-$uidOrder = if ($PreferAnimated) { @($AnimatedUid, $SketchfabUid) } else { @($SketchfabUid, $AnimatedUid) }
+# --- Sketchfab API (default: animated wing-flap model first) ---
+$preferAnimatedFirst = $PreferAnimated -or -not $PreferStatic
+$uidOrder = if ($preferAnimatedFirst) { @($AnimatedUid, $SketchfabUid) } else { @($SketchfabUid, $AnimatedUid) }
 foreach ($uid in $uidOrder) {
     $tag = if ($uid -eq $AnimatedUid) { "Pteranodon Animated" } else { "JW Primal Ops" }
     $glb = Try-DownloadSketchfabGlb -Uid $uid -Tag $tag
