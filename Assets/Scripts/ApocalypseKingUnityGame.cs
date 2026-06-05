@@ -3199,6 +3199,11 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         return unit.animator == null && unit.animations != null && unit.animations.Length > 0;
     }
 
+    private static bool PterosaurModelUsesAuthoredTextures(GameObject model)
+    {
+        return model != null && UnitModelUsesAuthoredTextures(model);
+    }
+
     private static bool UnitModelUsesAuthoredTextures(GameObject model)
     {
         if (model == null)
