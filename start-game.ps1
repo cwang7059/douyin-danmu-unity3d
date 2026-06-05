@@ -2,6 +2,7 @@ param(
     [switch]$Probe,
     [switch]$ProbeDanmu,
     [int]$DanmuHttpPort = 8765,
+    [string]$DanmuHttpHost = "",
     [switch]$DisableDanmuHttp,
     [string]$DanmuWsUrl = "",
     [switch]$DisableDanmuWs,
@@ -43,6 +44,11 @@ if ($DisableDanmuHttp) {
 elseif ($DanmuHttpPort -gt 0) {
     $arguments += "-danmuHttpPort"
     $arguments += $DanmuHttpPort.ToString([Globalization.CultureInfo]::InvariantCulture)
+}
+
+if (-not [string]::IsNullOrWhiteSpace($DanmuHttpHost)) {
+    $arguments += "-danmuHttpHost"
+    $arguments += $DanmuHttpHost
 }
 
 if ($DisableDanmuWs) {

@@ -946,7 +946,8 @@ public sealed partial class ApocalypseKingUnityGame
             unit.headingDegrees = Mathf.LerpAngle(unit.headingDegrees, aimYaw, Mathf.Clamp01(dt * 4.5f));
         }
 
-        unit.facing = unit.headingDegrees >= 0f ? 1 : -1;
+        // 翼龙期望整队方向一致：视觉朝向固定，不跟随每个目标单独翻转。
+        unit.facing = unit.team == TeamKind.Giant ? -1 : 1;
         RecordUnitMovement(unit, previousX, previousZ, dt);
         RefreshRuntimeStateFromMovement(unit);
         UpdateUnitTransform(unit, dt);

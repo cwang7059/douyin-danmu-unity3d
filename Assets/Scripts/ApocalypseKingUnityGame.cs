@@ -41,7 +41,7 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
     /// <summary>无骨骼飞行动画时，程序化扇翼频率（Hz）。</summary>
     private const float PterosaurWingFlapFrequencyHz = 4.2f;
     private const float PterosaurWingFlapDegrees = 26f;
-    /// <summary>GLB 机头沿 +X 时，原型已 -90° 对齐 +Z；此处仅做微调。</summary>
+    /// <summary>翼龙运行时朝向修正：机头与飞行/喷火方向保持一致。</summary>
     private const float PterosaurMeshYawOffset = 0f;
     private const float PterosaurGlbBindYawDegrees = -90f;
     private const float RocketTruckModelTargetHeight = 2.8f;
@@ -4359,27 +4359,20 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        if (!TryComputeModelBounds(prototype, out Bounds bounds))
-        {
-            prototype.transform.localRotation = Quaternion.identity;
-            return;
-        }
-
-        Vector3 size = bounds.size;
-        // Sketchfab Pteranodon：滑翔姿态翼展沿 X、机头朝 +X，统一绕 Y 对齐游戏 +Z 前进方向。
-        if (size.x >= size.z * 0.9f)
-        {
-            prototype.transform.localRotation = Quaternion.Euler(0f, PterosaurGlbBindYawDegrees, 0f);
-            return;
-        }
-
-        if (size.z > size.x * 1.08f)
-        {
-            prototype.transform.localRotation = Quaternion.identity;
-            return;
-        }
-
+        // Sketchfab Pteranodon / 程序低模：机头沿 +X，统一用固定偏航，避免 bounds 启发式让部分实例差 90°。
         prototype.transform.localRotation = Quaternion.Euler(0f, PterosaurGlbBindYawDegrees, 0f);
+    }
+
+    private static void SyncPterosaurUnitFacingBind(BattleUnit unit, GameObject model)
+    {
+        if (unit == null || model == null)
+        {
+            return;
+        }
+
+        // 视觉朝向由 body 固定 yaw + PterosaurMeshYawOffset 决定；模型根节点保持 identity，避免与 baseModelLocalRotation 双重叠加。
+        model.transform.localRotation = Quaternion.identity;
+        unit.baseModelLocalRotation = Quaternion.identity;
     }
 
     private void NormalizePrototype(GameObject prototype, float targetHeight, UnitKind kind = UnitKind.Soldier)
@@ -4765,9 +4758,9 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
             return;
         }
 
-        ApplyPterosaurPrototypeBindRotation(model);
         EnsureMinimumPterosaurModelScale(unit, model);
         EnsurePterosaurRenderersVisible(model);
+        SyncPterosaurUnitFacingBind(unit, model);
         if (pterosaurVisibilityFallbackPrototype != null
             && model.name.IndexOf("Fallback", StringComparison.OrdinalIgnoreCase) < 0
             && !PterosaurModelIsProceduralBattleMesh(model)
@@ -4966,7 +4959,6 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         {
             unit.baseModelScale = model.transform.localScale;
             unit.baseModelLocalPosition = model.transform.localPosition;
-            unit.baseModelLocalRotation = model.transform.localRotation;
         }
     }
 
@@ -7016,7 +7008,15 @@ public sealed partial class ApocalypseKingUnityGame : MonoBehaviour
         }
         else if (unit.kind == UnitKind.Aircraft)
         {
-            unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + AircraftEngagementYawOffset, 0f);
+            if (unit.combatVariant == UnitCombatVariant.Pterosaur)
+            {
+                float fixedYaw = unit.facing < 0 ? -90f : 90f;
+                unit.body.localRotation = Quaternion.Euler(0f, fixedYaw, 0f);
+            }
+            else
+            {
+                unit.body.localRotation = Quaternion.Euler(0f, unit.headingDegrees + AircraftEngagementYawOffset, 0f);
+            }
         }
         else if (unit.kind == UnitKind.Giant || unit.kind == UnitKind.Soldier)
         {

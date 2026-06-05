@@ -253,6 +253,12 @@ public sealed class DanmuHttpGateway : MonoBehaviour
 
     private void ApplyCommandLineOverrides()
     {
+        string hostValue = GetArgumentValue("-danmuHttpHost");
+        if (!string.IsNullOrWhiteSpace(hostValue))
+        {
+            host = hostValue.Trim();
+        }
+
         string value = GetArgumentValue("-danmuHttpPort");
         int parsedPort;
         if (int.TryParse(value, out parsedPort) && parsedPort > 0 && parsedPort <= 65535)
